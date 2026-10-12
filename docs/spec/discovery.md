@@ -26,15 +26,19 @@ Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s r
    3. aktuálny deploy → `review_url` (`https://github.com/{owner}/{repo}/pull/{n}`)
    4. inak web nemá repo (`matchSource: "none"`)
 3. **Načítaj repá** cez `GET /user/repos` (stránkovanie).
-4. **Doplň párovanie z opačnej strany:** repo, ktorého `homepage` sa zhoduje s doménou webu, ktorý ešte nemá repo → `matchSource: "homepage"`.
-5. **Zoskup do projektov:** jeden projekt na repo. Všetky weby s rovnakým repom patria do neho (1 repo : N webov). Web bez repa je samostatný projekt. Repo bez webu je samostatný projekt.
-6. **Aplikuj default filtre** (projekt sa nezmaže, len dostane `hidden: true` a dôvod):
+4. **Aplikuj ručné väzby z configu** (`links` v `japs.config.json`): pripojenie alebo odpojenie webu má prednosť pred všetkým, `matchSource: "manual"`. Odpojený web sa už nepáruje cez `homepage`.
+5. **Doplň párovanie z opačnej strany:** repo, ktorého `homepage` sa zhoduje s doménou webu, ktorý ešte nemá repo → `matchSource: "homepage"`.
+6. **Zoskup do projektov:** jeden projekt na repo. Všetky weby s rovnakým repom patria do neho (1 repo : N webov). Web bez repa je samostatný projekt. Repo bez webu je samostatný projekt. Každý projekt dostane stabilný kľúč `repo:<owner>/<repo>` alebo `site:<netlify id>`.
+7. **Zlúč projekty** podľa `merge` z configu (napr. frontend + API repo). Prvé repo cieľového projektu ostáva primárne.
+8. **Aplikuj default filtre** (projekt sa nezmaže, len dostane `hidden: true` a dôvod):
    - repo je `fork` alebo `archived`
    - web nemá žiadny deploy
    - jediný deploy webu je `deploy-preview`
    - posledná aktivita (max z `pushed_at` a `published_at`) je staršia ako `staleAfterMonths` (default 24)
    - názov webu je Netlify náhodný slug (`adjective-noun-xxxxxx`) a nemá vlastnú doménu
-7. **Výstup:** `projects.json` validovaný schémou `ProjectsFile` z `@japs/schema`.
+   - projekt má privátne repo (aj repo, ktoré GitHub token nevidí)
+9. **Aplikuj viditeľnosť z configu:** `projects.<key>.hidden` prebije filtre v oboch smeroch; `hiddenReasons` ostávajú pre informáciu.
+10. **Výstup:** `projects.json` validovaný schémou `ProjectsFile` z `@japs/schema`. Položky configu, ktoré na nič nesedia (premenované repo, zmazaný web, preklep), sú vo `warnings`.
 
 ## Normalizácia
 

@@ -76,9 +76,15 @@ describe("buildProjects on Phase 0 shapes", () => {
     expect(siteById("s-shop")).toMatchObject({ domain: "acme-shop.example", url: "https://acme-shop.example", hasCustomDomain: true });
   });
 
-  it("marks private repos as private", () => {
-    expect(projectBySite("s-client")?.private).toBe(true);
-    expect(projectBySite("s-shop")?.private).toBe(false);
+  it("marks private repos as private and hides them by default", () => {
+    expect(projectBySite("s-client")).toMatchObject({ private: true, hidden: true, hiddenReasons: ["private"] });
+    expect(projectBySite("s-shop")).toMatchObject({ private: false, hidden: false });
+  });
+
+  it("keys projects by repo, or by site when there is no repo", () => {
+    expect(projectBySite("s-portfolio-a")?.key).toBe("repo:devuser/portfolio-v2");
+    expect(projectBySite("s-upload")?.key).toBe("site:s-upload");
+    expect(projectByRepo("devuser/tiny-lib")?.key).toBe("repo:devuser/tiny-lib");
   });
 
   it("treats a repo missing from the GitHub listing as private", () => {
@@ -114,8 +120,9 @@ describe("buildProjects on Phase 0 shapes", () => {
       repos: 10,
       projects: 12,
       pairedSites: 9,
-      hiddenProjects: 4,
+      hiddenProjects: 5,
     });
+    expect(result.warnings).toEqual([]);
   });
 
   it("produces unique slugs", () => {

@@ -31,6 +31,7 @@ Requires Node 20+ and pnpm.
 pnpm install
 cp .env.example .env   # add NETLIFY_TOKEN and GITHUB_TOKEN
 pnpm test
+pnpm japs init         # creates japs.config.json for your decisions
 pnpm japs discover     # writes projects.json
 ```
 

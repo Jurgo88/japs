@@ -4,7 +4,8 @@ import { writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { discover } from "@japs/core";
-import type { ProjectsFile } from "@japs/schema";
+import { type JapsConfig, Locale, type ProjectsFile } from "@japs/schema";
+import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -25,26 +26,61 @@ function findEnvFile(start: string): string | null {
 const HELP = `japs — Just Another Portfolio Site
 
 Usage:
+  japs init [--locales en,sk]                     create ${CONFIG_FILE} (never overwrites)
   japs discover [--out projects.json] [--stale-months 24]
+
+Options:
+  --config <path>   config file (default ${CONFIG_FILE})
 
 Environment:
   NETLIFY_TOKEN   required
   GITHUB_TOKEN    optional (without it, repos are inferred from Netlify deploys only)
 `;
 
-function printSummary(file: ProjectsFile): void {
+function printSummary(file: ProjectsFile, config: JapsConfig | null): void {
   const { stats } = file;
   const pct = stats.sites ? Math.round((stats.pairedSites / stats.sites) * 100) : 0;
   console.log(`Sites:    ${stats.sites} (${stats.pairedSites} paired with a repo, ${pct} %)`);
   console.log(`Repos:    ${stats.repos}`);
-  console.log(`Projects: ${stats.projects} (${stats.hiddenProjects} hidden by default filters)`);
+  console.log(`Projects: ${stats.projects} (${stats.hiddenProjects} hidden)`);
   console.log("");
   for (const p of file.projects) {
     const mark = p.hidden ? "·" : "✓";
-    const why = p.hidden ? `  [${p.hiddenReasons.join(", ")}]` : "";
+    const decided = config?.projects[p.key]?.hidden !== undefined ? " config" : "";
+    const reasons = p.hiddenReasons.length ? ` ${p.hiddenReasons.join(", ")}` : "";
+    const why = reasons || decided ? `  [${(reasons + decided).trim()}]` : "";
     const when = p.lastActivityAt?.slice(0, 7) ?? "       ";
-    console.log(`${mark} ${when}  ${p.title}  (${p.siteIds.length} site, ${p.repoIds.length} repo)${why}`);
+    console.log(`${mark} ${when}  ${p.title}  ${p.key}${why}`);
   }
+  if (file.projects.some((p) => p.hidden && p.hiddenReasons.includes("private"))) {
+    console.log(`\nPrivate projects stay hidden. To publish one, set "hidden": false under its key in ${CONFIG_FILE}.`);
+  }
+  if (file.warnings.length) {
+    console.warn(`\nConfig warnings:\n${file.warnings.map((w) => `  - ${w}`).join("\n")}`);
+  }
+}
+
+async function runInit(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      config: { type: "string", default: CONFIG_FILE },
+      locales: { type: "string", default: "en" },
+    },
+  });
+  const locales = (values.locales ?? "en").split(",").map((l) => l.trim()).filter(Boolean);
+  const invalid = locales.filter((l) => !Locale.safeParse(l).success);
+  if (!locales.length || invalid.length) {
+    console.error(`Invalid --locales: ${invalid.join(", ") || "(empty)"}. Use BCP 47 tags, e.g. en,sk`);
+    process.exit(1);
+  }
+
+  const path = resolve(userCwd, values.config ?? CONFIG_FILE);
+  if (!(await writeStarterConfig(path, locales))) {
+    console.log(`${path} already exists — leaving it untouched.`);
+    return;
+  }
+  console.log(`Created ${path}\nFill in your profile, then run \`japs discover\` and use project keys from its output.`);
 }
 
 async function runDiscover(args: string[]): Promise<void> {
@@ -52,9 +88,21 @@ async function runDiscover(args: string[]): Promise<void> {
     args,
     options: {
       out: { type: "string", default: "projects.json" },
-      "stale-months": { type: "string", default: "24" },
+      config: { type: "string", default: CONFIG_FILE },
+      "stale-months": { type: "string" },
     },
   });
+
+  const configPath = resolve(userCwd, values.config ?? CONFIG_FILE);
+  const config = await loadConfig(configPath);
+  if (!config) console.warn(`No ${CONFIG_FILE} — using defaults. Run \`japs init\` to create one.\n`);
+
+  const staleFlag = values["stale-months"];
+  const staleAfterMonths = staleFlag === undefined ? config?.discovery.staleAfterMonths : Number(staleFlag);
+  if (staleAfterMonths !== undefined && !(Number.isInteger(staleAfterMonths) && staleAfterMonths > 0)) {
+    console.error(`--stale-months must be a positive integer, got "${staleFlag}".`);
+    process.exit(1);
+  }
 
   const netlifyToken = process.env.NETLIFY_TOKEN;
   if (!netlifyToken) {
@@ -71,12 +119,15 @@ async function runDiscover(args: string[]): Promise<void> {
   const file = await discover({
     netlifyToken,
     githubToken,
-    staleAfterMonths: Number(values["stale-months"]),
+    staleAfterMonths,
+    links: config?.links,
+    merge: config?.merge,
+    projects: config?.projects,
   });
 
   const outPath = resolve(userCwd, values.out ?? "projects.json");
   await writeFile(outPath, `${JSON.stringify(file, null, 2)}\n`, "utf8");
-  printSummary(file);
+  printSummary(file, config);
   console.log(`\nWritten to ${outPath}`);
 }
 
@@ -86,6 +137,8 @@ async function main(): Promise<void> {
 
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
+    case "init":
+      return runInit(rest);
     case "discover":
       return runDiscover(rest);
     case undefined:

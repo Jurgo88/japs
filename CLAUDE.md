@@ -33,7 +33,8 @@ apps/*            dashboard (Vue 3, Phase 3), theme-default (Astro, Phase 2) —
 pnpm install
 pnpm test            # vitest, all packages
 pnpm typecheck       # tsc --noEmit, all packages
-pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env
+pnpm japs init --locales en,sk   # creates japs.config.json (never overwrites)
+pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env; reads japs.config.json
 ```
 
 ## Files (until Supabase in Phase 3)

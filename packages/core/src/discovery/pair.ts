@@ -1,4 +1,14 @@
-import type { HiddenReason, Project, ProjectsFile, Repo, RepoId, Site } from "@japs/schema";
+import type {
+  HiddenReason,
+  ManualLink,
+  Project,
+  ProjectKey,
+  ProjectMerge,
+  ProjectsFile,
+  Repo,
+  RepoId,
+  Site,
+} from "@japs/schema";
 import { ProjectsFile as ProjectsFileSchema } from "@japs/schema";
 import { isRandomNetlifyName, latest, normalizeDomain, repoIdFromGitHubUrl, slugify } from "./normalize.ts";
 import type { PairingOptions, RepoInput, SiteInput } from "./types.ts";
@@ -54,6 +64,25 @@ export function toSite(input: SiteInput): Site {
   };
 }
 
+/** Stable key used by japs.config.json (ADR 0004): the repo when there is one, else the site. */
+export function projectKey(repoId: RepoId | null, siteId: string | undefined): ProjectKey {
+  if (repoId) return `repo:${repoId}`;
+  if (siteId) return `site:${siteId}`;
+  throw new Error("A project needs a repo or a site");
+}
+
+/** Manual links from the config win over everything discovered (matchSource "manual"). */
+function applyManualLinks(sites: Site[], links: ManualLink[], warnings: string[]): Site[] {
+  const linkBySite = new Map(links.map((l) => [l.site, l]));
+  for (const id of linkBySite.keys()) {
+    if (!sites.some((s) => s.id === id)) warnings.push(`links: site "${id}" not found on Netlify`);
+  }
+  return sites.map((site) => {
+    const link = linkBySite.get(site.id);
+    return link ? { ...site, repoId: link.repo, matchSource: "manual" } : site;
+  });
+}
+
 /**
  * Step 4: a site with no repo link can still be matched from the other side,
  * when some repo's `homepage` points at the site's domain.
@@ -65,7 +94,8 @@ function matchByHomepage(sites: Site[], repos: Repo[]): Site[] {
     if (domain && !repoByDomain.has(domain)) repoByDomain.set(domain, repo.id);
   }
   return sites.map((site) => {
-    if (site.repoId) return site;
+    // A manual detach (repo: null) is a decision, not a gap to fill.
+    if (site.repoId || site.matchSource === "manual") return site;
     const repoId = repoByDomain.get(site.domain);
     return repoId ? { ...site, repoId, matchSource: "homepage" } : site;
   });
@@ -76,21 +106,31 @@ function monthsBetween(from: string, to: Date): number {
   return ms / (1000 * 60 * 60 * 24 * 30.4375);
 }
 
+interface Group {
+  key: ProjectKey;
+  /** First one is the primary repo (title, slug). */
+  repoIds: RepoId[];
+  sites: Site[];
+}
+
 function hiddenReasonsFor(
-  repo: Repo | undefined,
-  sites: Site[],
+  repos: Repo[],
+  group: Group,
+  isPrivate: boolean,
   lastActivityAt: string | null,
-  options: Required<PairingOptions>,
+  options: { staleAfterMonths: number; now: Date },
 ): HiddenReason[] {
   const reasons: HiddenReason[] = [];
-  if (repo?.fork) reasons.push("fork");
-  if (repo?.archived) reasons.push("archived");
+  // With merged projects, one non-fork repo is enough to keep it.
+  if (repos.length > 0 && repos.every((r) => r.fork)) reasons.push("fork");
+  if (repos.length > 0 && repos.every((r) => r.archived)) reasons.push("archived");
 
+  const { sites } = group;
   if (sites.length > 0) {
     if (sites.every((s) => s.lastDeployAt === null)) reasons.push("no-deploy");
     else if (sites.every((s) => s.deployContext === "deploy-preview")) reasons.push("preview-only");
 
-    if (!repo && sites.every((s) => isRandomNetlifyName(s.name) && !s.hasCustomDomain)) {
+    if (group.repoIds.length === 0 && sites.every((s) => isRandomNetlifyName(s.name) && !s.hasCustomDomain)) {
       reasons.push("random-name");
     }
   }
@@ -98,7 +138,29 @@ function hiddenReasonsFor(
   if (lastActivityAt && monthsBetween(lastActivityAt, options.now) > options.staleAfterMonths) {
     reasons.push("stale");
   }
+  if (isPrivate) reasons.push("private");
   return reasons;
+}
+
+/** Folds `from` groups into `into` groups, in config order. */
+function applyMerges(groups: Map<ProjectKey, Group>, merges: ProjectMerge[], warnings: string[]): void {
+  for (const merge of merges) {
+    const target = groups.get(merge.into);
+    if (!target) {
+      warnings.push(`merge: project "${merge.into}" not found`);
+      continue;
+    }
+    for (const key of merge.from) {
+      const source = groups.get(key);
+      if (!source) {
+        warnings.push(`merge: project "${key}" not found`);
+        continue;
+      }
+      target.repoIds.push(...source.repoIds);
+      target.sites.push(...source.sites);
+      groups.delete(key);
+    }
+  }
 }
 
 function uniqueSlug(base: string, taken: Set<string>): string {
@@ -112,63 +174,73 @@ function uniqueSlug(base: string, taken: Set<string>): string {
  * Pure pairing: sites + repos -> projects. No network, no I/O.
  * Grouping rules (ADR 0003): one project per repo with all its sites;
  * sites without a repo and repos without a site become their own projects.
+ * Config decisions (ADR 0004) are applied on top: manual links, merges, visibility.
  */
 export function buildProjects(
   siteInputs: SiteInput[],
   repoInputs: RepoInput[],
   opts: PairingOptions = {},
 ): ProjectsFile {
-  const options: Required<PairingOptions> = {
+  const options = {
     staleAfterMonths: opts.staleAfterMonths ?? DEFAULT_STALE_MONTHS,
     now: opts.now ?? new Date(),
   };
+  const overrides = opts.projects ?? {};
+  const warnings: string[] = [];
 
   const repos = repoInputs.map(toRepo);
   const repoById = new Map(repos.map((r) => [r.id, r]));
-  const sites = matchByHomepage(siteInputs.map(toSite), repos);
+  const sites = matchByHomepage(applyManualLinks(siteInputs.map(toSite), opts.links ?? [], warnings), repos);
 
   // Group sites by repo, preserving first-seen order for stable output.
-  const sitesByRepo = new Map<RepoId, Site[]>();
-  const orphanSites: Site[] = [];
+  const groups = new Map<ProjectKey, Group>();
   for (const site of sites) {
-    if (!site.repoId) {
-      orphanSites.push(site);
-      continue;
-    }
-    const group = sitesByRepo.get(site.repoId) ?? [];
-    group.push(site);
-    sitesByRepo.set(site.repoId, group);
+    const key = projectKey(site.repoId, site.id);
+    const group = groups.get(key) ?? { key, repoIds: site.repoId ? [site.repoId] : [], sites: [] };
+    group.sites.push(site);
+    groups.set(key, group);
   }
+  for (const repo of repos) {
+    const key = projectKey(repo.id, undefined);
+    if (!groups.has(key)) groups.set(key, { key, repoIds: [repo.id], sites: [] });
+  }
+  applyMerges(groups, opts.merge ?? [], warnings);
 
   const taken = new Set<string>();
-  const projects: Project[] = [];
-
-  const makeProject = (repoId: RepoId | null, projectSites: Site[]): Project => {
-    const repo = repoId ? repoById.get(repoId) : undefined;
-    const repoName = repo?.fullName.split("/")[1] ?? repoId?.split("/")[1];
-    const title = repoName ?? projectSites[0]?.name ?? "project";
-    const lastActivityAt = projectSites.reduce<string | null>(
-      (acc, s) => latest(acc, s.lastDeployAt),
-      repo?.pushedAt ?? null,
-    );
-    const hiddenReasons = hiddenReasonsFor(repo, projectSites, lastActivityAt, options);
+  const makeProject = (group: Group): Project => {
+    const knownRepos = group.repoIds.flatMap((id) => repoById.get(id) ?? []);
+    const primaryId = group.repoIds[0];
+    const primary = primaryId ? repoById.get(primaryId) : undefined;
+    const title = primary?.fullName.split("/")[1] ?? primaryId?.split("/")[1] ?? group.sites[0]?.name ?? "project";
+    const lastActivityAt = [
+      ...knownRepos.map((r) => r.pushedAt),
+      ...group.sites.map((s) => s.lastDeployAt),
+    ].reduce<string | null>(latest, null);
+    // A repo we can't see (not in the repo list) is treated as private: never expose it.
+    const isPrivate = group.repoIds.some((id) => repoById.get(id)?.private ?? true);
+    const hiddenReasons = hiddenReasonsFor(knownRepos, group, isPrivate, lastActivityAt, options);
     return {
+      key: group.key,
       slug: uniqueSlug(slugify(title), taken),
       title,
-      repoIds: repoId ? [repoId] : [],
-      siteIds: projectSites.map((s) => s.id),
+      repoIds: group.repoIds,
+      siteIds: group.sites.map((s) => s.id),
       lastActivityAt,
-      // A repo we can't see (not in the repo list) is treated as private: never expose it.
-      private: repoId ? (repo?.private ?? true) : false,
-      hidden: hiddenReasons.length > 0,
+      private: isPrivate,
+      hidden: overrides[group.key]?.hidden ?? hiddenReasons.length > 0,
       hiddenReasons,
     };
   };
+  const projects = [...groups.values()].map(makeProject);
 
-  for (const [repoId, group] of sitesByRepo) projects.push(makeProject(repoId, group));
-  for (const site of orphanSites) projects.push(makeProject(null, [site]));
-  for (const repo of repos) {
-    if (!sitesByRepo.has(repo.id)) projects.push(makeProject(repo.id, []));
+  const mergedAway = new Set((opts.merge ?? []).flatMap((m) => m.from));
+  for (const key of Object.keys(overrides)) {
+    if (groups.has(key)) continue;
+    warnings.push(
+      mergedAway.has(key)
+        ? `projects: "${key}" was merged into another project; move its settings to the "into" key`
+        : `projects: "${key}" not found`,
+    );
   }
 
   projects.sort((a, b) => (Date.parse(b.lastActivityAt ?? "0") || 0) - (Date.parse(a.lastActivityAt ?? "0") || 0));
@@ -186,6 +258,7 @@ export function buildProjects(
     repos,
     sites,
     projects,
+    warnings,
   };
 
   return ProjectsFileSchema.parse(file);

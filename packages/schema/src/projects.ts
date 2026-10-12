@@ -61,10 +61,14 @@ export const HiddenReason = z.enum([
   "preview-only",
   "stale",
   "random-name",
+  /** Private repo: unpublished until the config sets hidden: false (ADR 0004). */
+  "private",
 ]);
 export type HiddenReason = z.infer<typeof HiddenReason>;
 
 export const Project = z.object({
+  /** Stable reference used by japs.config.json: "repo:<owner>/<repo>" or "site:<netlify id>". */
+  key: z.string(),
   slug: z.string(),
   title: z.string(),
   repoIds: z.array(RepoId),
@@ -72,6 +76,7 @@ export const Project = z.object({
   /** Max of repo pushedAt and site lastDeployAt. */
   lastActivityAt: z.string().datetime().nullable(),
   private: z.boolean(),
+  /** Config override when set, otherwise hiddenReasons.length > 0. */
   hidden: z.boolean(),
   hiddenReasons: z.array(HiddenReason),
 });
@@ -90,5 +95,7 @@ export const ProjectsFile = z.object({
   repos: z.array(Repo),
   sites: z.array(Site),
   projects: z.array(Project),
+  /** Config entries that matched nothing (renamed repo, deleted site, typo). */
+  warnings: z.array(z.string()),
 });
 export type ProjectsFile = z.infer<typeof ProjectsFile>;
