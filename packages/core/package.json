@@ -1,0 +1,16 @@
+{
+  "name": "@japs/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@japs/schema": "workspace:*",
+    "zod": "^3.24.0"
+  }
+}
