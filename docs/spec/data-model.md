@@ -1,6 +1,18 @@
 # Spec: Dátový model
 
-**Status:** Návrh (Supabase až vo Fáze 3; do vtedy súborový výstup `projects.json`)
+**Status:** Návrh (Supabase až vo Fáze 3; do vtedy súbory, pozri nižšie)
+
+## Do Fázy 3: súbory
+
+| Súbor | Kto ho píše | Obsah | Neskôr v Supabase |
+|---|---|---|---|
+| `japs.config.json` | **používateľ** (nástroje ho len čítajú) | profil, jazyky, nastavenia discovery, ručné väzby, zlúčenia, rozhodnutia o projektoch, upravené texty | `portfolios`, `projects`, `project_repos`, `project_sites` (`manual`) |
+| `projects.json` | `japs discover` | repá, weby, projekty | `repos`, `sites`, väzby |
+| `facts.json` | `japs facts` | `ProjectFacts` | `project_analysis.facts` |
+| `analysis.json` | `japs analyze` | vygenerované texty | `project_analysis.output` |
+| `portfolio.json` | `japs build` | výstup pre tému | — |
+
+Projekt sa v configu odkazuje stabilným kľúčom `repo:<owner>/<repo>` alebo `site:<netlify id>` ([ADR 0004](../adr/0004-japs-config-json.md)).
 
 ## Princípy
 
@@ -15,12 +27,12 @@
 | `sources` | `id`, `user_id`, `provider` (`github`/`netlify`), `token_secret_id`, `account_login`, `last_synced_at` | token v Supabase Vault, nikdy v plain texte |
 | `repos` | `id`, `user_id`, `provider`, `full_name`, `private`, `fork`, `archived`, `homepage`, `language`, `topics[]`, `pushed_at`, `description` | upsert pri sync, kľúč `(user_id, provider, full_name)` |
 | `sites` | `id`, `user_id`, `netlify_site_id`, `name`, `domain`, `framework`, `screenshot_url`, `last_deploy_at`, `deploy_context`, `facts jsonb` | `facts` = funkcie, crony, lighthouse |
-| `projects` | `id`, `user_id`, `slug`, `title`, `hidden`, `hidden_reason`, `is_client`, `anonymize`, `sort_order` | vlastník používateľských rozhodnutí |
+| `projects` | `id`, `user_id`, `source_key`, `slug`, `title`, `hidden`, `hidden_reason`, `is_client`, `anonymize`, `sort_order` | vlastník používateľských rozhodnutí |
 | `project_repos` | `project_id`, `repo_id`, `is_primary` | 1 projekt : N rep |
 | `project_sites` | `project_id`, `site_id`, `match_source`, `is_primary` | 1 projekt : N webov |
 | `project_analysis` | `id`, `project_id`, `facts jsonb`, `output jsonb`, `model`, `version`, `created_at` | história verzií, aktívna = najnovšia |
 | `screenshots` | `id`, `project_id`, `site_id`, `viewport` (`desktop`/`mobile`), `source` (`netlify`/`playwright`/`upload`), `storage_path`, `taken_at` | |
-| `portfolios` | `id`, `user_id`, `theme`, `profile jsonb`, `settings jsonb`, `last_published_at`, `netlify_site_id` | výstupný web |
+| `portfolios` | `id`, `user_id`, `theme`, `locales[]`, `default_locale`, `profile jsonb`, `settings jsonb`, `last_published_at`, `netlify_site_id` | výstupný web |
 
 ## Vzťahy
 
