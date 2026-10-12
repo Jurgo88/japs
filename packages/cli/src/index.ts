@@ -1,9 +1,26 @@
 #!/usr/bin/env -S npx tsx
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { discover } from "@japs/core";
 import type { ProjectsFile } from "@japs/schema";
+
+/**
+ * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
+ * packages/cli, but pnpm keeps the original directory in INIT_CWD.
+ */
+const userCwd = process.env.INIT_CWD ?? process.cwd();
+let loadedEnvFile: string | null = null;
+
+/** Walks up from `start` and returns the first `.env` found, or null. */
+function findEnvFile(start: string): string | null {
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
+    const candidate = resolve(dir, ".env");
+    if (existsSync(candidate)) return candidate;
+    if (dirname(dir) === dir) return null;
+  }
+}
 
 const HELP = `japs — Just Another Portfolio Site
 
@@ -41,7 +58,11 @@ async function runDiscover(args: string[]): Promise<void> {
 
   const netlifyToken = process.env.NETLIFY_TOKEN;
   if (!netlifyToken) {
-    console.error("Missing NETLIFY_TOKEN. Copy .env.example to .env and fill it in.");
+    console.error(
+      loadedEnvFile
+        ? `NETLIFY_TOKEN is empty in ${loadedEnvFile}.`
+        : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN.",
+    );
     process.exit(1);
   }
   const githubToken = process.env.GITHUB_TOKEN || undefined;
@@ -53,18 +74,15 @@ async function runDiscover(args: string[]): Promise<void> {
     staleAfterMonths: Number(values["stale-months"]),
   });
 
-  const outPath = resolve(process.cwd(), values.out ?? "projects.json");
+  const outPath = resolve(userCwd, values.out ?? "projects.json");
   await writeFile(outPath, `${JSON.stringify(file, null, 2)}\n`, "utf8");
   printSummary(file);
   console.log(`\nWritten to ${outPath}`);
 }
 
 async function main(): Promise<void> {
-  try {
-    process.loadEnvFile?.(resolve(process.cwd(), ".env"));
-  } catch {
-    // no .env file — rely on the environment
-  }
+  loadedEnvFile = findEnvFile(userCwd);
+  if (loadedEnvFile) process.loadEnvFile(loadedEnvFile);
 
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
@@ -83,6 +101,11 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.message : err);
+  if (err instanceof Error) {
+    const cause = err.cause instanceof Error ? ` (${err.cause.message})` : "";
+    console.error(`${err.message}${cause}`);
+  } else {
+    console.error(err);
+  }
   process.exit(1);
 });
