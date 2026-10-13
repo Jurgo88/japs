@@ -18,7 +18,7 @@ const year = formatMonth(project.period.to ?? project.period.from, locale);
   <a class="cover" href={projectUrl(project, locale, portfolio)} tabindex="-1" aria-hidden="true">
     {
       shot ? (
-        <img src={`/${shot.src}`} alt="" loading="lazy" width="1280" height="800" />
+        <img src={`/${shot.src}`} alt="" loading="lazy" width="1440" height="900" />
       ) : (
         <span class="placeholder">{text(project.title, locale).charAt(0)}</span>
       )
@@ -48,6 +48,7 @@ const year = formatMonth(project.period.to ?? project.period.from, locale);
     background: var(--bg);
   }
   .cover {
+    text-decoration: none;
     aspect-ratio: 16 / 10;
     background: var(--surface);
     display: grid;

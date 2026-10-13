@@ -59,5 +59,5 @@ Texty sú viacjazyčné (`LocalizedText`, [ADR 0005](../adr/0005-bilingual-portf
 - Poradie: `order` z configu, potom posledná aktivita. `period.from` = prvý commit, `period.to` = posledná aktivita.
 - Texty: analýza, prekrytá po jazykoch `projects.<key>.copy` z configu; `tags` z configu nahrádzajú celé pole.
 - Anonymizovaný projekt sa preskočí, ak jeho analýza nebola generovaná anonymne (inak by text mohol obsahovať meno klienta).
-- Screenshoty: zatiaľ Netlify screenshot hlavného webu, stiahnutý do `screenshots/<slug>-desktop.webp`; neúspešné stiahnutie screenshot z portfólia vyradí.
+- Screenshoty: vlastné zábery z `japs screenshots` (Playwright, desktop 1440×900 a mobil 390×844 @2x, JPEG, `screenshots/manifest.json`) majú prednosť; bez desktopového záberu sa použije Netlify screenshot (stiahnutý, nie hotlink). Fotí sa len to, čo `build` publikuje (nie skryté, nie anonymizované bez `allowScreenshots`), na URL `screenshotUrl` z configu alebo hlavného webu. Cookie lišty sa skrývajú CSS. Súbor, ktorý sa nepodarí umiestniť, sa z portfólia vyradí.
 - `version` sa zvyšuje pri breaking zmene. Šablóna deklaruje, ktoré verzie podporuje.

@@ -16,7 +16,7 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json` → `japs build` → `out/portfolio.json` → `apps/theme-default`. Next: grounding check (#11), Playwright screenshots (#12), Netlify deploy (Phase 2).
+**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json` → `japs build` → `out/portfolio.json` → `apps/theme-default`. Grounding (#11) and Playwright screenshots (#12) done. Next: Netlify deploy of the theme (Phase 2).
 
 ## Layout
 
@@ -38,6 +38,7 @@ pnpm japs init --locales en,sk   # creates japs.config.json (never overwrites)
 pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env; reads japs.config.json
 pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by pushedAt)
 pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_API_KEY in .env, ADR 0006)
+pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: pnpm --filter @japs/cli exec playwright install chromium)
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
 pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
 ```

@@ -3,7 +3,15 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { analyzeProjects, buildPortfolio, discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
+import {
+  analyzeProjects,
+  buildPortfolio,
+  discover,
+  extractFacts,
+  GitHubClient,
+  NetlifyClient,
+  screenshotTargets,
+} from "@japs/core";
 import {
   AnalysisFile as AnalysisFileSchema,
   type FactsFile,
@@ -17,6 +25,7 @@ import {
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 import { llmFromEnv } from "./llm.ts";
 import { writePortfolio } from "./build.ts";
+import { captureScreenshots, loadManifest, PlaywrightMissingError, SCREENSHOTS_DIR } from "./screenshots.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -43,6 +52,7 @@ Usage:
                                                   extract facts for analysis (no LLM)
   japs analyze [--in facts.json] [--out analysis.json] [--project <key>]… [--force]
                                                   generate project copy with an LLM
+  japs screenshots [--project <key>]…             capture live sites with Playwright into screenshots/
   japs build [--out out]                          assemble out/portfolio.json + screenshots
 
 Options:
@@ -286,6 +296,54 @@ async function runAnalyze(args: string[]): Promise<void> {
   console.log(`\nWritten to ${outPath}`);
 }
 
+async function runScreenshots(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      projects: { type: "string", default: "projects.json" },
+      out: { type: "string", default: SCREENSHOTS_DIR },
+      config: { type: "string", default: CONFIG_FILE },
+      project: { type: "string", multiple: true },
+    },
+  });
+
+  const config = await loadConfig(resolve(userCwd, values.config ?? CONFIG_FILE));
+  if (!config) {
+    console.error(`No ${CONFIG_FILE}. Run \`japs init\` first — screenshots follow its visibility settings.`);
+    process.exit(1);
+  }
+  const projectsFile = await readJson(
+    resolve(userCwd, values.projects ?? "projects.json"),
+    ProjectsFileSchema,
+    "Run `japs discover` first.",
+  );
+
+  const targets = screenshotTargets(projectsFile, config, values.project);
+  if (!targets.length) {
+    console.log("Nothing to capture: no published project with a deployed site (or a screenshotUrl).");
+    return;
+  }
+
+  const dir = resolve(userCwd, values.out ?? SCREENSHOTS_DIR);
+  console.log(`Capturing ${targets.length} sites (desktop + mobile)…`);
+  try {
+    const { taken, warnings } = await captureScreenshots(targets, dir, {
+      onProgress: process.stdout.isTTY
+        ? (done, total, label) => process.stdout.write(`\r[${done}/${total}] ${label}`.padEnd(70))
+        : undefined,
+    });
+    if (process.stdout.isTTY) process.stdout.write(`\r${" ".repeat(70)}\r`);
+    console.log(`${taken} screenshots in ${dir}. Run \`japs build\` to use them.`);
+    if (warnings.length) console.warn(`\nWarnings (${warnings.length}):\n${warnings.map((w) => `  - ${w}`).join("\n")}`);
+  } catch (err) {
+    if (err instanceof PlaywrightMissingError) {
+      console.error(err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+}
+
 async function runBuild(args: string[]): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -294,6 +352,7 @@ async function runBuild(args: string[]): Promise<void> {
       projects: { type: "string", default: "projects.json" },
       facts: { type: "string", default: "facts.json" },
       analysis: { type: "string", default: "analysis.json" },
+      screenshots: { type: "string", default: SCREENSHOTS_DIR },
       config: { type: "string", default: CONFIG_FILE },
     },
   });
@@ -303,6 +362,8 @@ async function runBuild(args: string[]): Promise<void> {
     console.error(`No ${CONFIG_FILE}. Run \`japs init --locales en,sk\` and fill in your profile.`);
     process.exit(1);
   }
+  const screenshotsDir = resolve(userCwd, values.screenshots ?? SCREENSHOTS_DIR);
+  const manifest = await loadManifest(screenshotsDir);
   const projectsFile = await readJson(
     resolve(userCwd, values.projects ?? "projects.json"),
     ProjectsFileSchema,
@@ -321,10 +382,11 @@ async function runBuild(args: string[]): Promise<void> {
     analysisFile,
     factsFile: factsParsed?.success ? factsParsed.data : null,
     config,
+    screenshots: manifest,
   });
 
   const outDir = resolve(userCwd, values.out ?? "out");
-  const { portfolio, warnings } = await writePortfolio(outDir, result);
+  const { portfolio, warnings } = await writePortfolio(outDir, result, { screenshotsDir });
 
   for (const p of portfolio.projects) {
     const flags = [p.featured ? "featured" : "", p.client.anonymized ? "anonymized" : "", p.links.repo ? "" : "no repo link"]
@@ -352,6 +414,8 @@ async function main(): Promise<void> {
       return runFacts(rest);
     case "analyze":
       return runAnalyze(rest);
+    case "screenshots":
+      return runScreenshots(rest);
     case "build":
       return runBuild(rest);
     case undefined:

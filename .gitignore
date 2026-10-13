@@ -12,5 +12,6 @@ portfolio.json
 facts.json
 analysis.json
 japs.config.json
+screenshots/
 /out/
 !apps/theme-default/sample/portfolio.json

@@ -35,6 +35,7 @@ pnpm japs init         # creates japs.config.json for your decisions
 pnpm japs discover     # writes projects.json
 pnpm japs facts        # writes facts.json (README, dependencies, commits, Netlify, live site)
 pnpm japs analyze      # writes analysis.json (project copy in your locales)
+pnpm japs screenshots  # desktop + mobile shots of your live sites (Playwright, runs locally)
 pnpm japs build        # writes out/portfolio.json + screenshots
 pnpm dev               # preview the portfolio at http://localhost:4321
 ```
