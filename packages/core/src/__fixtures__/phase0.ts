@@ -8,6 +8,7 @@ import type { DeployInput, RepoInput, SiteInput } from "../discovery/types.ts";
 export const NOW = new Date("2026-10-12T12:00:00Z");
 
 const deploy = (overrides: Partial<DeployInput>): DeployInput => ({
+  id: "d-1",
   commitUrl: null,
   reviewUrl: null,
   framework: "vite",
@@ -32,6 +33,7 @@ const repo = (overrides: Partial<RepoInput> & Pick<RepoInput, "fullName">): Repo
   private: false,
   fork: false,
   archived: false,
+  empty: false,
   homepage: null,
   language: "TypeScript",
   topics: [],

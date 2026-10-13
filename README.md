@@ -33,6 +33,7 @@ cp .env.example .env   # add NETLIFY_TOKEN and GITHUB_TOKEN
 pnpm test
 pnpm japs init         # creates japs.config.json for your decisions
 pnpm japs discover     # writes projects.json
+pnpm japs facts        # writes facts.json (README, dependencies, commits, Netlify, live site)
 ```
 
 ## Repository layout

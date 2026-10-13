@@ -30,6 +30,8 @@ export const Repo = z.object({
   private: z.boolean(),
   fork: z.boolean(),
   archived: z.boolean(),
+  /** No commits yet. */
+  empty: z.boolean(),
   homepage: z.string().nullable(),
   language: z.string().nullable(),
   topics: z.array(z.string()),
@@ -49,6 +51,8 @@ export const Site = z.object({
   framework: z.string().nullable(),
   screenshotUrl: z.string().url().nullable(),
   lastDeployAt: z.string().datetime().nullable(),
+  /** Current published deploy; facts extraction reads its details. */
+  deployId: z.string().nullable(),
   deployContext: DeployContext,
   /** Git login of whoever made the commit behind the current deploy. */
   committer: z.string().nullable(),
@@ -64,6 +68,8 @@ export const HiddenReason = z.enum([
   "preview-only",
   "stale",
   "random-name",
+  /** Repo without commits and without a site. */
+  "empty",
   /** Private repo: unpublished until the config sets hidden: false (ADR 0004). */
   "private",
   /** Looks like client work and the config hasn't said otherwise (isClient: false). */

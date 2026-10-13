@@ -27,6 +27,7 @@ export function toRepo(input: RepoInput): Repo {
     private: input.private,
     fork: input.fork,
     archived: input.archived,
+    empty: input.empty,
     homepage: input.homepage || null,
     language: input.language,
     topics: input.topics,
@@ -61,6 +62,7 @@ export function toSite(input: SiteInput): Site {
     framework: input.deploy?.framework ?? null,
     screenshotUrl: input.deploy?.screenshotUrl ?? null,
     lastDeployAt: input.deploy?.publishedAt ?? null,
+    deployId: input.deploy?.id ?? null,
     deployContext: input.deploy?.context ?? "unknown",
     committer: input.deploy?.committer ?? null,
     ...resolveSiteRepo(input),
@@ -129,6 +131,7 @@ function hiddenReasonsFor(
   if (repos.length > 0 && repos.every((r) => r.archived)) reasons.push("archived");
 
   const { sites } = group;
+  if (sites.length === 0 && repos.length > 0 && repos.every((r) => r.empty)) reasons.push("empty");
   if (sites.length > 0) {
     if (sites.every((s) => s.lastDeployAt === null)) reasons.push("no-deploy");
     else if (sites.every((s) => s.deployContext === "deploy-preview")) reasons.push("preview-only");

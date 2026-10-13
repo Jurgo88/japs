@@ -16,13 +16,13 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 1 — Core.** Discovery + pairing → `projects.json`. Next: fact extraction and analysis → `portfolio.json`.
+**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. Next: LLM analysis (#10, #11), screenshots (#12), `portfolio.json` (#13).
 
 ## Layout
 
 ```
 packages/schema   Zod types (ProjectsFile, Portfolio, ProjectFacts). No deps besides zod.
-packages/core     discovery (Netlify, GitHub), pairing, filters. Uses only fetch.
+packages/core     discovery (Netlify, GitHub), pairing, filters, fact extraction. Uses only fetch.
 packages/cli      `japs` command (pnpm japs discover)
 apps/*            dashboard (Vue 3, Phase 3), theme-default (Astro, Phase 2) — placeholders
 ```
@@ -35,6 +35,7 @@ pnpm test            # vitest, all packages
 pnpm typecheck       # tsc --noEmit, all packages
 pnpm japs init --locales en,sk   # creates japs.config.json (never overwrites)
 pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env; reads japs.config.json
+pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by pushedAt)
 ```
 
 ## Files (until Supabase in Phase 3)

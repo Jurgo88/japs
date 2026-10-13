@@ -13,12 +13,31 @@ LLM **nič nevymýšľa**. Generuje text výhradne z faktov, ktoré deterministi
 | Zdroj | Fakty |
 |---|---|
 | Netlify deploy | framework, funkcie (počet, názvy), cron joby, edge funkcie, Lighthouse skóre, posledný deploy, commit správa |
-| GitHub repo | description, topics, primárny jazyk, jazyky (%), počet commitov, prvý/posledný commit, počet PR |
+| GitHub repo | description, topics, primárny jazyk, jazyky (%), počet commitov, prvý/posledný commit, počet PR (všetky stavy) |
 | `README.md` | prvých N znakov, nadpisy |
 | `package.json` | dependencies → mapovanie na technológie (napr. `@supabase/supabase-js` → Supabase) |
 | Živý web | `<title>`, meta description, `og:*`, `lang` |
 
-Výstup: `ProjectFacts` (typ v `@japs/schema`). Uložený v `project_analysis.facts`.
+Výstup: `ProjectFacts` (typ v `@japs/schema`), príkaz `japs facts` → `facts.json`. Neskôr v `project_analysis.facts`.
+
+**Implementácia** (`packages/core/src/facts/`):
+
+| Časť | Ako |
+|---|---|
+| Commity | `GET /repos/{r}/commits?per_page=1` → počet z `Link rel="last"`, posledný commit; prvý commit = posledná stránka. 409 = prázdne repo. Len predvolená vetva. |
+| Pull requesty | `GET /repos/{r}/pulls?state=all&per_page=1` + `Link` (bežný rate limit, nie Search API s 30 req/min) |
+| Jazyky | `GET /repos/{r}/languages` → % (1 desatinné miesto) |
+| README | `GET /repos/{r}/readme` (raw) → úryvok max. 1500 znakov bez obrázkov, odznakov, HTML a kódu + nadpisy |
+| `package.json` | koreň + workspace balíky (`workspaces` alebo `pnpm-workspace.yaml`, max. 10) → názvy závislostí |
+| Netlify deploy | `GET /deploys/{id}`: commit (`title`), committer, funkcie (`n`, `g` = generátor frameworku), crony, edge funkcie, Lighthouse `averages` |
+| Živý web | `fetch` s timeoutom 10 s, regex parser `<head>` (core nemá DOM) |
+| Technológie | `deriveTech`: mapovacia tabuľka závislostí (`tech.ts`, dá sa rozširovať) + jazyky ≥ 5 % + topics + Netlify framework/funkcie; každá technológia nesie `evidence` |
+
+- Každá časť zlyháva samostatne do `warnings`, zvyšok faktov ostáva.
+- **Cache:** fakty repa sa z predošlého `facts.json` použijú znova, kým sa nezmení `pushedAt`. Weby a živé stránky sa sťahujú vždy.
+- **Hash:** SHA-256 z faktov (Web Crypto). Analýza beží len pre projekty so zmeneným hashom.
+- Predvolene len viditeľné projekty; `--all` alebo `--project <key>` pre ostatné.
+- Repo, ktoré token nevidí, má `accessible: false` a fakty idú len z Netlify a živého webu (Fáza 0, zistenie 7).
 
 ### 2. Generovanie (LLM)
 

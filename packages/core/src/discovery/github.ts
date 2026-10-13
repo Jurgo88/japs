@@ -10,6 +10,7 @@ const RawRepo = z.object({
   private: z.boolean(),
   fork: z.boolean(),
   archived: z.boolean().default(false),
+  size: z.number().default(1),
   homepage: z.string().nullish(),
   language: z.string().nullish(),
   topics: z.array(z.string()).default([]),
@@ -26,6 +27,7 @@ export function toRepoInput(raw: RawRepo): RepoInput {
     private: raw.private,
     fork: raw.fork,
     archived: raw.archived,
+    empty: raw.size === 0,
     homepage: raw.homepage || null,
     language: raw.language ?? null,
     topics: raw.topics,
@@ -48,14 +50,19 @@ export class GitHubClient {
     this.fetchImpl = options.fetch ?? globalThis.fetch;
   }
 
-  private async get(path: string): Promise<unknown> {
-    const res = await this.fetchImpl(`${API}${path}`, {
+  /** Raw request for callers that need status codes or headers (Link pagination, 404 = missing). */
+  async request(path: string, accept = "application/vnd.github+json"): Promise<Response> {
+    return this.fetchImpl(`${API}${path}`, {
       headers: {
         Authorization: `Bearer ${this.token}`,
-        Accept: "application/vnd.github+json",
+        Accept: accept,
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });
+  }
+
+  async get(path: string): Promise<unknown> {
+    const res = await this.request(path);
     if (!res.ok) throw new Error(`GitHub ${path.split("?")[0]} failed: ${res.status} ${res.statusText}`);
     return res.json();
   }

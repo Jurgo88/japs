@@ -6,6 +6,7 @@ import type { DeployContext, ManualLink, ProjectKey, ProjectMerge, ProjectOverri
  */
 
 export interface DeployInput {
+  id: string;
   commitUrl: string | null;
   reviewUrl: string | null;
   framework: string | null;
@@ -34,6 +35,8 @@ export interface RepoInput {
   private: boolean;
   fork: boolean;
   archived: boolean;
+  /** No commits (GitHub reports size 0). */
+  empty: boolean;
   homepage: string | null;
   language: string | null;
   topics: string[];
