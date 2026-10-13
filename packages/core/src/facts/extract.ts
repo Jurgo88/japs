@@ -1,5 +1,6 @@
-import type { FactsFile, Project, ProjectFacts, ProjectsFile, RepoFacts, SiteFacts } from "@japs/schema";
+import type { FactsFile, JapsConfig, Project, ProjectFacts, ProjectsFile, RepoFacts, SiteFacts } from "@japs/schema";
 import { FactsFile as FactsFileSchema } from "@japs/schema";
+import { isPublished } from "../build/portfolio.ts";
 import type { GitHubClient } from "../discovery/github.ts";
 import type { NetlifyClient } from "../discovery/netlify.ts";
 import { fetchRepoFacts, inaccessibleRepoFacts } from "./github.ts";
@@ -18,6 +19,11 @@ export interface ExtractFactsOptions {
   previous?: FactsFile | null;
   /** Include hidden projects too. Default: only visible ones. */
   all?: boolean;
+  /**
+   * Current config: visibility is decided by it (as in `japs build`), so a project shown in
+   * the editor gets facts without re-running discovery. Without it, projects.json decides.
+   */
+  config?: JapsConfig | null;
   /** Only these project keys (overrides `all`). */
   keys?: string[];
   now?: Date;
@@ -50,8 +56,9 @@ export async function extractFacts(projectsFile: ProjectsFile, options: ExtractF
   const siteById = new Map(projectsFile.sites.map((s) => [s.id, s]));
   const previousRepos = new Map(options.previous?.projects.flatMap((p) => p.repos.map((r) => [r.id, r])) ?? []);
 
+  const visible = (p: Project) => (options.config ? isPublished(p, options.config) : !p.hidden);
   const projects = projectsFile.projects.filter((p) =>
-    options.keys ? options.keys.includes(p.key) : options.all || !p.hidden,
+    options.keys ? options.keys.includes(p.key) : options.all || visible(p),
   );
   if (options.keys) {
     for (const key of options.keys) if (!projects.some((p) => p.key === key)) warn(`project "${key}" not found`);
@@ -131,10 +138,14 @@ export async function extractFacts(projectsFile: ProjectsFile, options: ExtractF
     return { ...facts, hash: await hashFacts(facts) };
   });
 
+  // Facts of projects not extracted this run are kept (as long as the project still exists),
+  // so `--project x` refreshes one project instead of dropping all others.
+  const fresh = new Map(results.map((r) => [r.key, r]));
+  const previousByKey = new Map(options.previous?.projects.map((p) => [p.key, p]) ?? []);
   const file: FactsFile = {
     version: 1,
     generatedAt: (options.now ?? new Date()).toISOString(),
-    projects: results,
+    projects: projectsFile.projects.flatMap((p) => fresh.get(p.key) ?? previousByKey.get(p.key) ?? []),
     warnings,
   };
   return { file: FactsFileSchema.parse(file), reusedRepos };
