@@ -1,10 +1,18 @@
 #!/usr/bin/env -S npx tsx
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { discover } from "@japs/core";
-import { type JapsConfig, Locale, type Project, type ProjectsFile } from "@japs/schema";
+import { discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
+import {
+  type FactsFile,
+  FactsFile as FactsFileSchema,
+  type JapsConfig,
+  Locale,
+  type Project,
+  type ProjectsFile,
+  ProjectsFile as ProjectsFileSchema,
+} from "@japs/schema";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 
 /**
@@ -28,6 +36,8 @@ const HELP = `japs — Just Another Portfolio Site
 Usage:
   japs init [--locales en,sk]                     create ${CONFIG_FILE} (never overwrites)
   japs discover [--out projects.json] [--stale-months 24]
+  japs facts [--in projects.json] [--out facts.json] [--all] [--project <key>]… [--no-cache]
+                                                  extract facts for analysis (no LLM)
 
 Options:
   --config <path>   config file (default ${CONFIG_FILE})
@@ -111,15 +121,7 @@ async function runDiscover(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const netlifyToken = process.env.NETLIFY_TOKEN;
-  if (!netlifyToken) {
-    console.error(
-      loadedEnvFile
-        ? `NETLIFY_TOKEN is empty in ${loadedEnvFile}.`
-        : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN.",
-    );
-    process.exit(1);
-  }
+  const netlifyToken = requireNetlifyToken();
   const githubToken = process.env.GITHUB_TOKEN || undefined;
   if (!githubToken) console.warn("GITHUB_TOKEN not set — repos without a Netlify site will be missing.\n");
 
@@ -139,6 +141,77 @@ async function runDiscover(args: string[]): Promise<void> {
   console.log(`\nWritten to ${outPath}`);
 }
 
+function requireNetlifyToken(): string {
+  const token = process.env.NETLIFY_TOKEN;
+  if (token) return token;
+  console.error(
+    loadedEnvFile
+      ? `NETLIFY_TOKEN is empty in ${loadedEnvFile}.`
+      : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN.",
+  );
+  process.exit(1);
+}
+
+async function readJson<T>(path: string, schema: { parse: (v: unknown) => T }, hint: string): Promise<T> {
+  if (!existsSync(path)) {
+    console.error(`${path} not found. ${hint}`);
+    process.exit(1);
+  }
+  return schema.parse(JSON.parse(await readFile(path, "utf8")));
+}
+
+async function runFacts(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      in: { type: "string", default: "projects.json" },
+      out: { type: "string", default: "facts.json" },
+      all: { type: "boolean", default: false },
+      project: { type: "string", multiple: true },
+      "no-cache": { type: "boolean", default: false },
+    },
+  });
+
+  const inPath = resolve(userCwd, values.in ?? "projects.json");
+  const outPath = resolve(userCwd, values.out ?? "facts.json");
+  const projectsFile = await readJson(inPath, ProjectsFileSchema, "Run `japs discover` first.");
+
+  // A previous facts.json from an older schema is just a cold cache, not an error.
+  let previous: FactsFile | null = null;
+  if (!values["no-cache"] && existsSync(outPath)) {
+    const parsed = FactsFileSchema.safeParse(JSON.parse(await readFile(outPath, "utf8")));
+    previous = parsed.success ? parsed.data : null;
+  }
+
+  const netlifyToken = requireNetlifyToken();
+  const githubToken = process.env.GITHUB_TOKEN || undefined;
+  if (!githubToken) console.warn("GITHUB_TOKEN not set — repo facts (README, dependencies, commits) will be missing.\n");
+
+  const { file, reusedRepos } = await extractFacts(projectsFile, {
+    netlify: new NetlifyClient({ token: netlifyToken }),
+    github: githubToken ? new GitHubClient({ token: githubToken }) : null,
+    previous,
+    all: values.all,
+    keys: values.project,
+    onProgress: process.stdout.isTTY
+      ? (done, total, project) => process.stdout.write(`\r[${done}/${total}] ${project.title}`.padEnd(60))
+      : undefined,
+  });
+  if (process.stdout.isTTY) process.stdout.write(`\r${" ".repeat(60)}\r`);
+
+  await writeFile(outPath, `${JSON.stringify(file, null, 2)}\n`, "utf8");
+
+  for (const p of file.projects) {
+    const tags = p.tech.filter((t) => t.category !== "hosting" && t.category !== "tooling").map((t) => t.name);
+    console.log(`${p.title.padEnd(28)} ${tags.slice(0, 8).join(", ")}${tags.length > 8 ? ", …" : ""}`);
+  }
+  console.log(`\n${file.projects.length} projects, ${reusedRepos} repos reused from cache.`);
+  if (file.warnings.length) {
+    console.warn(`\nWarnings (${file.warnings.length}):\n${file.warnings.map((w) => `  - ${w}`).join("\n")}`);
+  }
+  console.log(`\nWritten to ${outPath}`);
+}
+
 async function main(): Promise<void> {
   loadedEnvFile = findEnvFile(userCwd);
   if (loadedEnvFile) process.loadEnvFile(loadedEnvFile);
@@ -149,6 +222,8 @@ async function main(): Promise<void> {
       return runInit(rest);
     case "discover":
       return runDiscover(rest);
+    case "facts":
+      return runFacts(rest);
     case undefined:
     case "help":
     case "--help":

@@ -15,6 +15,7 @@ describe("resolveSiteRepo priority", () => {
       url: "https://x.netlify.app",
       customDomain: null,
       deploy: {
+        id: "d-x",
         commitUrl: "https://github.com/a/from-commit/commit/1",
         reviewUrl: "https://github.com/a/from-review/pull/1",
         framework: null,
