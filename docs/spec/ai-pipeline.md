@@ -41,8 +41,10 @@ Výstup: `ProjectFacts` (typ v `@japs/schema`), príkaz `japs facts` → `facts.
 
 ### 2. Generovanie (LLM)
 
-- Model: Claude cez API, štruktúrovaný výstup (tool use / JSON schema = `ProjectCopy`).
-- Prompt obsahuje len `ProjectFacts` + inštrukcie k štýlu a jazyku.
+- Model: vymeniteľný poskytovateľ ([ADR 0006](../adr/0006-pluggable-llm-provider.md)), OpenAI-kompatibilné API, default `gpt-5-mini`. Štruktúrovaný výstup `response_format: json_schema` (strict) = `ProjectCopy`; `tags` sú v schéme obmedzené na `enum` z `ProjectFacts.tech`.
+- Prompt obsahuje len `ProjectFacts` (kompaktne, bez funkcií vygenerovaných frameworkom) + inštrukcie k štýlu a jazyku (`packages/core/src/analyze/prompt.ts`).
+- Výstup sa validuje Zodom (všetky jazyky, `summary` ≤ 160 znakov); pri chybe 1 opakovanie s popisom chyby, potom varovanie a ostáva predošlý text.
+- Príkaz `japs analyze` → `analysis.json`. Projekt sa preskočí, ak sa nezmenil hash faktov, model, jazyky ani anonymizácia (`--force` prebije).
 - Výstup: `title`, `summary`, `description`, `role` ako `LocalizedText` vo všetkých jazykoch z configu, v jednom volaní ([ADR 0005](../adr/0005-bilingual-portfolio.md)); `tags` sú jazykovo neutrálne.
 
 ### 3. Grounding check
@@ -61,8 +63,8 @@ Do Fázy 3 (bez editora) sa ručné úpravy zapisujú do `japs.config.json` → 
 ## Privátne repá a klienti
 
 - Pri privátnych repách sa README/kód číta len pre extrakciu faktov, nikdy sa necituje doslovne.
-- Pri `anonymize = true` sa do promptu neposiela názov klienta ani doména.
+- Pri `anonymize = true` sa do promptu neposiela názov projektu, popis repa, README, názvy balíkov a funkcií, domény, URL ani titulky webu; ostávajú technológie, jazyky, počty a skóre.
 
 ## Náklady
 
-Odhad: 1 projekt ≈ 3–5k vstupných tokenov. Analýza beží len pre zmenené projekty (hash faktov).
+Odhad: 1 projekt ≈ 3–5k vstupných a 1,5–2k výstupných tokenov (2 jazyky). Pre ~20 projektov: `gpt-5-mini` ≈ $0,10, Claude Sonnet 5.5 ≈ $0,50–1, bezplatné tiery (Gemini, Groq) $0. Analýza beží len pre zmenené projekty (hash faktov).
