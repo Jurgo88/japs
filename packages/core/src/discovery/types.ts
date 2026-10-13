@@ -12,6 +12,8 @@ export interface DeployInput {
   screenshotUrl: string | null;
   context: DeployContext;
   publishedAt: string | null;
+  /** Git login behind the deployed commit. */
+  committer: string | null;
 }
 
 export interface SiteInput {
@@ -28,6 +30,7 @@ export interface SiteInput {
 export interface RepoInput {
   fullName: string;
   url: string;
+  ownerType: "user" | "organization";
   private: boolean;
   fork: boolean;
   archived: boolean;
@@ -43,6 +46,8 @@ export interface PairingOptions {
   staleAfterMonths?: number;
   /** Reference time, injectable for tests. Default: now. */
   now?: Date;
+  /** GitHub login of the account owner; enables committer/owner client signals. */
+  accountLogin?: string | null;
   /** User decisions from japs.config.json (ADR 0004). Core never reads the file itself. */
   links?: ManualLink[];
   merge?: ProjectMerge[];

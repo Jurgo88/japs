@@ -12,8 +12,9 @@ Z Netlify a GitHub účtu používateľa zostaviť zoznam **projektov**. Projekt
 | Zdroj | Endpoint | Čo z neho berieme |
 |---|---|---|
 | Netlify | `GET /api/v1/sites` | `id`, `name`, `url`, `ssl_url`, `custom_domain`, `build_settings.repo_url`, `build_settings.repo_branch`, `published_deploy` |
-| Netlify | `GET /api/v1/deploys/{id}` | `commit_url`, `review_url`, `framework`, `screenshot_url`, `context`, `published_at`, `committer`, `available_functions`, `function_schedules`, `lighthouse` |
-| GitHub | `GET /user/repos?affiliation=owner,collaborator` | `full_name`, `private`, `fork`, `archived`, `homepage`, `language`, `topics`, `pushed_at`, `description` |
+| Netlify | `GET /api/v1/deploys/{id}` | `committer`, `commit_url`, `review_url`, `framework`, `screenshot_url`, `context`, `published_at`, `committer`, `available_functions`, `function_schedules`, `lighthouse` |
+| GitHub | `GET /user` | `login` (vlastník účtu, pre signály klienta) |
+| GitHub | `GET /user/repos?affiliation=owner,collaborator` (+ `organization_member`, ak `discovery.includeOrgRepos`) | `full_name`, `owner.type`, `private`, `fork`, `archived`, `homepage`, `language`, `topics`, `pushed_at`, `description` |
 
 Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s read-only prístupom na metadata a contents).
 
@@ -37,8 +38,21 @@ Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s r
    - posledná aktivita (max z `pushed_at` a `published_at`) je staršia ako `staleAfterMonths` (default 24)
    - názov webu je Netlify náhodný slug (`adjective-noun-xxxxxx`) a nemá vlastnú doménu
    - projekt má privátne repo (aj repo, ktoré GitHub token nevidí)
+   - projekt vyzerá ako klientsky (pozri nižšie) a config nemá `isClient: false`
 9. **Aplikuj viditeľnosť z configu:** `projects.<key>.hidden` prebije filtre v oboch smeroch; `hiddenReasons` ostávajú pre informáciu.
 10. **Výstup:** `projects.json` validovaný schémou `ProjectsFile` z `@japs/schema`. Položky configu, ktoré na nič nesedia (premenované repo, zmazaný web, preklep), sú vo `warnings`.
+
+## Návrh klientskeho projektu
+
+Discovery len **navrhuje** (`Project.clientSignals`); potvrdenie je v configu (`isClient: true`), zamietnutie `isClient: false`. Klientsky projekt ostáva skrytý, kým config nenastaví `hidden: false`.
+
+| Signál | Kedy | Potrebuje GitHub login |
+|---|---|---|
+| `foreign-committer` | commit aktuálneho deployu urobil niekto iný než vlastník účtu | áno |
+| `organization-repo` | repo patrí GitHub organizácii | nie |
+| `foreign-repo-owner` | repo patrí inému používateľovi (aj repo, ktoré token nevidí) | áno |
+
+Login sa porovnáva bez ohľadu na veľkosť písmen. Spolupracovníci repa (`/collaborators`) sa zatiaľ nečítajú (extra volanie na repo).
 
 ## Normalizácia
 
@@ -64,4 +78,4 @@ Na reálnom účte (25 webov): 19 spárovaných cez deploy, 4 ďalšie dorieši 
 ## Mimo rozsahu
 
 - GitLab, Bitbucket, Vercel (adaptéry neskôr cez rovnaké rozhranie `SiteSource` / `RepoSource`).
-- Organizácie (GitHub orgs, Netlify viac tímov) — v MVP len osobný účet a všetky tímy, kde je používateľ členom.
+- Netlify: viac tímov — v MVP všetky tímy, kde je používateľ členom (`filter=all`). GitHub organizácie sú voliteľné cez `discovery.includeOrgRepos` (default vypnuté).

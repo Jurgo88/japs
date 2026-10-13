@@ -21,6 +21,7 @@ describe("resolveSiteRepo priority", () => {
         screenshotUrl: null,
         context: "production" as const,
         publishedAt: null,
+        committer: null,
       },
     };
     expect(resolveSiteRepo({ ...base, repoUrl: "https://github.com/a/from-repo-url" })).toEqual({

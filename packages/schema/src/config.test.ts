@@ -12,7 +12,7 @@ describe("JapsConfig", () => {
       version: 1,
       locales: ["en"],
       defaultLocale: "en",
-      discovery: { staleAfterMonths: 24 },
+      discovery: { staleAfterMonths: 24, includeOrgRepos: false },
       links: [],
       merge: [],
       projects: {},

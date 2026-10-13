@@ -13,6 +13,7 @@ const RawDeploy = z.object({
   screenshot_url: z.string().nullish(),
   context: z.string().nullish(),
   published_at: z.string().nullish(),
+  committer: z.string().nullish(),
 });
 type RawDeploy = z.infer<typeof RawDeploy>;
 
@@ -46,6 +47,7 @@ export function toDeployInput(raw: RawDeploy): DeployInput {
     screenshotUrl: raw.screenshot_url ?? null,
     context: toContext(raw.context),
     publishedAt: raw.published_at ?? null,
+    committer: raw.committer || null,
   };
 }
 
