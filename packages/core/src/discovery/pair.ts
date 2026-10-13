@@ -1,4 +1,5 @@
 import type {
+  ClientSignal,
   HiddenReason,
   ManualLink,
   Project,
@@ -22,6 +23,7 @@ export function toRepo(input: RepoInput): Repo {
     provider: "github",
     fullName: input.fullName,
     url: input.url,
+    ownerType: input.ownerType,
     private: input.private,
     fork: input.fork,
     archived: input.archived,
@@ -60,6 +62,7 @@ export function toSite(input: SiteInput): Site {
     screenshotUrl: input.deploy?.screenshotUrl ?? null,
     lastDeployAt: input.deploy?.publishedAt ?? null,
     deployContext: input.deploy?.context ?? "unknown",
+    committer: input.deploy?.committer ?? null,
     ...resolveSiteRepo(input),
   };
 }
@@ -142,6 +145,25 @@ function hiddenReasonsFor(
   return reasons;
 }
 
+/**
+ * Suggests client work (kickoff, Phase 0 finding 6). Committer and owner signals need
+ * the account login; without a GitHub token only organization repos are detected.
+ */
+function clientSignalsFor(group: Group, repoById: Map<RepoId, Repo>, accountLogin: string | null): ClientSignal[] {
+  const me = accountLogin?.toLowerCase() ?? null;
+  const signals: ClientSignal[] = [];
+  if (me && group.sites.some((s) => s.committer && s.committer.toLowerCase() !== me)) {
+    signals.push("foreign-committer");
+  }
+  if (group.repoIds.some((id) => repoById.get(id)?.ownerType === "organization")) {
+    signals.push("organization-repo");
+  }
+  // A repo we can't see is checked by its owner too: its type is unknown, the owner isn't.
+  const isForeignUserRepo = (id: RepoId) => repoById.get(id)?.ownerType !== "organization" && id.split("/")[0] !== me;
+  if (me && group.repoIds.some(isForeignUserRepo)) signals.push("foreign-repo-owner");
+  return signals;
+}
+
 /** Folds `from` groups into `into` groups, in config order. */
 function applyMerges(groups: Map<ProjectKey, Group>, merges: ProjectMerge[], warnings: string[]): void {
   for (const merge of merges) {
@@ -186,6 +208,7 @@ export function buildProjects(
     now: opts.now ?? new Date(),
   };
   const overrides = opts.projects ?? {};
+  const accountLogin = opts.accountLogin ?? null;
   const warnings: string[] = [];
 
   const repos = repoInputs.map(toRepo);
@@ -219,6 +242,10 @@ export function buildProjects(
     // A repo we can't see (not in the repo list) is treated as private: never expose it.
     const isPrivate = group.repoIds.some((id) => repoById.get(id)?.private ?? true);
     const hiddenReasons = hiddenReasonsFor(knownRepos, group, isPrivate, lastActivityAt, options);
+    const clientSignals = clientSignalsFor(group, repoById, accountLogin);
+    // Client work stays unpublished until hidden: false (ADR 0004); isClient: false dismisses the suggestion.
+    const isClient = overrides[group.key]?.isClient ?? clientSignals.length > 0;
+    if (isClient) hiddenReasons.push("client");
     return {
       key: group.key,
       slug: uniqueSlug(slugify(title), taken),
@@ -229,6 +256,7 @@ export function buildProjects(
       private: isPrivate,
       hidden: overrides[group.key]?.hidden ?? hiddenReasons.length > 0,
       hiddenReasons,
+      clientSignals,
     };
   };
   const projects = [...groups.values()].map(makeProject);
@@ -248,6 +276,7 @@ export function buildProjects(
   const file: ProjectsFile = {
     version: 1,
     generatedAt: options.now.toISOString(),
+    account: { github: accountLogin },
     stats: {
       sites: sites.length,
       repos: repos.length,

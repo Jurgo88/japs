@@ -4,7 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { discover } from "@japs/core";
-import { type JapsConfig, Locale, type ProjectsFile } from "@japs/schema";
+import { type JapsConfig, Locale, type Project, type ProjectsFile } from "@japs/schema";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 
 /**
@@ -44,16 +44,23 @@ function printSummary(file: ProjectsFile, config: JapsConfig | null): void {
   console.log(`Repos:    ${stats.repos}`);
   console.log(`Projects: ${stats.projects} (${stats.hiddenProjects} hidden)`);
   console.log("");
+  const isSuggestedClient = (p: Project) =>
+    p.hiddenReasons.includes("client") && config?.projects[p.key]?.isClient === undefined;
   for (const p of file.projects) {
     const mark = p.hidden ? "·" : "✓";
-    const decided = config?.projects[p.key]?.hidden !== undefined ? " config" : "";
-    const reasons = p.hiddenReasons.length ? ` ${p.hiddenReasons.join(", ")}` : "";
-    const why = reasons || decided ? `  [${(reasons + decided).trim()}]` : "";
+    const reasons = p.hiddenReasons.map((r) =>
+      r === "client" && isSuggestedClient(p) ? `client? (${p.clientSignals.join(", ")})` : r,
+    );
+    if (config?.projects[p.key]?.hidden !== undefined) reasons.push("config");
+    const why = reasons.length ? `  [${reasons.join(", ")}]` : "";
     const when = p.lastActivityAt?.slice(0, 7) ?? "       ";
     console.log(`${mark} ${when}  ${p.title}  ${p.key}${why}`);
   }
-  if (file.projects.some((p) => p.hidden && p.hiddenReasons.includes("private"))) {
-    console.log(`\nPrivate projects stay hidden. To publish one, set "hidden": false under its key in ${CONFIG_FILE}.`);
+  if (file.projects.some((p) => p.hidden && (p.hiddenReasons.includes("private") || p.hiddenReasons.includes("client")))) {
+    console.log(`\nPrivate and client projects stay hidden. To publish one, set "hidden": false under its key in ${CONFIG_FILE}.`);
+  }
+  if (file.projects.some(isSuggestedClient)) {
+    console.log(`"client?" = looks like client work. Confirm with "isClient": true, or dismiss with "isClient": false.`);
   }
   if (file.warnings.length) {
     console.warn(`\nConfig warnings:\n${file.warnings.map((w) => `  - ${w}`).join("\n")}`);
@@ -120,6 +127,7 @@ async function runDiscover(args: string[]): Promise<void> {
     netlifyToken,
     githubToken,
     staleAfterMonths,
+    includeOrgRepos: config?.discovery.includeOrgRepos,
     links: config?.links,
     merge: config?.merge,
     projects: config?.projects,

@@ -86,6 +86,8 @@ export const JapsConfig = z
     discovery: z
       .object({
         staleAfterMonths: z.number().int().positive().default(24),
+        /** Also list repos of GitHub organizations the user belongs to. */
+        includeOrgRepos: z.boolean().default(false),
       })
       .strict()
       .default({}),

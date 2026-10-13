@@ -8,6 +8,8 @@ export interface DiscoverOptions extends PairingOptions {
   netlifyToken: string;
   /** Optional: without it, only Netlify sites are discovered (repos inferred from deploys). */
   githubToken?: string;
+  /** Also list repos of GitHub organizations the user belongs to. */
+  includeOrgRepos?: boolean;
   fetch?: typeof fetch;
 }
 
@@ -18,10 +20,11 @@ export async function discover(options: DiscoverOptions): Promise<ProjectsFile> 
     ? new GitHubClient({ token: options.githubToken, fetch: options.fetch })
     : null;
 
-  const [sites, repos] = await Promise.all([
+  const [sites, repos, accountLogin] = await Promise.all([
     netlify.listSiteInputs(),
-    github ? github.listRepoInputs() : Promise.resolve([]),
+    github ? github.listRepoInputs({ includeOrgRepos: options.includeOrgRepos }) : Promise.resolve([]),
+    github ? github.getLogin() : Promise.resolve(null),
   ]);
 
-  return buildProjects(sites, repos, options);
+  return buildProjects(sites, repos, { ...options, accountLogin });
 }

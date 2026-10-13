@@ -14,6 +14,7 @@ const deploy = (overrides: Partial<DeployInput>): DeployInput => ({
   screenshotUrl: null,
   context: "production",
   publishedAt: "2026-09-01T10:00:00.000Z",
+  committer: "DevUser",
   ...overrides,
 });
 
@@ -27,6 +28,7 @@ const site = (overrides: Partial<SiteInput> & Pick<SiteInput, "id" | "name">): S
 
 const repo = (overrides: Partial<RepoInput> & Pick<RepoInput, "fullName">): RepoInput => ({
   url: `https://github.com/${overrides.fullName}`,
+  ownerType: "user",
   private: false,
   fork: false,
   archived: false,
@@ -109,7 +111,11 @@ export const sites: SiteInput[] = [
     id: "s-client",
     name: "client-app",
     customDomain: "client-app.example",
-    deploy: deploy({ commitUrl: "https://github.com/DevUser/client-app/commit/ed46cd6", framework: "nuxt" }),
+    deploy: deploy({
+      commitUrl: "https://github.com/DevUser/client-app/commit/ed46cd6",
+      framework: "nuxt",
+      committer: "client-dev",
+    }),
   }),
   // Git-linked but deploy has no commit; repo found via repo.homepage.
   site({ id: "s-homepage", name: "ehm", deploy: deploy({ publishedAt: "2026-02-20T03:22:42.155Z" }) }),
