@@ -1,0 +1,17 @@
+{
+  "name": "@japs/theme-default",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Default JAPS theme: a static Astro site built from portfolio.json",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@japs/schema": "workspace:*",
+    "astro": "^7.3.6",
+    "marked": "^18.1.0"
+  }
+}

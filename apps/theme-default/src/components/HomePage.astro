@@ -1,0 +1,86 @@
+---
+import Base from "../layouts/Base.astro";
+import ProjectCard from "./ProjectCard.astro";
+import { t } from "../lib/i18n.ts";
+import { loadPortfolio, localePrefix, orderedProjects, text } from "../lib/portfolio.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+  name={profile.name}
+>
+  <section class="intro">
+    <h1>{profile.name}</h1>
+    <p class="headline">{text(profile.headline, locale)}</p>
+    {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+    {
+      (profile.location || profile.links.length > 0) && (
+        <p class="links">
+          {profile.location && <span>{profile.location}</span>}
+          {profile.links.map((link) => (
+            <a href={link.url} rel="me noopener">
+              {link.label}
+            </a>
+          ))}
+        </p>
+      )
+    }
+  </section>
+
+  <section>
+    <h2>{t(locale, "projects")}</h2>
+    <div class="grid">
+      {orderedProjects(portfolio).map((project) => <ProjectCard project={project} portfolio={portfolio} locale={locale} />)}
+    </div>
+  </section>
+</Base>
+
+<style>
+  .intro {
+    padding: 56px 0 40px;
+    max-width: 720px;
+  }
+  h1 {
+    font-size: clamp(32px, 6vw, 48px);
+    line-height: 1.1;
+    margin: 0 0 8px;
+  }
+  .headline {
+    font-size: 20px;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .bio {
+    margin: 0 0 16px;
+    white-space: pre-line;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: var(--muted);
+    margin: 0;
+  }
+  h2 {
+    font-size: 22px;
+    margin: 0 0 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 20px;
+  }
+</style>
