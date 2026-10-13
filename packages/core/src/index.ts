@@ -34,3 +34,12 @@ export {
   type ScreenshotAsset,
 } from "./build/portfolio.ts";
 export { screenshotTargets, type ScreenshotTarget } from "./build/targets.ts";
+export {
+  defaultPublished,
+  setClientLabel,
+  setCopyText,
+  setOrder,
+  setOverride,
+  setPublished,
+  setTags,
+} from "./editor/config-edit.ts";

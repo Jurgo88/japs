@@ -20,7 +20,7 @@ Supabase (tabuľky `projects`, `portfolios`, väzby `manual`) príde až vo Fáz
 Používateľské rozhodnutia žijú v jednom ručne editovanom súbore **`japs.config.json`** v pracovnom adresári (vedľa `projects.json`).
 
 1. **Schéma:** `JapsConfig` v `@japs/schema` (Zod). Neplatný config zastaví beh s presnou chybou (cesta k poľu).
-2. **Nikto ho neprepisuje.** `discover`, `facts`, `analyze`, `build` ho len čítajú. Jediná výnimka: `japs init` vytvorí štartovací config, ak neexistuje; existujúci nikdy nemení.
+2. **Nikto ho neprepisuje.** `discover`, `facts`, `analyze`, `build` ho len čítajú. Výnimky: `japs init` vytvorí štartovací config, ak neexistuje; lokálny editor (`japs edit`, [ADR 0007](0007-local-editor.md)) ho zapíše na výslovné uloženie.
 3. **I/O len v CLI.** `@japs/cli` súbor načíta a zvaliduje, do `@japs/core` posiela hotový objekt. Core ostáva bez `fs` (pravidlo z CLAUDE.md), takže rovnaké funkcie neskôr dostanú config zo Supabase.
 4. **Stabilný kľúč projektu.** Projekty sa v configu neodkazujú cez `slug` (mení sa s názvom), ale cez kľúč odvodený zo zdrojov:
    - `repo:<owner>/<repo>` (normalizované `RepoId`), ak má projekt repo,

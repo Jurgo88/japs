@@ -13,7 +13,8 @@
     "typecheck": "pnpm -r --parallel typecheck",
     "japs": "pnpm --filter @japs/cli start",
     "dev": "pnpm --filter @japs/theme-default dev",
-    "theme:build": "pnpm --filter @japs/theme-default build"
+    "theme:build": "pnpm --filter @japs/theme-default build",
+    "edit": "pnpm --filter @japs/dashboard build && pnpm japs edit"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
