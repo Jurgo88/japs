@@ -1,4 +1,4 @@
-import type { DeployContext } from "@japs/schema";
+import type { DeployContext, ManualLink, ProjectKey, ProjectMerge, ProjectOverride } from "@japs/schema";
 
 /**
  * Provider-agnostic inputs for pairing. Adapters (netlify.ts, github.ts) map raw API
@@ -43,4 +43,8 @@ export interface PairingOptions {
   staleAfterMonths?: number;
   /** Reference time, injectable for tests. Default: now. */
   now?: Date;
+  /** User decisions from japs.config.json (ADR 0004). Core never reads the file itself. */
+  links?: ManualLink[];
+  merge?: ProjectMerge[];
+  projects?: Record<ProjectKey, ProjectOverride>;
 }
