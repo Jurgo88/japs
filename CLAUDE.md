@@ -36,6 +36,12 @@ pnpm typecheck       # tsc --noEmit, all packages
 pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env
 ```
 
+## Files (until Supabase in Phase 3)
+
+- `japs.config.json` — user decisions (profile, locales, manual links, merges, per-project overrides). **Written only by the user**; tools read it, `japs init` may create it if missing (ADR 0004).
+- `projects.json`, `facts.json`, `analysis.json`, `portfolio.json` — generated, overwritten on every run.
+- Projects are referenced in config by a stable key: `repo:<owner>/<repo>` or `site:<netlify id>`, never by slug.
+
 ## Rules
 
 - `@japs/core` must not import Node-only modules (fs, path, child_process). File I/O belongs to `@japs/cli`. Core must run in Node 20+, Netlify Functions and Supabase Edge Functions.
@@ -46,3 +52,5 @@ pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env
 - Private repos: never expose their URL in public output (`links.repo = null`).
 - Before the repo goes public (Phase 4), anonymize client names in `docs/kickoff.md`.
 - Every new architectural decision gets an ADR in `docs/adr/`.
+- Portfolio texts are localized (`LocalizedText`, ADR 0005). Never hard-code `sk`/`en`; use the declared `locales`.
+- Private repos and suggested client projects stay unpublished unless the config explicitly sets `"hidden": false`.

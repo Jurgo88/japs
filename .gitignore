@@ -9,4 +9,7 @@ dist/
 # Generated from a real account — never commit
 projects.json
 portfolio.json
+facts.json
+analysis.json
+japs.config.json
 /out/

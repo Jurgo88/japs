@@ -24,17 +24,20 @@ Výstup: `ProjectFacts` (typ v `@japs/schema`). Uložený v `project_analysis.fa
 
 - Model: Claude cez API, štruktúrovaný výstup (tool use / JSON schema = `ProjectCopy`).
 - Prompt obsahuje len `ProjectFacts` + inštrukcie k štýlu a jazyku.
-- Výstup: `title`, `summary`, `description`, `role`, `tags`.
+- Výstup: `title`, `summary`, `description`, `role` ako `LocalizedText` vo všetkých jazykoch z configu, v jednom volaní ([ADR 0005](../adr/0005-bilingual-portfolio.md)); `tags` sú jazykovo neutrálne.
 
 ### 3. Grounding check
 
 - Každý `tag` musí existovať vo faktoch (technológia z dependencies, jazykov alebo frameworku).
 - `description` nesmie obsahovať čísla, ktoré nie sú vo faktoch (heuristika: regex na čísla + porovnanie).
+- Kontroluje sa každý jazyk samostatne.
 - Pri porušení: tvrdenie sa vyhodí, prípadne sa generuje znova (max 1 retry).
 
 ### 4. Ľudská kontrola
 
 Všetky texty sú v editore editovateľné. Ručne upravené pole sa označí a pri ďalšej analýze sa neprepíše.
+
+Do Fázy 3 (bez editora) sa ručné úpravy zapisujú do `japs.config.json` → `projects.<key>.copy` ([ADR 0004](../adr/0004-japs-config-json.md)). Override platí po jazykoch: upravená slovenčina neprepíše vygenerovanú angličtinu.
 
 ## Privátne repá a klienti
 
