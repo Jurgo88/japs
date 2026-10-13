@@ -7,6 +7,8 @@ import type {
   PortfolioProject,
   Project,
   ProjectsFile,
+  ScreenshotsManifest,
+  Site,
 } from "@japs/schema";
 import { Portfolio as PortfolioSchema } from "@japs/schema";
 
@@ -16,18 +18,23 @@ export interface BuildPortfolioInput {
   /** Optional: commit history for `period.from`. */
   factsFile?: FactsFile | null;
   config: JapsConfig;
+  /** From `japs screenshots`; preferred over Netlify's screenshots. */
+  screenshots?: ScreenshotsManifest | null;
   now?: Date;
 }
 
-/** A remote image the CLI must download to `path` (relative to portfolio.json). Never hotlinked. */
-export interface ScreenshotDownload {
-  url: string;
+/**
+ * An image the CLI must place at `path` (relative to portfolio.json): downloaded from a URL
+ * (Netlify, never hotlinked) or copied from the screenshots directory.
+ */
+export interface ScreenshotAsset {
   path: string;
+  source: { url: string } | { file: string };
 }
 
 export interface BuildPortfolioResult {
   portfolio: Portfolio;
-  screenshots: ScreenshotDownload[];
+  screenshots: ScreenshotAsset[];
   warnings: string[];
 }
 
@@ -39,12 +46,26 @@ const month = (iso: string | null | undefined) => iso?.slice(0, 7) ?? null;
  * Visibility from the current config, so editing japs.config.json takes effect without
  * re-running discovery. Mirrors discovery: hidden override > filters, client work hidden.
  */
-function isHidden(project: Project, config: JapsConfig): boolean {
+export function isPublished(project: Project, config: JapsConfig): boolean {
   const override = config.projects[project.key] ?? {};
-  if (override.hidden !== undefined) return override.hidden;
+  if (override.hidden !== undefined) return !override.hidden;
   const isClient = override.isClient ?? project.clientSignals.length > 0;
-  return project.hiddenReasons.some((r) => r !== "client") || isClient;
+  return !project.hiddenReasons.some((r) => r !== "client") && !isClient;
 }
+
+/** The site a project is shown by: the first one with a custom domain, else the first. */
+export function primarySite(project: Project, siteById: Map<string, Site>): Site | undefined {
+  const sites = project.siteIds.flatMap((id) => siteById.get(id) ?? []);
+  return sites.find((s) => s.hasCustomDomain) ?? sites[0];
+}
+
+/** Anonymized projects show no screenshots unless the config explicitly allows them. */
+export function showsScreenshots(project: Project, config: JapsConfig): boolean {
+  const override = config.projects[project.key] ?? {};
+  return !(override.anonymize ?? false) || override.allowScreenshots === true;
+}
+
+const extension = (file: string) => /.[a-z0-9]+$/i.exec(file)?.[0] ?? "";
 
 /** Overrides only the locales the config sets; the rest keeps the generated text. */
 const overlay = (generated: LocalizedText, override: LocalizedText | undefined): LocalizedText => ({
@@ -54,7 +75,7 @@ const overlay = (generated: LocalizedText, override: LocalizedText | undefined):
 
 /**
  * Assembles portfolio.json (docs/spec/portfolio-json.md) from discovery, analysis and the
- * user's config. Pure: screenshots come back as a download list for the CLI.
+ * user's config. Pure: screenshots come back as a list of files for the CLI to place.
  * Precedence (ADR 0004): config > analysis > discovery.
  */
 export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult {
@@ -76,7 +97,11 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
   const siteById = new Map(projectsFile.sites.map((s) => [s.id, s]));
   const repoById = new Map(projectsFile.repos.map((r) => [r.id, r]));
 
-  const visible = projectsFile.projects.filter((p) => !isHidden(p, config));
+  const visible = projectsFile.projects.filter((p) => isPublished(p, config));
+  const shotsByKey = new Map<string, ScreenshotsManifest["shots"]>();
+  for (const shot of input.screenshots?.shots ?? []) {
+    shotsByKey.set(shot.key, [...(shotsByKey.get(shot.key) ?? []), shot]);
+  }
   const ordered = [...visible].sort((a, b) => {
     const oa = config.projects[a.key]?.order ?? Number.POSITIVE_INFINITY;
     const ob = config.projects[b.key]?.order ?? Number.POSITIVE_INFINITY;
@@ -84,7 +109,7 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
     return (Date.parse(b.lastActivityAt ?? "") || 0) - (Date.parse(a.lastActivityAt ?? "") || 0);
   });
 
-  const screenshots: ScreenshotDownload[] = [];
+  const screenshots: ScreenshotAsset[] = [];
 
   const toPortfolioProject = (project: Project): PortfolioProject | null => {
     const analysis = analysisByKey.get(project.key);
@@ -118,20 +143,29 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
     const copy = override.copy ?? {};
     const title = pick(overlay(analysis.copy.title, copy.title));
 
-    const sites = project.siteIds.flatMap((id) => siteById.get(id) ?? []);
-    const primarySite = sites.find((s) => s.hasCustomDomain) ?? sites[0];
+    const site = primarySite(project, siteById);
     const primaryRepo = project.repoIds.map((id) => repoById.get(id)).find((r) => r !== undefined);
 
     const firstCommit = facts?.repos
       .flatMap((r) => (r.commits?.first ? [r.commits.first] : []))
       .sort()[0];
 
+    // Own captures first (desktop, then mobile); Netlify's screenshot only when there's no desktop one.
     const projectScreenshots: PortfolioProject["screenshots"] = [];
-    const showScreenshots = !anonymized || override.allowScreenshots === true;
-    if (showScreenshots && primarySite?.screenshotUrl) {
-      const path = `screenshots/${project.slug}-desktop.webp`;
-      screenshots.push({ url: primarySite.screenshotUrl, path });
-      projectScreenshots.push({ viewport: "desktop", src: path, alt: title });
+    if (showsScreenshots(project, config)) {
+      const own = shotsByKey.get(project.key) ?? [];
+      for (const viewport of ["desktop", "mobile"] as const) {
+        const shot = own.find((s) => s.viewport === viewport);
+        if (!shot) continue;
+        const path = `screenshots/${project.slug}-${viewport}${extension(shot.file)}`;
+        screenshots.push({ path, source: { file: shot.file } });
+        projectScreenshots.push({ viewport, src: path, alt: title });
+      }
+      if (!own.some((s) => s.viewport === "desktop") && site?.screenshotUrl) {
+        const path = `screenshots/${project.slug}-desktop.webp`;
+        screenshots.push({ path, source: { url: site.screenshotUrl } });
+        projectScreenshots.unshift({ viewport: "desktop", src: path, alt: title });
+      }
     }
 
     return {
@@ -143,7 +177,7 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
       period: { from: month(firstCommit), to: month(project.lastActivityAt) },
       tags: copy.tags ?? analysis.copy.tags,
       links: {
-        live: anonymized ? null : (primarySite?.url ?? null),
+        live: anonymized ? null : (site?.url ?? null),
         // Never reveal a private repository (CLAUDE.md, portfolio-json spec).
         repo: project.private || !primaryRepo ? null : primaryRepo.url,
       },

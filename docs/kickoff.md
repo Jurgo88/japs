@@ -170,7 +170,7 @@ Odstrániť ručnú tvorbu portfólia. Aplikácia sa pripojí na Netlify a GitHu
 
 ## 12. Otvorené otázky
 
-- [ ] Screenshot worker: GitHub Action vs. Browserless
+- [ ] Screenshot worker: GitHub Action vs. Browserless (Fáza 1: lokálny Playwright v CLI, `japs screenshots`; worker sa rieši s dashboardom vo Fáze 3)
 - [x] Názov projektu: **JAPS** (Just Another Portfolio Site)
 - [x] Monorepo: pnpm workspaces (`packages/schema`, `packages/core`, `packages/cli`, `apps/*`)
 - [ ] Šifrovanie tokenov: Supabase Vault vs. vlastné

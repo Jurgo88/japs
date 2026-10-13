@@ -18,6 +18,8 @@ const to = formatMonth(project.period.to, locale) ?? t(locale, "present");
 const period = from ? `${from} – ${to}` : to;
 const role = project.role ? text(project.role, locale) : null;
 const clientLabel = project.client.label ? text(project.client.label, locale) : null;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
 ---
 
 <Base
@@ -81,9 +83,16 @@ const clientLabel = project.client.label ? text(project.client.label, locale) : 
     }
 
     {
-      project.screenshots.map((s) => (
-        <img class="shot" src={`/${s.src}`} alt={text(s.alt, locale)} width="1280" height="800" />
-      ))
+      (desktop || mobile) && (
+        <div class:list={["shots", { both: desktop && mobile }]}>
+          {desktop && (
+            <img class="shot desktop" src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+          )}
+          {mobile && (
+            <img class="shot mobile" src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" />
+          )}
+        </div>
+      )
     }
 
     <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
@@ -148,12 +157,34 @@ const clientLabel = project.client.label ? text(project.client.label, locale) : 
     color: var(--text);
     border: 1px solid var(--border);
   }
+  .shots {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 28px;
+    align-items: start;
+  }
+  /* Desktop and phone side by side; the phone column keeps a phone's proportions. */
+  .shots.both {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 180px);
+  }
   .shot {
     width: 100%;
     height: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    margin-bottom: 28px;
+  }
+  .shot.mobile {
+    border-radius: 18px;
+    max-width: 260px;
+  }
+  @media (max-width: 560px) {
+    .shots.both {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 96px);
+      gap: 10px;
+    }
+    .shot.mobile {
+      border-radius: 10px;
+    }
   }
   .description {
     font-size: 17px;

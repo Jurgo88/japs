@@ -29,5 +29,8 @@ export {
   BuildError,
   type BuildPortfolioInput,
   type BuildPortfolioResult,
-  type ScreenshotDownload,
+  isPublished,
+  primarySite,
+  type ScreenshotAsset,
 } from "./build/portfolio.ts";
+export { screenshotTargets, type ScreenshotTarget } from "./build/targets.ts";

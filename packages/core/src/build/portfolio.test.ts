@@ -89,8 +89,36 @@ describe("buildPortfolio", () => {
       client: { isClient: false, anonymized: false, label: null },
       featured: false,
     });
-    expect(screenshots).toEqual([{ url: "https://cdn.example/shop.webp", path: "screenshots/acme-shop-desktop.webp" }]);
+    expect(screenshots).toEqual([
+      { path: "screenshots/acme-shop-desktop.webp", source: { url: "https://cdn.example/shop.webp" } },
+    ]);
     expect(portfolio).toMatchObject({ locales: ["en", "sk"], defaultLocale: "en", profile: { name: "Jane Doe" } });
+  });
+
+  it("prefers own screenshots over Netlify's, desktop first", () => {
+    const shot = (viewport: "desktop" | "mobile") => ({
+      key: "repo:devuser/acmeshop",
+      viewport,
+      file: `acme-shop-${viewport}.jpg`,
+      url: "https://acme-shop.example",
+      takenAt: "2026-10-13T10:00:00Z",
+    });
+    const { portfolio, screenshots } = build({ screenshots: { version: 1, shots: [shot("mobile"), shot("desktop")] } });
+
+    expect(portfolio.projects[0]?.screenshots.map((s) => [s.viewport, s.src])).toEqual([
+      ["desktop", "screenshots/acme-shop-desktop.jpg"],
+      ["mobile", "screenshots/acme-shop-mobile.jpg"],
+    ]);
+    expect(screenshots.map((s) => s.source)).toEqual([{ file: "acme-shop-desktop.jpg" }, { file: "acme-shop-mobile.jpg" }]);
+  });
+
+  it("falls back to Netlify for desktop when only a mobile shot exists", () => {
+    const mobile = { key: "repo:devuser/acmeshop", viewport: "mobile" as const, file: "m.jpg", url: "https://acme-shop.example", takenAt: "2026-10-13T10:00:00Z" };
+    const { portfolio } = build({ screenshots: { version: 1, shots: [mobile] } });
+    expect(portfolio.projects[0]?.screenshots.map((s) => s.src)).toEqual([
+      "screenshots/acme-shop-desktop.webp",
+      "screenshots/acme-shop-mobile.jpg",
+    ]);
   });
 
   it("applies config text overrides per locale, and tag overrides as a whole", () => {

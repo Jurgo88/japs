@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@japs/core": "workspace:*",
-    "@japs/schema": "workspace:*"
+    "@japs/schema": "workspace:*",
+    "playwright": "^1.64.0"
   },
   "devDependencies": {
     "tsx": "^4.19.0"
