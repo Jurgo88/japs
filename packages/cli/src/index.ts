@@ -1,9 +1,9 @@
 #!/usr/bin/env -S npx tsx
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { analyzeProjects, discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
+import { analyzeProjects, buildPortfolio, discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
 import {
   AnalysisFile as AnalysisFileSchema,
   type FactsFile,
@@ -16,6 +16,7 @@ import {
 } from "@japs/schema";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 import { llmFromEnv } from "./llm.ts";
+import { writePortfolio } from "./build.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -42,6 +43,7 @@ Usage:
                                                   extract facts for analysis (no LLM)
   japs analyze [--in facts.json] [--out analysis.json] [--project <key>]… [--force]
                                                   generate project copy with an LLM
+  japs build [--out out]                          assemble out/portfolio.json + screenshots
 
 Options:
   --config <path>   config file (default ${CONFIG_FILE})
@@ -280,6 +282,58 @@ async function runAnalyze(args: string[]): Promise<void> {
   console.log(`\nWritten to ${outPath}`);
 }
 
+async function runBuild(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      out: { type: "string", default: "out" },
+      projects: { type: "string", default: "projects.json" },
+      facts: { type: "string", default: "facts.json" },
+      analysis: { type: "string", default: "analysis.json" },
+      config: { type: "string", default: CONFIG_FILE },
+    },
+  });
+
+  const config = await loadConfig(resolve(userCwd, values.config ?? CONFIG_FILE));
+  if (!config) {
+    console.error(`No ${CONFIG_FILE}. Run \`japs init --locales en,sk\` and fill in your profile.`);
+    process.exit(1);
+  }
+  const projectsFile = await readJson(
+    resolve(userCwd, values.projects ?? "projects.json"),
+    ProjectsFileSchema,
+    "Run `japs discover` first.",
+  );
+  const analysisFile = await readJson(
+    resolve(userCwd, values.analysis ?? "analysis.json"),
+    AnalysisFileSchema,
+    "Run `japs analyze` first.",
+  );
+  const factsPath = resolve(userCwd, values.facts ?? "facts.json");
+  const factsParsed = existsSync(factsPath) ? FactsFileSchema.safeParse(JSON.parse(await readFile(factsPath, "utf8"))) : null;
+
+  const result = buildPortfolio({
+    projectsFile,
+    analysisFile,
+    factsFile: factsParsed?.success ? factsParsed.data : null,
+    config,
+  });
+
+  const outDir = resolve(userCwd, values.out ?? "out");
+  const { portfolio, warnings } = await writePortfolio(outDir, result);
+
+  for (const p of portfolio.projects) {
+    const flags = [p.featured ? "featured" : "", p.client.anonymized ? "anonymized" : "", p.links.repo ? "" : "no repo link"]
+      .filter(Boolean)
+      .join(", ");
+    console.log(`${p.title[portfolio.defaultLocale]}${flags ? `  [${flags}]` : ""}`);
+  }
+  const shots = portfolio.projects.reduce((n, p) => n + p.screenshots.length, 0);
+  console.log(`\n${portfolio.projects.length} projects, ${shots} screenshots, locales ${portfolio.locales.join(", ")}.`);
+  if (warnings.length) console.warn(`\nWarnings (${warnings.length}):\n${warnings.map((w) => `  - ${w}`).join("\n")}`);
+  console.log(`\nWritten to ${join(outDir, "portfolio.json")}`);
+}
+
 async function main(): Promise<void> {
   loadedEnvFile = findEnvFile(userCwd);
   if (loadedEnvFile) process.loadEnvFile(loadedEnvFile);
@@ -294,6 +348,8 @@ async function main(): Promise<void> {
       return runFacts(rest);
     case "analyze":
       return runAnalyze(rest);
+    case "build":
+      return runBuild(rest);
     case undefined:
     case "help":
     case "--help":

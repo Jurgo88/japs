@@ -23,7 +23,9 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 const languageName = (locale: string) => LANGUAGE_NAMES[locale.split("-")[0] ?? locale] ?? locale;
 
+/** What the prompt asks for. Validation allows up to SUMMARY_LIMIT, the portfolio.json maximum. */
 export const SUMMARY_MAX = 160;
+export const SUMMARY_LIMIT = 200;
 
 export function systemPrompt(locales: string[]): string {
   const languages = locales.map((l) => `"${l}" (${languageName(l)})`).join(", ");

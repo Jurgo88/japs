@@ -1,7 +1,7 @@
 # Spec: `portfolio.json`
 
 **Status:** Návrh
-**Implementácia:** `packages/schema/src/portfolio.ts` (Zod), JSON Schema sa generuje z neho.
+**Implementácia:** `packages/schema/src/portfolio.ts` (Zod), zostavenie `packages/core/src/build/portfolio.ts`, príkaz `japs build` → `out/portfolio.json` + `out/screenshots/`.
 
 ## Účel
 
@@ -55,4 +55,9 @@ Texty sú viacjazyčné (`LocalizedText`, [ADR 0005](../adr/0005-bilingual-portf
 - `links.repo` je `null` pre privátne repá (nikdy neprezradiť existenciu privátneho repa).
 - Ak `client.anonymized = true`: `title` je generický, `links.live` je `null`, `client.label` napr. `{ "sk": "E-shop pre klienta z gastro sektora", "en": "E-shop for a hospitality client" }`, screenshoty sa nezobrazujú, pokiaľ ich používateľ výslovne nepovolí.
 - Obrázky sú relatívne cesty k súborom, ktoré sa kopírujú spolu s `portfolio.json` (žiadne hotlinky na Netlify CDN).
+- Do portfólia ide len projekt, ktorý je viditeľný podľa **aktuálneho** configu (úprava `hidden` / `isClient` platí bez nového `discover`) a má analýzu vo všetkých jazykoch. Ostatné sú vo varovaniach.
+- Poradie: `order` z configu, potom posledná aktivita. `period.from` = prvý commit, `period.to` = posledná aktivita.
+- Texty: analýza, prekrytá po jazykoch `projects.<key>.copy` z configu; `tags` z configu nahrádzajú celé pole.
+- Anonymizovaný projekt sa preskočí, ak jeho analýza nebola generovaná anonymne (inak by text mohol obsahovať meno klienta).
+- Screenshoty: zatiaľ Netlify screenshot hlavného webu, stiahnutý do `screenshots/<slug>-desktop.webp`; neúspešné stiahnutie screenshot z portfólia vyradí.
 - `version` sa zvyšuje pri breaking zmene. Šablóna deklaruje, ktoré verzie podporuje.

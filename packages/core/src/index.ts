@@ -24,3 +24,10 @@ export {
   type LlmPreset,
 } from "./analyze/llm.ts";
 export { copyJsonSchema, promptFacts, systemPrompt, userPrompt, type PromptContext } from "./analyze/prompt.ts";
+export {
+  buildPortfolio,
+  BuildError,
+  type BuildPortfolioInput,
+  type BuildPortfolioResult,
+  type ScreenshotDownload,
+} from "./build/portfolio.ts";
