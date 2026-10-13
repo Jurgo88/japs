@@ -34,6 +34,8 @@ export const ProjectAnalysis = z.object({
   anonymized: z.boolean(),
   copy: ProjectCopy,
   usage: TokenUsage,
+  /** Description sentences removed by the grounding check (numbers not in the facts). */
+  dropped: z.array(z.object({ locale: z.string(), text: z.string() })).default([]),
 });
 export type ProjectAnalysis = z.infer<typeof ProjectAnalysis>;
 

@@ -49,10 +49,12 @@ Výstup: `ProjectFacts` (typ v `@japs/schema`), príkaz `japs facts` → `facts.
 
 ### 3. Grounding check
 
-- Každý `tag` musí existovať vo faktoch (technológia z dependencies, jazykov alebo frameworku).
-- `description` nesmie obsahovať čísla, ktoré nie sú vo faktoch (heuristika: regex na čísla + porovnanie).
+Implementácia: `packages/core/src/analyze/grounding.ts`.
+
+- Každý `tag` musí existovať vo faktoch: schéma ho obmedzuje na `enum` z `ProjectFacts.tech`, validácia vyhodí ostatné.
+- `title`, `summary`, `description` ani `role` nesmú obsahovať číslo, ktoré nie je vo faktoch, ktoré model videl (vrátane častí dátumov; zaokrúhlené desatinné číslo sa počíta). Heuristika: chytí vymyslené čísla („500 používateľov“, „Node 26“), nie každé nepravdivé tvrdenie.
 - Kontroluje sa každý jazyk samostatne.
-- Pri porušení: tvrdenie sa vyhodí, prípadne sa generuje znova (max 1 retry).
+- Pri porušení: 1 retry s presným popisom (ktoré číslo, v ktorom poli a jazyku). Ak to nepomôže, z `description` sa vyhodia vety s neoverenými číslami (zaznamenané v `analysis.json` → `dropped`, CLI ich vypíše); v `title` / `summary` / `role` sa projekt nevygeneruje a ostáva predošlý text.
 
 ### 4. Ľudská kontrola
 
