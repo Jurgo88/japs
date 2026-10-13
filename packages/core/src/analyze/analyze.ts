@@ -2,7 +2,7 @@ import type { AnalysisFile, FactsFile, ProjectAnalysis, ProjectCopy, ProjectFact
 import { AnalysisFile as AnalysisFileSchema, ProjectCopy as ProjectCopySchema } from "@japs/schema";
 import { errorMessage, mapLimit } from "../facts/util.ts";
 import type { LlmClient, LlmJsonRequest } from "./llm.ts";
-import { copyJsonSchema, type PromptContext, SUMMARY_MAX, systemPrompt, userPrompt } from "./prompt.ts";
+import { copyJsonSchema, type PromptContext, SUMMARY_LIMIT, systemPrompt, userPrompt } from "./prompt.ts";
 
 export interface AnalyzeOptions {
   llm: LlmClient;
@@ -43,7 +43,7 @@ function validateCopy(json: unknown, locales: string[], techNames: Set<string>):
     if (missing.length) problems.push(`${field} is missing ${missing.join(", ")}`);
   }
   for (const [locale, text] of Object.entries(copy.summary)) {
-    if (text.length > SUMMARY_MAX) problems.push(`summary.${locale} has ${text.length} characters, max ${SUMMARY_MAX}`);
+    if (text.length > SUMMARY_LIMIT) problems.push(`summary.${locale} has ${text.length} characters, max ${SUMMARY_LIMIT}`);
   }
   if (problems.length) return { error: problems.join("; ") };
 

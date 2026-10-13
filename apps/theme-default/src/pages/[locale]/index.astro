@@ -1,0 +1,14 @@
+---
+import HomePage from "../../components/HomePage.astro";
+import { loadPortfolio } from "../../lib/portfolio.ts";
+
+/** Every locale except the default, which lives at /. */
+export function getStaticPaths() {
+  const portfolio = loadPortfolio();
+  return portfolio.locales.filter((l) => l !== portfolio.defaultLocale).map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params;
+---
+
+<HomePage locale={locale!} />

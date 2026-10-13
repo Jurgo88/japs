@@ -1,0 +1,104 @@
+---
+import type { Portfolio, PortfolioProject } from "@japs/schema";
+import { formatMonth, t } from "../lib/i18n.ts";
+import { projectUrl, text } from "../lib/portfolio.ts";
+
+interface Props {
+  project: PortfolioProject;
+  portfolio: Portfolio;
+  locale: string;
+}
+
+const { project, portfolio, locale } = Astro.props;
+const shot = project.screenshots.find((s) => s.viewport === "desktop") ?? project.screenshots[0];
+const year = formatMonth(project.period.to ?? project.period.from, locale);
+---
+
+<article class:list={["card", { featured: project.featured }]}>
+  <a class="cover" href={projectUrl(project, locale, portfolio)} tabindex="-1" aria-hidden="true">
+    {
+      shot ? (
+        <img src={`/${shot.src}`} alt="" loading="lazy" width="1280" height="800" />
+      ) : (
+        <span class="placeholder">{text(project.title, locale).charAt(0)}</span>
+      )
+    }
+  </a>
+  <div class="body">
+    <div class="meta">
+      {project.featured && <span class="badge">{t(locale, "featured")}</span>}
+      {project.client.isClient && <span class="badge">{t(locale, "clientWork")}</span>}
+      {year && <span class="year">{year}</span>}
+    </div>
+    <h3><a href={projectUrl(project, locale, portfolio)}>{text(project.title, locale)}</a></h3>
+    <p>{text(project.summary, locale)}</p>
+    <ul class="tags">
+      {project.tags.slice(0, 5).map((tag) => <li>{tag}</li>)}
+    </ul>
+  </div>
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .cover {
+    aspect-ratio: 16 / 10;
+    background: var(--surface);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .placeholder {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .body {
+    padding: 16px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+  .meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-height: 22px;
+  }
+  .year {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.3;
+  }
+  h3 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  h3 a:hover {
+    text-decoration: underline;
+  }
+  p {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 15px;
+    flex: 1;
+  }
+</style>

@@ -1,0 +1,8 @@
+---
+import HomePage from "../components/HomePage.astro";
+import { loadPortfolio } from "../lib/portfolio.ts";
+
+const { defaultLocale } = loadPortfolio();
+---
+
+<HomePage locale={defaultLocale} />

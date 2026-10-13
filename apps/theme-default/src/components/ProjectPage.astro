@@ -1,0 +1,161 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import Base from "../layouts/Base.astro";
+import { formatMonth, t } from "../lib/i18n.ts";
+import { renderMarkdown } from "../lib/markdown.ts";
+import { loadPortfolio, localePrefix, projectUrl, text } from "../lib/portfolio.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? t(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const role = project.role ? text(project.role, locale) : null;
+const clientLabel = project.client.label ? text(project.client.label, locale) : null;
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={`${localePrefix(locale, portfolio)}/`}
+  name={portfolio.profile.name}
+>
+  <article class="project">
+    <a class="back" href={`${localePrefix(locale, portfolio)}/`}>← {t(locale, "back")}</a>
+    <h1>{title}</h1>
+    <p class="summary">{text(project.summary, locale)}</p>
+    {(project.client.isClient || clientLabel) && <p class="badge">{clientLabel ?? t(locale, "clientWork")}</p>}
+
+    <dl class="facts">
+      {
+        role && (
+          <div>
+            <dt>{t(locale, "role")}</dt>
+            <dd>{role}</dd>
+          </div>
+        )
+      }
+      <div>
+        <dt>{t(locale, "period")}</dt>
+        <dd>{period}</dd>
+      </div>
+      {
+        project.tags.length > 0 && (
+          <div>
+            <dt>{t(locale, "stack")}</dt>
+            <dd>
+              <ul class="tags">
+                {project.tags.map((tag) => (
+                  <li>{tag}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        )
+      }
+    </dl>
+
+    {
+      (project.links.live || project.links.repo) && (
+        <p class="actions">
+          {project.links.live && (
+            <a class="button" href={project.links.live} rel="noopener">
+              {t(locale, "live")} ↗
+            </a>
+          )}
+          {project.links.repo && (
+            <a class="button secondary" href={project.links.repo} rel="noopener">
+              {t(locale, "source")} ↗
+            </a>
+          )}
+        </p>
+      )
+    }
+
+    {
+      project.screenshots.map((s) => (
+        <img class="shot" src={`/${s.src}`} alt={text(s.alt, locale)} width="1280" height="800" />
+      ))
+    }
+
+    <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+  </article>
+</Base>
+
+<style>
+  .project {
+    max-width: 820px;
+    padding: 32px 0;
+  }
+  .back {
+    font-size: 14px;
+    text-decoration: none;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.15;
+    margin: 16px 0 8px;
+  }
+  .summary {
+    font-size: 19px;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+    padding: 16px 18px;
+    background: var(--surface);
+    border-radius: var(--radius);
+  }
+  dt {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  dd {
+    margin: 4px 0 0;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 28px;
+  }
+  .button {
+    display: inline-block;
+    padding: 9px 16px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .shot {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 28px;
+  }
+  .description {
+    font-size: 17px;
+  }
+</style>

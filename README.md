@@ -4,7 +4,7 @@
 
 JAPS connects to your **Netlify** and **GitHub** accounts, finds what you've actually shipped, pairs deployed sites with their repositories, analyzes each project, and generates a static portfolio you can tweak and publish.
 
-**Status:** early development (Phase 1). Not usable yet.
+**Status:** early development. The CLI pipeline and a default theme work end to end; editor and one-click publishing are not there yet.
 
 ## Why another one?
 
@@ -35,6 +35,8 @@ pnpm japs init         # creates japs.config.json for your decisions
 pnpm japs discover     # writes projects.json
 pnpm japs facts        # writes facts.json (README, dependencies, commits, Netlify, live site)
 pnpm japs analyze      # writes analysis.json (project copy in your locales)
+pnpm japs build        # writes out/portfolio.json + screenshots
+pnpm dev               # preview the portfolio at http://localhost:4321
 ```
 
 ### What goes to the LLM
@@ -48,7 +50,8 @@ pnpm japs analyze      # writes analysis.json (project copy in your locales)
 | `packages/schema` | Shared types and validation (Zod) |
 | `packages/core` | Discovery, pairing, filters |
 | `packages/cli` | `japs` command line |
-| `apps/` | Dashboard (Vue 3) and themes (Astro) — coming later |
+| `apps/theme-default` | Default Astro theme, built from `portfolio.json` |
+| `apps/dashboard` | Vue 3 editor — coming later |
 | `docs/` | Kickoff, specs and architecture decisions (Slovak) |
 
 ## License

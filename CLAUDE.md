@@ -16,7 +16,7 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json`. Next: grounding check (#11), screenshots (#12), `portfolio.json` (#13).
+**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json` → `japs build` → `out/portfolio.json` → `apps/theme-default`. Next: grounding check (#11), Playwright screenshots (#12), Netlify deploy (Phase 2).
 
 ## Layout
 
@@ -24,7 +24,8 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 packages/schema   Zod types (ProjectsFile, Portfolio, ProjectFacts). No deps besides zod.
 packages/core     discovery (Netlify, GitHub), pairing, filters, fact extraction. Uses only fetch.
 packages/cli      `japs` command (pnpm japs discover)
-apps/*            dashboard (Vue 3, Phase 3), theme-default (Astro, Phase 2) — placeholders
+apps/theme-default  Astro theme, reads only out/portfolio.json (Phase 2)
+apps/dashboard      Vue 3 editor (Phase 3, not started)
 ```
 
 ## Commands
@@ -37,6 +38,8 @@ pnpm japs init --locales en,sk   # creates japs.config.json (never overwrites)
 pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env; reads japs.config.json
 pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by pushedAt)
 pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_API_KEY in .env, ADR 0006)
+pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
+pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
 ```
 
 ## Files (until Supabase in Phase 3)

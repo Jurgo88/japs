@@ -75,14 +75,14 @@ describe("analyzeProjects", () => {
 
   it("retries once with the validation error, then succeeds", async () => {
     const llm = fakeLlm((_req, call) =>
-      call === 1 ? { ...validCopy("A"), summary: { en: "x".repeat(200), sk: "ok" } } : validCopy("A"),
+      call === 1 ? { ...validCopy("A"), summary: { en: "x".repeat(201), sk: "ok" } } : validCopy("A"),
     );
     const { file } = await analyzeProjects(factsFile, { llm, locales: ["en", "sk"], keys: [shopFacts.key] });
 
     expect(llm.requests).toHaveLength(2);
     const retry = llm.requests[1]!.messages;
     expect(retry.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
-    expect(retry[2]?.content).toContain("summary.en has 200 characters, max 160");
+    expect(retry[2]?.content).toContain("summary.en has 201 characters, max 200");
     expect(file.projects[0]?.copy.title.en).toBe("A");
   });
 
