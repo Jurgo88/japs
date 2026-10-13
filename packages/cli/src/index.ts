@@ -3,8 +3,9 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
+import { analyzeProjects, discover, extractFacts, GitHubClient, NetlifyClient } from "@japs/core";
 import {
+  AnalysisFile as AnalysisFileSchema,
   type FactsFile,
   FactsFile as FactsFileSchema,
   type JapsConfig,
@@ -14,6 +15,7 @@ import {
   ProjectsFile as ProjectsFileSchema,
 } from "@japs/schema";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
+import { llmFromEnv } from "./llm.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -38,6 +40,8 @@ Usage:
   japs discover [--out projects.json] [--stale-months 24]
   japs facts [--in projects.json] [--out facts.json] [--all] [--project <key>]… [--no-cache]
                                                   extract facts for analysis (no LLM)
+  japs analyze [--in facts.json] [--out analysis.json] [--project <key>]… [--force]
+                                                  generate project copy with an LLM
 
 Options:
   --config <path>   config file (default ${CONFIG_FILE})
@@ -45,6 +49,9 @@ Options:
 Environment:
   NETLIFY_TOKEN   required
   GITHUB_TOKEN    optional (without it, repos are inferred from Netlify deploys only)
+  JAPS_LLM_PROVIDER  openai (default) | gemini | groq | openrouter | ollama
+  JAPS_LLM_MODEL     model name (openai default: gpt-5-mini)
+  OPENAI_API_KEY     or GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY / JAPS_LLM_API_KEY
 `;
 
 function printSummary(file: ProjectsFile, config: JapsConfig | null): void {
@@ -212,6 +219,67 @@ async function runFacts(args: string[]): Promise<void> {
   console.log(`\nWritten to ${outPath}`);
 }
 
+async function runAnalyze(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      in: { type: "string", default: "facts.json" },
+      out: { type: "string", default: "analysis.json" },
+      projects: { type: "string", default: "projects.json" },
+      config: { type: "string", default: CONFIG_FILE },
+      project: { type: "string", multiple: true },
+      force: { type: "boolean", default: false },
+    },
+  });
+
+  const factsFile = await readJson(resolve(userCwd, values.in ?? "facts.json"), FactsFileSchema, "Run `japs facts` first.");
+  const config = await loadConfig(resolve(userCwd, values.config ?? CONFIG_FILE));
+  if (!config) console.warn(`No ${CONFIG_FILE} — generating in English only. Run \`japs init --locales en,sk\` for more.\n`);
+  const locales = config?.locales ?? ["en"];
+
+  // The account login only tells whether others committed; analysis works without it.
+  const projectsPath = resolve(userCwd, values.projects ?? "projects.json");
+  const projectsParsed = existsSync(projectsPath)
+    ? ProjectsFileSchema.safeParse(JSON.parse(await readFile(projectsPath, "utf8")))
+    : null;
+  const accountLogin = projectsParsed?.success ? projectsParsed.data.account.github : null;
+
+  const outPath = resolve(userCwd, values.out ?? "analysis.json");
+  const previousParsed = existsSync(outPath) ? AnalysisFileSchema.safeParse(JSON.parse(await readFile(outPath, "utf8"))) : null;
+  const previous = previousParsed?.success ? previousParsed.data : null;
+
+  const llm = llmFromEnv(process.env);
+  console.log(`Generating with ${llm.provider} / ${llm.model} in ${locales.join(", ")}…`);
+
+  const { file, generated, reused, usage } = await analyzeProjects(factsFile, {
+    llm,
+    locales,
+    projects: config?.projects,
+    accountLogin,
+    previous,
+    force: values.force,
+    keys: values.project,
+    onProgress: process.stdout.isTTY
+      ? (done, total, key) => process.stdout.write(`\r[${done}/${total}] ${key}`.padEnd(70))
+      : undefined,
+  });
+  if (process.stdout.isTTY) process.stdout.write(`\r${" ".repeat(70)}\r`);
+
+  await writeFile(outPath, `${JSON.stringify(file, null, 2)}\n`, "utf8");
+
+  const defaultLocale = config?.defaultLocale ?? locales[0]!;
+  for (const p of file.projects) {
+    console.log(`${p.copy.title[defaultLocale] ?? p.key}  —  ${p.copy.summary[defaultLocale] ?? ""}`);
+  }
+  console.log(
+    `\n${generated} generated, ${reused} unchanged (skipped). Tokens: ${usage.input} in, ${usage.output} out.`,
+  );
+  if (file.warnings.length) {
+    console.warn(`\nWarnings (${file.warnings.length}):\n${file.warnings.map((w) => `  - ${w}`).join("\n")}`);
+  }
+  console.log(`\nWritten to ${outPath}`);
+}
+
 async function main(): Promise<void> {
   loadedEnvFile = findEnvFile(userCwd);
   if (loadedEnvFile) process.loadEnvFile(loadedEnvFile);
@@ -224,6 +292,8 @@ async function main(): Promise<void> {
       return runDiscover(rest);
     case "facts":
       return runFacts(rest);
+    case "analyze":
+      return runAnalyze(rest);
     case undefined:
     case "help":
     case "--help":

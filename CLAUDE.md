@@ -16,7 +16,7 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. Next: LLM analysis (#10, #11), screenshots (#12), `portfolio.json` (#13).
+**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json`. Next: grounding check (#11), screenshots (#12), `portfolio.json` (#13).
 
 ## Layout
 
@@ -36,6 +36,7 @@ pnpm typecheck       # tsc --noEmit, all packages
 pnpm japs init --locales en,sk   # creates japs.config.json (never overwrites)
 pnpm japs discover   # needs NETLIFY_TOKEN and GITHUB_TOKEN in .env; reads japs.config.json
 pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by pushedAt)
+pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_API_KEY in .env, ADR 0006)
 ```
 
 ## Files (until Supabase in Phase 3)
@@ -54,5 +55,6 @@ pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by
 - Private repos: never expose their URL in public output (`links.repo = null`).
 - Before the repo goes public (Phase 4), anonymize client names in `docs/kickoff.md`.
 - Every new architectural decision gets an ADR in `docs/adr/`.
+- LLM access goes through `LlmClient` (ADR 0006); analysis code never calls a provider directly. Anonymized prompts carry no names, domains, URLs or README text.
 - Portfolio texts are localized (`LocalizedText`, ADR 0005). Never hard-code `sk`/`en`; use the declared `locales`.
 - Private repos and suggested client projects stay unpublished unless the config explicitly sets `"hidden": false`.

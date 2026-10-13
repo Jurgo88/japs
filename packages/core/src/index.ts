@@ -13,3 +13,14 @@ export { extractFacts, type ExtractFactsOptions, type ExtractFactsResult } from 
 export { deriveTech, techForDependency, DEPENDENCY_TECH } from "./facts/tech.ts";
 export { parseHtmlMeta } from "./facts/live.ts";
 export { summarizeReadme } from "./facts/readme.ts";
+export { analyzeProjects, type AnalyzeOptions, type AnalyzeResult } from "./analyze/analyze.ts";
+export {
+  LLM_PRESETS,
+  LlmError,
+  OpenAiCompatibleClient,
+  type LlmClient,
+  type LlmJsonRequest,
+  type LlmJsonResponse,
+  type LlmPreset,
+} from "./analyze/llm.ts";
+export { copyJsonSchema, promptFacts, systemPrompt, userPrompt, type PromptContext } from "./analyze/prompt.ts";

@@ -29,12 +29,17 @@ Requires Node 20+ and pnpm.
 
 ```bash
 pnpm install
-cp .env.example .env   # add NETLIFY_TOKEN and GITHUB_TOKEN
+cp .env.example .env   # add NETLIFY_TOKEN, GITHUB_TOKEN and an LLM key (OpenAI, Gemini, Groq, OpenRouter or Ollama)
 pnpm test
 pnpm japs init         # creates japs.config.json for your decisions
 pnpm japs discover     # writes projects.json
 pnpm japs facts        # writes facts.json (README, dependencies, commits, Netlify, live site)
+pnpm japs analyze      # writes analysis.json (project copy in your locales)
 ```
+
+### What goes to the LLM
+
+`japs analyze` sends each project's extracted facts to the LLM provider you configure — including README excerpts of private repositories. Pick a provider whose data terms you accept, or run a local model with Ollama. Projects marked `"anonymize": true` in `japs.config.json` are sent without names, domains, URLs or README text. Private and client projects are never published unless you explicitly unhide them.
 
 ## Repository layout
 
