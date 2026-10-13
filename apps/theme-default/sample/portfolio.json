@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "locales": ["en", "sk"],
+  "defaultLocale": "en",
+  "profile": {
+    "name": "Jane Example",
+    "headline": { "en": "Web developer", "sk": "Webový vývojár" },
+    "bio": {
+      "en": "Sample portfolio bundled with the default theme.",
+      "sk": "Ukážkové portfólio dodávané s predvolenou témou."
+    },
+    "location": "Example City",
+    "links": [{ "label": "GitHub", "url": "https://github.com/example" }]
+  },
+  "projects": [
+    {
+      "slug": "example-shop",
+      "title": { "en": "Example Shop", "sk": "Ukážkový obchod" },
+      "summary": {
+        "en": "A small online shop built as a demo.",
+        "sk": "Malý online obchod vytvorený ako ukážka."
+      },
+      "description": {
+        "en": "A demo storefront with a product list and a cart.",
+        "sk": "Ukážkový obchod so zoznamom produktov a košíkom."
+      },
+      "role": { "en": "Developer", "sk": "Vývojár" },
+      "period": { "from": "2025-01", "to": "2025-06" },
+      "tags": ["Astro", "TypeScript"],
+      "links": { "live": "https://shop.example.com", "repo": "https://github.com/example/shop" },
+      "client": { "isClient": false, "anonymized": false, "label": null },
+      "screenshots": [],
+      "featured": true
+    }
+  ]
+}
