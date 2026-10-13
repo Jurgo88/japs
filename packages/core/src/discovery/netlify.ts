@@ -41,6 +41,7 @@ function toContext(value: string | null | undefined): DeployContext {
 
 export function toDeployInput(raw: RawDeploy): DeployInput {
   return {
+    id: raw.id,
     commitUrl: raw.commit_url ?? null,
     reviewUrl: raw.review_url ?? null,
     framework: raw.framework ?? null,
@@ -76,7 +77,7 @@ export class NetlifyClient {
     this.fetchImpl = options.fetch ?? globalThis.fetch;
   }
 
-  private async get(path: string): Promise<unknown> {
+  async get(path: string): Promise<unknown> {
     const res = await this.fetchImpl(`${API}${path}`, {
       headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
     });

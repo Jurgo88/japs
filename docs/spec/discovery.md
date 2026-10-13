@@ -33,6 +33,7 @@ Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s r
 7. **Zlúč projekty** podľa `merge` z configu (napr. frontend + API repo). Prvé repo cieľového projektu ostáva primárne.
 8. **Aplikuj default filtre** (projekt sa nezmaže, len dostane `hidden: true` a dôvod):
    - repo je `fork` alebo `archived`
+   - repo je prázdne (GitHub `size: 0`) a projekt nemá web
    - web nemá žiadny deploy
    - jediný deploy webu je `deploy-preview`
    - posledná aktivita (max z `pushed_at` a `published_at`) je staršia ako `staleAfterMonths` (default 24)

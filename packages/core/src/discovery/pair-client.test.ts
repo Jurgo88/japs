@@ -15,6 +15,7 @@ const agencySite: SiteInput = {
   customDomain: null,
   repoUrl: "https://github.com/AcmeAgency/landing",
   deploy: {
+    id: "d-agency",
     commitUrl: null,
     reviewUrl: null,
     framework: "astro",
@@ -31,6 +32,7 @@ const agencyRepo: RepoInput = {
   private: false,
   fork: false,
   archived: false,
+  empty: false,
   homepage: null,
   language: "TypeScript",
   topics: [],
