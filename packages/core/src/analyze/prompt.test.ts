@@ -9,16 +9,23 @@ describe("promptFacts", () => {
     const facts = promptFacts(shopFacts, context);
     expect(facts).toMatchObject({
       project: "AcmeShop",
-      technologies: ["Nuxt", "TypeScript", "Supabase"],
+      technologies: ["Nuxt (framework)", "TypeScript (language)", "Supabase (service)"],
       repositories: [
         {
           description: "E-shop for Acme Bakery",
-          commits: { count: 120, first: "2025-03-01", last: "2026-10-09" },
+          commits: { count: 120, firstMonth: "2025-03", lastMonth: "2026-10" },
           readme: { private: true, excerpt: "Acme Bakery shop. Order bread online." },
         },
       ],
-      sites: [{ domain: "acme-bakery.example", functions: ["order-mailer"], siteTitle: "Acme Bakery" }],
+      sites: [{ functions: ["order-mailer"], siteTitle: "Acme Bakery" }],
     });
+  });
+
+  it("leaves out jargon sources: raw dependencies, domains, site language, deploy dates", () => {
+    const prompt = userPrompt(shopFacts, context);
+    for (const noise of ["@supabase/supabase-js", "acme-bakery.example", '"sk"', "2026-10-09"]) {
+      expect(prompt).not.toContain(noise);
+    }
   });
 
   it("sends no names, domains, URLs, README or package names when anonymized", () => {

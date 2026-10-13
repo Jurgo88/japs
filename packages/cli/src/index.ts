@@ -276,6 +276,10 @@ async function runAnalyze(args: string[]): Promise<void> {
   console.log(
     `\n${generated} generated, ${reused} unchanged (skipped). Tokens: ${usage.input} in, ${usage.output} out.`,
   );
+  const dropped = file.projects.flatMap((p) => p.dropped.map((d) => `  - ${p.key} [${d.locale}]: ${d.text}`));
+  if (dropped.length) {
+    console.warn(`\nRemoved by the grounding check (numbers not in the facts):\n${dropped.join("\n")}`);
+  }
   if (file.warnings.length) {
     console.warn(`\nWarnings (${file.warnings.length}):\n${file.warnings.map((w) => `  - ${w}`).join("\n")}`);
   }

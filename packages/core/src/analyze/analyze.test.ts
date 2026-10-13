@@ -102,6 +102,39 @@ describe("analyzeProjects", () => {
     expect(file.warnings[0]).toMatch(/^repo:devuser\/acmeshop: invalid output after retry: /);
   });
 
+  describe("grounding", () => {
+    const withDescription = (en: string, sk: string) => ({ ...validCopy("Acme Shop"), description: t(en, sk) });
+
+    it("retries when a number is not in the facts, telling the model which one", async () => {
+      const llm = fakeLlm((_req, call) =>
+        call === 1 ? withDescription("Serves 500 bakeries.", "Slúži 500 pekárňam.") : withDescription("120 commits.", "120 commitov."),
+      );
+      const { file } = await analyzeProjects(factsFile, { llm, locales: ["en", "sk"], keys: [shopFacts.key] });
+
+      expect(llm.requests[1]?.messages[2]?.content).toContain("description.en contains 500, which is not in the facts");
+      expect(file.projects[0]).toMatchObject({ copy: { description: t("120 commits.", "120 commitov.") }, dropped: [] });
+      expect(file.projects[0]?.usage).toEqual({ input: 2000, output: 400 });
+    });
+
+    it("drops the offending description sentence when the retry still invents numbers", async () => {
+      const llm = fakeLlm(() => withDescription("Order bread online. Used by 500 bakeries.", "Objednávky chleba online. Používa ho 500 pekární."));
+      const { file } = await analyzeProjects(factsFile, { llm, locales: ["en", "sk"], keys: [shopFacts.key] });
+
+      expect(file.projects[0]?.copy.description).toEqual(t("Order bread online.", "Objednávky chleba online."));
+      expect(file.projects[0]?.dropped).toEqual([
+        { locale: "en", text: "Used by 500 bakeries." },
+        { locale: "sk", text: "Používa ho 500 pekární." },
+      ]);
+    });
+
+    it("fails the project when a summary keeps an invented number", async () => {
+      const llm = fakeLlm(() => ({ ...validCopy("Acme Shop"), summary: t("Shop for 500 bakeries.", "Obchod pre 500 pekární.") }));
+      const { file } = await analyzeProjects(factsFile, { llm, locales: ["en", "sk"], keys: [shopFacts.key] });
+      expect(file.projects).toEqual([]);
+      expect(file.warnings[0]).toContain("ungrounded numbers after retry: summary.en contains 500");
+    });
+  });
+
   it("turns provider errors into warnings", async () => {
     const llm = fakeLlm(() => new Error("openai 429: Rate limit reached"));
     const { file } = await analyzeProjects(factsFile, { llm, locales: ["en"], keys: [shopFacts.key] });

@@ -31,6 +31,7 @@ const analysis = (key: string, title: string, extra: Partial<ProjectAnalysis> = 
     tags: ["Nuxt"],
   },
   usage: { input: 1, output: 1 },
+  dropped: [],
   ...extra,
 });
 

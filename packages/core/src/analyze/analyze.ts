@@ -1,8 +1,9 @@
 import type { AnalysisFile, FactsFile, ProjectAnalysis, ProjectCopy, ProjectFacts, TokenUsage } from "@japs/schema";
 import { AnalysisFile as AnalysisFileSchema, ProjectCopy as ProjectCopySchema } from "@japs/schema";
 import { errorMessage, mapLimit } from "../facts/util.ts";
+import { allowedNumbers, describeUngrounded, dropUngroundedSentences, findUngrounded } from "./grounding.ts";
 import type { LlmClient, LlmJsonRequest } from "./llm.ts";
-import { copyJsonSchema, type PromptContext, SUMMARY_LIMIT, systemPrompt, userPrompt } from "./prompt.ts";
+import { copyJsonSchema, promptFacts, type PromptContext, SUMMARY_LIMIT, systemPrompt, userPrompt } from "./prompt.ts";
 
 export interface AnalyzeOptions {
   llm: LlmClient;
@@ -111,28 +112,49 @@ export async function analyzeProjects(factsFile: FactsFile, options: AnalyzeOpti
       schemaName: "project_copy",
       schema: copyJsonSchema(locales, techNames),
     };
+    // Grounding compares against exactly what the model saw.
+    const allowed = allowedNumbers(JSON.stringify(promptFacts(facts, context)));
+    const projectUsage: TokenUsage = { input: 0, output: 0 };
+    const entry = (copy: ProjectCopy, dropped: ProjectAnalysis["dropped"]): ProjectAnalysis => ({
+      key: facts.key,
+      factsHash: facts.hash,
+      provider: llm.provider,
+      model: llm.model,
+      generatedAt: (options.now ?? new Date()).toISOString(),
+      anonymized: context.anonymize,
+      copy,
+      usage: projectUsage,
+      dropped,
+    });
+
     try {
       for (let attempt = 1; ; attempt++) {
         const response = await llm.generateJson(request);
-        usage.input += response.usage.input;
-        usage.output += response.usage.output;
-        const result = validateCopy(response.json, locales, new Set(techNames));
-        if ("copy" in result) {
-          return {
-            key: facts.key,
-            factsHash: facts.hash,
-            provider: llm.provider,
-            model: llm.model,
-            generatedAt: (options.now ?? new Date()).toISOString(),
-            anonymized: context.anonymize,
-            copy: result.copy,
-            usage: response.usage,
-          };
+        for (const total of [usage, projectUsage]) {
+          total.input += response.usage.input;
+          total.output += response.usage.output;
         }
-        if (attempt >= 2) throw new Error(`invalid output after retry: ${result.error}`);
+        const result = validateCopy(response.json, locales, new Set(techNames));
+        let error: string;
+        if ("copy" in result) {
+          const ungrounded = findUngrounded(result.copy, allowed);
+          if (!ungrounded.length) return entry(result.copy, []);
+          if (attempt >= 2) {
+            // Last resort: a description sentence can go; a title, summary or role can't.
+            if (ungrounded.every((u) => u.field === "description")) {
+              const { description, dropped } = dropUngroundedSentences(result.copy.description, allowed);
+              if (locales.every((l) => description[l]?.trim())) return entry({ ...result.copy, description }, dropped);
+            }
+            throw new Error(`ungrounded numbers after retry: ${describeUngrounded(ungrounded)}`);
+          }
+          error = `${describeUngrounded(ungrounded)}. Use only numbers that appear in the facts, or none`;
+        } else {
+          if (attempt >= 2) throw new Error(`invalid output after retry: ${result.error}`);
+          error = result.error;
+        }
         request.messages.push(
           { role: "assistant", content: response.text },
-          { role: "user", content: `That output is invalid: ${result.error}. Return the corrected JSON object.` },
+          { role: "user", content: `That output is invalid: ${error}. Return the corrected JSON object.` },
         );
       }
     } catch (err) {
