@@ -1,0 +1,398 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const firstName = profile.name.trim().split(/\s+/)[0] ?? profile.name;
+// "Freelance developer — Vue, Nuxt": the part after the dash gets the highlight.
+const [role, ...highlight] = text(profile.headline, locale).split(/\s+[—–-]\s+/);
+const stats = portfolioStats(portfolio);
+const statItems = [
+  { value: stats.projects, label: plural(locale, "projects", stats.projects) },
+  { value: stats.years ?? 0, label: plural(locale, "years", stats.years ?? 0) },
+  { value: stats.technologies, label: plural(locale, "technologies", stats.technologies) },
+].filter((s) => s.value > 0);
+const tags = tagCounts(portfolio);
+const most = tags[0]?.count ?? 1;
+const pad = (n: number) => String(n).padStart(2, "0");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <p class="hello" data-intro>
+      {tt(locale, "hello").replace("{name}", firstName)} <span class="wave" aria-hidden="true">👋</span>
+    </p>
+    <h1 class="statement" data-words data-intro>
+      {role}
+      {highlight.length > 0 && <span class="hl">{highlight.join(" — ")}</span>}
+    </h1>
+    {text(profile.bio, locale) && <p class="bio" data-intro>{text(profile.bio, locale)}</p>}
+    {
+      statItems.length > 0 && (
+        <ul class="stats" data-intro>
+          {statItems.map((s) => (
+            <li>
+              <b data-count={s.value}>{s.value}</b>
+              <span>{s.label}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    {profile.available === true && <div class="sticker" data-sticker data-intro>{tt(locale, "available")} ✦</div>}
+  </section>
+
+  <section class="gallery" id="work" data-gallery>
+    <div class="gallery-top">
+      <h2>{tt(locale, "myWork")}</h2>
+      <span class="counter" data-counter data-total={pad(projects.length)}>{pad(projects.length)}</span>
+    </div>
+    <div class="track" data-track>
+      {
+        projects.map((project) => {
+          const shot = coverShot(project);
+          return (
+            <a class="panel" href={projectUrl(project, locale, portfolio)} data-panel>
+              <div class="shot">
+                {shot ? (
+                  <img
+                    src={`/${shot.src}`}
+                    alt=""
+                    loading="lazy"
+                    width={shot.viewport === "mobile" ? 390 : 1440}
+                    height={shot.viewport === "mobile" ? 844 : 900}
+                  />
+                ) : (
+                  <span class="ph">{text(project.title, locale).charAt(0)}</span>
+                )}
+              </div>
+              <div class="panel-info">
+                <div>
+                  <h3>{text(project.title, locale)}</h3>
+                  <p>{text(project.summary, locale)}</p>
+                </div>
+                <ul class="chips">
+                  {project.client.isClient && <li class="client">{tt(locale, "clientWork")}</li>}
+                  {project.tags.slice(0, 4).map((tag) => (
+                    <li>{tag}</li>
+                  ))}
+                </ul>
+              </div>
+            </a>
+          );
+        })
+      }
+    </div>
+    <div class="progress" aria-hidden="true"><i data-progress></i></div>
+  </section>
+
+  {
+    tags.length > 0 && (
+      <section class="stack">
+        <h2>{tt(locale, "tools")}</h2>
+        <ul class="cloud" data-cloud>
+          {tags.map(({ tag, count }) => (
+            <li style={`font-size: ${Math.round(22 + (count / most) * 70)}px`}>{tag}</li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    text-align: center;
+    padding: 110px var(--pad) 64px;
+  }
+  .hello {
+    margin: 0 0 12px;
+    font-size: clamp(18px, 2vw, 24px);
+    font-weight: 500;
+  }
+  .wave {
+    display: inline-block;
+    transform-origin: 70% 70%;
+  }
+  .statement {
+    margin: 0;
+    max-width: 16ch;
+    font-weight: 800;
+    font-size: clamp(46px, 8.6vw, 150px);
+    line-height: 0.94;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 96;
+  }
+  .hl {
+    color: var(--blue);
+    font-style: italic;
+    font-weight: 300;
+    font-stretch: 75%;
+  }
+  .bio {
+    max-width: 46ch;
+    margin: 28px 0 0;
+    color: var(--muted);
+    font-size: clamp(17px, 1.5vw, 20px);
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px clamp(24px, 6vw, 80px);
+    margin: 44px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats b {
+    display: block;
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats span {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .sticker {
+    position: absolute;
+    right: 9vw;
+    bottom: 14vh;
+    width: clamp(110px, 12vw, 160px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    border-radius: 50%;
+    background: var(--pink);
+    font-weight: 700;
+    font-size: clamp(13px, 1.2vw, 16px);
+    line-height: 1.1;
+    rotate: -12deg;
+  }
+
+  .gallery {
+    position: relative;
+    background: var(--night);
+    color: var(--bg);
+  }
+  .gallery-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+    padding: 80px var(--pad) 0;
+  }
+  .gallery-top h2 {
+    margin: 0;
+    font-size: clamp(32px, 4vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .counter {
+    font-size: 15px;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+  .track {
+    display: grid;
+    gap: 48px;
+    padding: 48px var(--pad) 72px;
+  }
+  .panel {
+    display: grid;
+    gap: 18px;
+  }
+  .shot {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 18px;
+    background: #2a2825;
+  }
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    transition: scale 0.6s;
+  }
+  .panel:hover .shot img {
+    scale: 1.03;
+  }
+  .ph {
+    font-size: 160px;
+    font-weight: 800;
+    color: var(--blue);
+  }
+  .panel-info {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: start;
+  }
+  h3 {
+    margin: 0;
+    font-size: clamp(26px, 2.8vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .panel p {
+    margin: 6px 0 0;
+    max-width: 46ch;
+    opacity: 0.65;
+    font-size: 15px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 6px;
+    max-width: 280px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chips li {
+    padding: 3px 10px;
+    border: 1px solid rgb(255 255 255 / 0.25);
+    border-radius: 999px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .chips .client {
+    background: var(--pink);
+    border-color: var(--pink);
+    color: var(--ink);
+  }
+  .progress {
+    display: none;
+  }
+
+  /* Desktop with motion: the gallery becomes a pinned horizontal strip (motion.ts adds .is-horizontal). */
+  .gallery:global(.is-horizontal) {
+    height: 100svh;
+    overflow: hidden;
+  }
+  .gallery:global(.is-horizontal) .gallery-top {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 2;
+  }
+  .gallery:global(.is-horizontal) .track {
+    display: flex;
+    gap: 3vw;
+    width: max-content;
+    height: 100%;
+    align-items: center;
+    padding: 150px var(--pad) 56px;
+  }
+  .gallery:global(.is-horizontal) .panel {
+    width: min(62vw, 880px);
+    flex: none;
+  }
+  .gallery:global(.is-horizontal) .shot {
+    max-height: 56svh;
+  }
+  .gallery:global(.is-horizontal) .progress {
+    display: block;
+    position: absolute;
+    left: var(--pad);
+    right: var(--pad);
+    bottom: 24px;
+    height: 3px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: rgb(255 255 255 / 0.15);
+  }
+  .progress i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--pink);
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+
+  .stack {
+    padding: 18vh var(--pad) 6vh;
+    text-align: center;
+  }
+  .stack h2 {
+    margin: 0 0 32px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .cloud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 4px 22px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
+  }
+  .cloud li {
+    display: inline-block;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+  .cloud li:nth-child(3n) {
+    color: var(--blue);
+  }
+  .cloud li:nth-child(5n) {
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  @media (max-width: 760px) {
+    .hero {
+      min-height: 0;
+      padding-top: 130px;
+    }
+    .panel-info {
+      flex-direction: column;
+    }
+    .chips {
+      justify-content: start;
+    }
+    .sticker {
+      position: static;
+      margin-top: 32px;
+      width: 112px;
+      padding: 12px;
+      font-size: 12px;
+    }
+  }
+</style>

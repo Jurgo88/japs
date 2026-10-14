@@ -1,0 +1,227 @@
+---
+import "@fontsource-variable/fraunces/full.css";
+import "@fontsource-variable/fraunces/full-italic.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  /** The same page in every locale, for the switcher and hreflang. */
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#f1ece2" />
+    {
+      site &&
+        alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)
+    }
+    <link
+      rel="icon"
+      href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='16' fill='%23e0452a'/><text x='16' y='22.5' font-family='Georgia,serif' font-style='italic' font-size='19' fill='%23f1ece2' text-anchor='middle'>${encodeURIComponent(profile.name.trim().charAt(0).toUpperCase())}</text></svg>`}
+    />
+    <!-- Animated elements start hidden only when motion is allowed and JS runs; a timer shows them if the script fails. -->
+    <script is:inline>
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.documentElement.classList.add("motion");
+        setTimeout(() => document.documentElement.classList.add("motion-ready"), 3000);
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header mono">
+      <a href={homeHref} class="brand">{profile.name}</a>
+      <nav>
+        <a href={`${homeHref}#work`}>{tt(locale, "work")}</a>
+        {profile.email && <a href="#contact">{tt(locale, "contact")}</a>}
+        {
+          alternates.length > 1 && (
+            <span class="langs" aria-label={tt(locale, "language")}>
+              {alternates.map((a) => (
+                <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "true" : undefined} title={languageName(a.locale)}>
+                  {a.locale.toUpperCase()}
+                </a>
+              ))}
+            </span>
+          )
+        }
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer" id="contact">
+      {
+        profile.email && (
+          <p class="cta">
+            <a href={`mailto:${profile.email}`} data-split>
+              {tt(locale, "cta")}
+            </a>
+          </p>
+        )
+      }
+      <div class="footer-row mono">
+        {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+        {
+          profile.links.map((link) => (
+            <a href={link.url} rel="me noopener">
+              {link.label} ↗
+            </a>
+          ))
+        }
+        <span class="copy">© {new Date().getFullYear()} {profile.name}</span>
+      </div>
+    </footer>
+    <script>
+      import "../lib/motion.ts";
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --paper: #f1ece2;
+    --paper-2: #e6dfd1;
+    --ink: #1b1814;
+    --muted: #6f675b;
+    --line: #d4ccbd;
+    --accent: #d23f24;
+    --serif: "Fraunces Variable", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --pad: clamp(16px, 4vw, 48px);
+    color-scheme: light;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 18px/1.55 var(--serif);
+    font-variation-settings: "opsz" 18;
+    overflow-x: clip;
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--paper);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .mono {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .motion:not(.motion-ready) [data-intro] {
+    visibility: hidden;
+  }
+
+  .site-header {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px var(--pad);
+    color: #fff;
+    mix-blend-mode: difference;
+  }
+  .site-header a {
+    text-decoration: none;
+  }
+  .site-header nav,
+  .langs {
+    display: flex;
+    gap: 18px;
+  }
+  .langs {
+    gap: 10px;
+  }
+  .langs a {
+    opacity: 0.55;
+  }
+  .langs a[aria-current="true"] {
+    opacity: 1;
+  }
+  .site-header a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .site-footer {
+    padding: clamp(96px, 16vw, 180px) var(--pad) 40px;
+    border-top: 1px solid var(--line);
+  }
+  .cta {
+    margin: 0 0 56px;
+    font-size: clamp(52px, 12vw, 200px);
+    font-weight: 300;
+    font-style: italic;
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .cta a {
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  .cta a:hover {
+    color: var(--accent);
+  }
+  .footer-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 28px;
+    color: var(--muted);
+  }
+  .footer-row a {
+    text-decoration: none;
+  }
+  .footer-row a:hover {
+    color: var(--ink);
+  }
+  .copy {
+    margin-left: auto;
+  }
+  /* SplitText line masks keep descenders. */
+  .split-mask {
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+  }
+</style>

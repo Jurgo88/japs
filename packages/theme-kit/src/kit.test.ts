@@ -132,3 +132,12 @@ describe("renderMarkdown", () => {
     expect(renderMarkdown("**bold** <script>x</script>")).toBe("<p><strong>bold</strong> &lt;script&gt;x&lt;/script&gt;</p>\n");
   });
 });
+
+describe("projectYears", () => {
+  it("collapses a single year and marks ongoing work", async () => {
+    const { projectYears } = await import("./portfolio.ts");
+    expect(projectYears(project("a", { period: { from: "2024-01", to: "2024-09" } }), "now")).toBe("2024");
+    expect(projectYears(project("a", { period: { from: "2021-01", to: "2024-09" } }), "now")).toBe("2021 – 2024");
+    expect(projectYears(project("a", { period: { from: "2024-01", to: null } }), "now")).toBe("2024 – now");
+  });
+});

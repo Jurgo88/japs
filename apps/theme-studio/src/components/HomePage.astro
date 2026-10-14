@@ -1,0 +1,244 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, projectUrl, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const tags = tagCounts(portfolio)
+  .slice(0, 12)
+  .map((t) => t.tag);
+const name = profile.name.trim();
+// Close to full width before JS measures the real font (motion.ts fits it exactly).
+const nameSize = `calc((100vw - 2 * var(--pad)) / ${(Math.max(name.length, 4) * 0.86).toFixed(2)})`;
+const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? "").slice(0, 4);
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <h1 class="name" style={`font-size: ${nameSize}`} data-fit data-chars data-intro>{name}</h1>
+    <div class="hero-row">
+      {text(profile.bio, locale) && <p class="lead" data-intro>{text(profile.bio, locale)}</p>}
+      <p class="mono muted" data-intro>{text(profile.headline, locale)}</p>
+      <p class="mono links" data-intro>
+        {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+        {
+          profile.links.map((link) => (
+            <a href={link.url} rel="me noopener">
+              {link.label} ↗
+            </a>
+          ))
+        }
+      </p>
+    </div>
+  </section>
+
+  {
+    tags.length > 0 && (
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee-track" data-marquee>
+          {[...tags, ...tags].map((tag) => (
+            <span>{tag}</span>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  <section id="work">
+    <div class="list-head mono muted">
+      <span>{tt(locale, "number")}</span><span>{tt(locale, "project")}</span><span>{tt(locale, "stack")}</span><span>{tt(locale, "year")}</span>
+    </div>
+    <ul class="rows" data-rows>
+      {
+        projects.map((project, i) => {
+          const shot = coverShot(project);
+          return (
+            <li class="row" data-reveal>
+              <a href={projectUrl(project, locale, portfolio)} data-shot={shot ? `/${shot.src}` : ""} data-initial={text(project.title, locale).charAt(0)}>
+                <span class="n mono muted">{String(i + 1).padStart(2, "0")}</span>
+                <span class="t">
+                  {text(project.title, locale)}
+                  <i aria-hidden="true">↗</i>
+                </span>
+                <span class="mono muted stack">
+                  {project.client.isClient && <span class="client">{tt(locale, "clientWork")} · </span>}
+                  {project.tags.slice(0, 3).join(" / ")}
+                </span>
+                <span class="y mono">{year(project)}</span>
+                {shot && <img class="thumb" src={`/${shot.src}`} alt="" loading="lazy" width="1440" height="900" />}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding: 10vh var(--pad) 0;
+  }
+  .name {
+    margin: 0;
+    font-weight: 800;
+    font-stretch: 125%;
+    text-transform: uppercase;
+    line-height: 0.82;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .hero-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  .hero-row p {
+    margin: 0;
+  }
+  .lead {
+    grid-column: span 2;
+    max-width: 30ch;
+    font-size: clamp(18px, 1.8vw, 24px);
+    line-height: 1.3;
+    font-stretch: 90%;
+  }
+  .links {
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+    align-content: start;
+  }
+  .links a:hover {
+    color: var(--accent);
+  }
+
+  .marquee {
+    margin-top: 12vh;
+    padding: 14px 0;
+    border-block: 1px solid var(--line);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .marquee-track {
+    display: inline-flex;
+    gap: 40px;
+    padding-right: 40px;
+    font-weight: 600;
+    font-stretch: 75%;
+    text-transform: uppercase;
+    font-size: clamp(20px, 3vw, 40px);
+  }
+  .marquee-track span::after {
+    content: "✶";
+    margin-left: 40px;
+    color: var(--accent);
+    font-size: 0.6em;
+    vertical-align: middle;
+  }
+
+  .list-head,
+  .row a {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr) 260px 70px;
+    gap: 16px;
+    align-items: center;
+  }
+  .list-head {
+    padding: 64px var(--pad) 12px;
+  }
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0 var(--pad);
+  }
+  .row {
+    border-top: 1px solid var(--line);
+  }
+  .row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+  .row a {
+    padding: 18px 0;
+    transition: opacity 0.3s;
+  }
+  .t {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    font-weight: 700;
+    font-stretch: 112%;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: clamp(28px, 5.4vw, 84px);
+    line-height: 0.95;
+  }
+  .t i {
+    font-style: normal;
+    font-size: 0.5em;
+    color: var(--accent);
+    opacity: 0;
+    transform: translateX(-0.4em);
+    transition: 0.35s;
+  }
+  .rows:hover .row a {
+    opacity: 0.28;
+  }
+  .rows:hover .row a:hover,
+  .row a:focus-visible {
+    opacity: 1;
+  }
+  .row a:hover .t i,
+  .row a:focus-visible .t i {
+    opacity: 1;
+    transform: none;
+  }
+  .client {
+    color: var(--accent);
+  }
+  .thumb {
+    display: none;
+  }
+
+  @media (max-width: 760px) {
+    .hero-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .list-head {
+      display: none;
+    }
+    .row a {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      padding: 22px 0;
+    }
+    .n,
+    .y {
+      display: none;
+    }
+    .thumb {
+      display: block;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      object-position: top;
+      border-radius: 4px;
+    }
+  }
+</style>
