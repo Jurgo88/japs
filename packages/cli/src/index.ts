@@ -14,6 +14,7 @@ import {
 } from "@japs/schema";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 import { createEditorServer } from "./editor-server.ts";
+import { publishWorkspace } from "./publish.ts";
 import { captureScreenshots, PlaywrightMissingError, SCREENSHOTS_DIR } from "./screenshots.ts";
 import { analyzeWorkspace, buildWorkspace, factsWorkspace, resolveWorkspace } from "./workspace.ts";
 
@@ -45,6 +46,7 @@ Usage:
   japs screenshots [--project <key>]…             capture live sites with Playwright into screenshots/
   japs build [--out out]                          assemble out/portfolio.json + screenshots
   japs edit [--port 4310]                         choose and edit projects in the browser
+  japs publish [--draft] [--site-name <name>]     build and deploy to your Netlify (new site on first run)
 
 Options:
   --config <path>   config file (default ${CONFIG_FILE})
@@ -331,6 +333,35 @@ async function runEdit(args: string[]): Promise<void> {
   console.log(`JAPS editor: http://localhost:${port}\nChanges are saved to japs.config.json only when you press Save. Ctrl+C to stop.`);
 }
 
+async function runPublish(args: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args,
+    options: {
+      "site-name": { type: "string" },
+      draft: { type: "boolean", default: false },
+      config: { type: "string" },
+      out: { type: "string" },
+    },
+  });
+  requireNetlifyToken();
+  const ws = resolveWorkspace(userCwd, { config: values.config, out: values.out });
+  const { site, created, deploy, projects, warnings } = await publishWorkspace(ws, {
+    env: process.env,
+    siteName: values["site-name"],
+    draft: values.draft,
+    onProgress: (message) => console.log(message),
+  });
+
+  if (warnings.length) console.warn(`\nWarnings (${warnings.length}):\n${warnings.map((w) => `  - ${w}`).join("\n")}`);
+  console.log(`\n${created ? "Created" : "Updated"} ${site.name}: ${projects} projects, ${deploy.uploaded} of ${deploy.total} files uploaded.`);
+  if (values.draft) {
+    console.log(`Draft preview: ${deploy.url}\nThe live site ${site.url} is unchanged. Run \`japs publish\` without --draft to go live.`);
+  } else {
+    console.log(`Live: ${deploy.url || site.url}`);
+  }
+  if (site.adminUrl) console.log(`Netlify: ${site.adminUrl} (custom domain under Domain management)`);
+}
+
 async function runBuild(args: string[]): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -377,6 +408,8 @@ async function main(): Promise<void> {
       return runScreenshots(rest);
     case "edit":
       return runEdit(rest);
+    case "publish":
+      return runPublish(rest);
     case "build":
       return runBuild(rest);
     case undefined:

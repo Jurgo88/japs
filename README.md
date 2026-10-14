@@ -39,6 +39,8 @@ pnpm japs screenshots  # desktop + mobile shots of your live sites (Playwright, 
 pnpm japs build        # writes out/portfolio.json + screenshots
 pnpm dev               # preview the portfolio at http://localhost:4321
 pnpm editor            # choose and edit projects in the browser at http://localhost:4310
+pnpm japs publish --draft  # preview deploy to your Netlify
+pnpm japs publish      # go live on <your-name>-portfolio.netlify.app
 ```
 
 The editor writes your choices to `japs.config.json` when you press Save. It can also generate texts for a single project (one LLM call) when you show a project that had none.

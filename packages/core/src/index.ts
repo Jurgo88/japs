@@ -44,3 +44,13 @@ export {
   setPublished,
   setTags,
 } from "./editor/config-edit.ts";
+export {
+  createSite,
+  deploySite,
+  findSite,
+  sha1Hex,
+  type DeployFile,
+  type DeployOptions,
+  type DeployResult,
+  type NetlifySite,
+} from "./publish/deploy.ts";

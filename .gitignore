@@ -15,3 +15,4 @@ japs.config.json
 screenshots/
 /out/
 !apps/theme-default/sample/portfolio.json
+publish.json

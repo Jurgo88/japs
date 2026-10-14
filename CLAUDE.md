@@ -42,12 +42,13 @@ pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: 
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
 pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
 pnpm editor          # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
+pnpm japs publish    # build + deploy to a dedicated Netlify site (--draft for a preview; ADR 0008)
 ```
 
 ## Files (until Supabase in Phase 3)
 
 - `japs.config.json` — user decisions (profile, locales, manual links, merges, per-project overrides). Written by the user, by hand or through the editor's Save (ADR 0004, 0007); pipeline commands only read it, `japs init` may create it if missing. The editor stores only differences from the defaults.
-- `projects.json`, `facts.json`, `analysis.json`, `portfolio.json` — generated, overwritten on every run.
+- `projects.json`, `facts.json`, `analysis.json`, `portfolio.json`, `publish.json` — generated, overwritten on every run. `publish.json` remembers the Netlify site JAPS created; JAPS never deploys to or changes any other site.
 - Projects are referenced in config by a stable key: `repo:<owner>/<repo>` or `site:<netlify id>`, never by slug.
 
 ## Rules
