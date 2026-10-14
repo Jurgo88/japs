@@ -82,7 +82,7 @@ Odstrániť ručnú tvorbu portfólia. Aplikácia sa pripojí na Netlify a GitHu
 |---|---|
 | Core | TypeScript, Node.js (samostatný balík) |
 | Dashboard / editor | Vue 3 + TS |
-| Backend | Supabase (auth, Postgres, Storage), Supabase Edge Functions / Netlify Functions |
+| Backend | ~~Supabase~~ → Cloudflare Workers + D1 + R2 + Workflows (ADR 0009) |
 | Screenshot worker | Playwright mimo Edge Functions: GitHub Action alebo Browserless |
 | AI | Claude API, štruktúrovaný výstup (JSON schema per projekt) |
 | Generovaný web | **Astro** (statický výstup, témy) |

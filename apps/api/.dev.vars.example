@@ -1,0 +1,8 @@
+# Local secrets for `wrangler dev` (copy to .dev.vars; never commit .dev.vars). See README.md.
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+NETLIFY_CLIENT_ID=
+NETLIFY_CLIENT_SECRET=
+SESSION_SECRET=
+ENCRYPTION_KEY=
+OPENAI_API_KEY=
