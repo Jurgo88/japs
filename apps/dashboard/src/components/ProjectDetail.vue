@@ -35,6 +35,11 @@ watch(
   { immediate: true },
 );
 const commitLabel = () => update((c) => setClientLabel(c, props.project.key, { ...label }));
+/** A label is all-or-nothing per locale (schema); flag the gap before Save does. */
+const labelMissing = computed(() => {
+  const saved = override.value.clientLabel;
+  return saved ? locales.value.filter((l) => !saved[l]?.trim()) : [];
+});
 
 const tags = ref("");
 watch(
@@ -105,6 +110,9 @@ const mobile = computed(() => thumbnail(props.project, "mobile"));
           <div v-for="l in locales" :key="l" class="row">
             <span class="locale">{{ l.toUpperCase() }}</span>
             <input v-model="label[l]" type="text" placeholder="e.g. E-shop for a client in hospitality" @change="commitLabel" />
+          </div>
+          <div v-if="labelMissing.length" class="warn-text">
+            Fill in the label in every language ({{ labelMissing.join(", ").toUpperCase() }} missing) — otherwise it can't be saved.
           </div>
         </div>
         <label class="check">
@@ -177,4 +185,8 @@ h2 { margin: 0; font-size: 22px; }
 .notice.action { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .notice.action .btn { flex-shrink: 0; }
 .result { margin: -8px 0 0; font-size: 12px; }
+</style>
+
+<style scoped>
+.warn-text { color: var(--warn); font-size: 13px; }
 </style>

@@ -31,6 +31,7 @@ export {
   type BuildPortfolioResult,
   isPublished,
   primarySite,
+  publishedWith,
   type ScreenshotAsset,
 } from "./build/portfolio.ts";
 export { screenshotTargets, type ScreenshotTarget } from "./build/targets.ts";

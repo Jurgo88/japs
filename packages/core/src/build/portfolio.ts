@@ -6,6 +6,7 @@ import type {
   Portfolio,
   PortfolioProject,
   Project,
+  ProjectOverride,
   ProjectsFile,
   ScreenshotsManifest,
   Site,
@@ -47,7 +48,14 @@ const month = (iso: string | null | undefined) => iso?.slice(0, 7) ?? null;
  * re-running discovery. Mirrors discovery: hidden override > filters, client work hidden.
  */
 export function isPublished(project: Project, config: JapsConfig): boolean {
-  const override = config.projects[project.key] ?? {};
+  return publishedWith(project, config.projects[project.key]);
+}
+
+/**
+ * The same decision from one project's override alone. Needs no valid config, so the editor
+ * can use it on a draft that is temporarily invalid (e.g. a half-translated label).
+ */
+export function publishedWith(project: Project, override: Pick<ProjectOverride, "hidden" | "isClient"> = {}): boolean {
   if (override.hidden !== undefined) return !override.hidden;
   const isClient = override.isClient ?? project.clientSignals.length > 0;
   return !project.hiddenReasons.some((r) => r !== "client") && !isClient;

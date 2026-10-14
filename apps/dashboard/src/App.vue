@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
-import { dirty, load, published, save, saveAndBuild, state, status } from "./store.ts";
+import { dirty, draftIssues, load, published, save, saveAndBuild, state, status } from "./store.ts";
 
 const tab = ref<"projects" | "profile">("projects");
 const selectedKey = ref<string | null>(null);
@@ -11,6 +11,7 @@ const selectedKey = ref<string | null>(null);
 const projects = computed(() => state.value?.projects?.projects ?? []);
 const selected = computed(() => projects.value.find((p) => p.key === selectedKey.value) ?? null);
 const shownCount = computed(() => projects.value.filter(published).length);
+const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
   await load();
@@ -33,7 +34,14 @@ window.addEventListener("beforeunload", (e) => {
       <button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">Profile</button>
     </nav>
     <div class="actions">
-      <span v-if="dirty" class="muted">Unsaved changes</span>
+      <span
+        v-if="draftIssues.length"
+        class="issues"
+        :title="issuesTitle"
+      >
+        {{ draftIssues.length }} {{ draftIssues.length === 1 ? "problem" : "problems" }} to fix before saving
+      </span>
+      <span v-else-if="dirty" class="muted">Unsaved changes</span>
       <button class="btn" :disabled="!dirty || status.saving" @click="save()">
         {{ status.saving ? "Saving…" : "Save" }}
       </button>
@@ -100,6 +108,7 @@ pnpm japs analyze</pre>
 }
 .tabs button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.issues { color: var(--warn); font-size: 13px; cursor: help; }
 .banner { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; }
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }

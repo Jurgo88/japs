@@ -1,4 +1,4 @@
-import { isPublished } from "@japs/core";
+import { publishedWith } from "@japs/core";
 import { JapsConfig, type JapsConfigInput, type Project, type ProjectAnalysis } from "@japs/schema";
 import { computed, reactive, ref } from "vue";
 import {
@@ -31,21 +31,22 @@ export const status = reactive<{
 
 export const dirty = computed(() => JSON.stringify(draft.value) !== savedJson.value);
 
-/** The draft with defaults applied, for logic that needs a complete config. */
-export const parsedConfig = computed(() => {
+// Read straight from the draft (with the schema's defaults): the draft may be temporarily
+// invalid while the user types, and the UI must not jump around when it is.
+export const locales = computed(() => draft.value.locales ?? ["en"]);
+export const defaultLocale = computed(() => draft.value.defaultLocale ?? "en");
+
+/** Problems that would stop Save, shown while editing instead of only after clicking. */
+export const draftIssues = computed(() => {
   const parsed = JapsConfig.safeParse(draft.value);
-  return parsed.success ? parsed.data : JapsConfig.parse({ version: 1 });
+  return parsed.success ? [] : parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
 });
 
-export const locales = computed(() => parsedConfig.value.locales);
-export const defaultLocale = computed(() => parsedConfig.value.defaultLocale);
-
-/** Analysis per project key, and keys analyzed anonymously. */
 export const analysisByKey = computed(
   () => new Map<string, ProjectAnalysis>(state.value?.analysis?.projects.map((a) => [a.key, a]) ?? []),
 );
 
-export const published = (project: Project) => isPublished(project, parsedConfig.value);
+export const published = (project: Project) => publishedWith(project, draft.value.projects?.[project.key]);
 
 /** Display name: generated title in the default locale, else the discovery title. */
 export const projectTitle = (project: Project) =>
@@ -82,6 +83,12 @@ export async function load(): Promise<void> {
 }
 
 export async function save(): Promise<boolean> {
+  // A link row that was added but left empty is nothing, not an invalid URL.
+  const profile = draft.value.profile;
+  const links = profile?.links?.filter((l) => l.label.trim() || l.url.trim());
+  if (profile && links && links.length !== profile.links?.length) {
+    draft.value = { ...draft.value, profile: { ...profile, links } };
+  }
   status.saving = true;
   try {
     await backend.saveConfig(draft.value);

@@ -1,6 +1,5 @@
 import type { JapsConfigInput, LocalizedText, Project, ProjectOverride } from "@japs/schema";
-import { JapsConfig } from "@japs/schema";
-import { isPublished } from "../build/portfolio.ts";
+import { publishedWith } from "../build/portfolio.ts";
 
 /**
  * Pure edits of japs.config.json for the editor (ADR 0007). Each returns a new config and
@@ -11,7 +10,11 @@ type Config = JapsConfigInput;
 type Projects = NonNullable<Config["projects"]>;
 type CopyField = "title" | "summary" | "description" | "role";
 
-const clone = <T>(value: T): T => structuredClone(value);
+/**
+ * JSON round-trip, not structuredClone: the editor passes Vue reactive proxies, which
+ * structuredClone rejects (DataCloneError). The config is plain JSON anyway.
+ */
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 /** Removes empty objects left behind by edits, so the file stays readable. */
 function prune(config: Config): Config {
@@ -38,9 +41,7 @@ function withOverride(config: Config, key: string, edit: (override: ProjectOverr
 
 /** Visibility the filters give a project, ignoring any `hidden` override. */
 export function defaultPublished(project: Project, config: Config): boolean {
-  const parsed = JapsConfig.parse(config);
-  const { hidden: _ignored, ...rest } = parsed.projects[project.key] ?? {};
-  return isPublished(project, { ...parsed, projects: { ...parsed.projects, [project.key]: rest } });
+  return publishedWith(project, { isClient: config.projects?.[project.key]?.isClient });
 }
 
 /** Shows or hides a project; stores `hidden` only when it differs from the filters. */

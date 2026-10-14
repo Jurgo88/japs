@@ -67,3 +67,21 @@ describe("flags, labels and order", () => {
     expect(ordered.projects).toEqual({ "k:old": { featured: true }, "k:b": { order: 1 }, "k:a": { order: 2 } });
   });
 });
+
+describe("with Vue reactive proxies", () => {
+  /** Like Vue's reactive(): every nested object is a Proxy, which structuredClone rejects. */
+  const deepProxy = <T extends object>(value: T): T =>
+    new Proxy(value, { get: (t, k) => (typeof t[k as keyof T] === "object" && t[k as keyof T] !== null ? deepProxy(t[k as keyof T] as object) : t[k as keyof T]) });
+
+  it("edits a proxied config without throwing", () => {
+    const reactiveLike = deepProxy({ ...base, projects: { "site:x": { featured: true } } });
+    expect(() => structuredClone(reactiveLike)).toThrow();
+    expect(setOverride(reactiveLike, "site:y", "featured", true).projects).toEqual({
+      "site:x": { featured: true },
+      "site:y": { featured: true },
+    });
+    expect(setPublished(reactiveLike, project("repo:devuser/acmeshop"), false).projects).toMatchObject({
+      "repo:devuser/acmeshop": { hidden: true },
+    });
+  });
+});
