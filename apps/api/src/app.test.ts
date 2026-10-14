@@ -21,6 +21,7 @@ beforeEach(() => {
     NETLIFY_CLIENT_SECRET: "nf-secret",
     SESSION_SECRET: "session-secret",
     ENCRYPTION_KEY: base64url(new Uint8Array(32).fill(3)),
+    OPENAI_API_KEY: "sk-owner",
   };
 });
 
@@ -329,5 +330,59 @@ describe("jobs API", () => {
     await store.forUser(user.id).putProjectDoc("repo:jane/shop", "analysis", { key: "repo:jane/shop", copy: { title: { en: "Shop" } } });
     const state = await body(browser.request("/api/state"));
     expect(state.analysis).toMatchObject({ version: 1, locales: ["en"], projects: [{ key: "repo:jane/shop" }] });
+  });
+});
+
+describe("AI quota and own key", () => {
+  const put = (browser: Browser, json: unknown) =>
+    browser.request("/api/llm", { method: "PUT", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify(json) });
+  const generate = (browser: Browser, keys: string[]) =>
+    browser.request("/api/generate", { method: "POST", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ keys }) });
+
+  async function setup(used: number) {
+    env.JAPS_FREE_GENERATIONS = "3";
+    env.PROJECT_JOBS = { create: async () => ({ id: "x" }), createBatch: async (b: unknown[]) => b.map(() => ({ id: "x" })) } as Env["PROJECT_JOBS"];
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const store = new Store(env.DB);
+    const user = store.forUser((await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null })).id);
+    await user.putDocument("projects", { projects: ["a", "b", "c", "d"].map((k) => ({ key: `repo:jane/${k}` })) });
+    await user.addUsage(new Date().toISOString().slice(0, 7), { generations: used, inputTokens: 0, outputTokens: 0 });
+    return { browser, user };
+  }
+
+  it("reports usage, the limit and the install link in /api/me", async () => {
+    env.GITHUB_APP_SLUG = "japs-portfolio";
+    const { browser } = await setup(1);
+    const me = await body(browser.request("/api/me"));
+    expect(me.quota).toMatchObject({ used: 1, limit: 3, remaining: 2, ownKey: null, shared: true });
+    expect(me.githubAppInstallUrl).toBe("https://github.com/apps/japs-portfolio/installations/new");
+  });
+
+  it("refuses more projects than the free generations left", async () => {
+    const { browser } = await setup(2);
+    const res = await generate(browser, ["repo:jane/a", "repo:jane/b"]);
+    expect(res.status).toBe(402);
+    expect((await body(res)).error).toContain("only 1 left");
+    expect((await generate(browser, ["repo:jane/a"])).status).toBe(202);
+  });
+
+  it("stores an own key encrypted, never returns it, and lifts the limit", async () => {
+    const { browser, user } = await setup(3);
+    expect((await put(browser, { provider: "ollama", apiKey: "x" })).status).toBe(400);
+    expect((await put(browser, { provider: "gemini", apiKey: "g-key" })).status).toBe(400); // gemini has no default model
+    expect((await put(browser, { provider: "openai", apiKey: "sk-user-own-key" })).status).toBe(200);
+
+    const stored = await user.getConnection("llm");
+    expect(stored?.meta).toEqual({ provider: "openai", model: "gpt-5-mini" });
+    expect(await decrypt(stored!.accessToken, env.ENCRYPTION_KEY)).toBe("sk-user-own-key");
+    const me = await body(browser.request("/api/me"));
+    expect(JSON.stringify(me)).not.toContain("sk-user-own-key");
+    expect(me.quota.ownKey).toEqual({ provider: "openai", model: "gpt-5-mini" });
+    expect((await generate(browser, ["repo:jane/a", "repo:jane/b", "repo:jane/c", "repo:jane/d"])).status).toBe(202);
+
+    const del = await browser.request("/api/connections/llm", { method: "DELETE", headers: { Origin: APP_URL } });
+    expect(del.status).toBe(200);
+    expect((await generate(browser, ["repo:jane/a"])).status).toBe(402);
   });
 });

@@ -12,6 +12,8 @@ import {
 import { encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
 import { type Job, Store, type User } from "./db.ts";
 import { wrapAnalysis } from "./pipeline.ts";
+import { OWN_KEY_PROVIDERS, quotaFor } from "./llm.ts";
+import { LLM_PRESETS } from "@japs/core";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
@@ -191,10 +193,39 @@ export function createApp(deps: AppDeps = {}) {
 
   app.get("/api/me", async (c) => {
     const user = c.get("user")!;
+    const store = c.get("store").forUser(user.id);
     return c.json({
       user: { login: user.githubLogin, name: user.name, avatarUrl: user.avatarUrl },
-      connections: await c.get("store").forUser(user.id).listConnections(),
+      connections: await store.listConnections(),
+      quota: await quotaFor(store, c.env, now()),
+      // Private repositories are visible only where the GitHub App is installed (ADR 0009).
+      githubAppInstallUrl: c.env.GITHUB_APP_SLUG
+        ? `https://github.com/apps/${encodeURIComponent(c.env.GITHUB_APP_SLUG)}/installations/new`
+        : null,
     });
+  });
+
+  /** The user's own AI key (#35): used instead of the shared key, no quota. Stored encrypted. */
+  app.put("/api/llm", async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { provider?: unknown; model?: unknown; apiKey?: unknown };
+    const provider = String(body.provider ?? "");
+    if (!(OWN_KEY_PROVIDERS as readonly string[]).includes(provider)) {
+      return c.json({ error: `Provider must be one of ${OWN_KEY_PROVIDERS.join(", ")}` }, 400);
+    }
+    const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    if (!apiKey || apiKey.length > 500) return c.json({ error: "Enter the API key." }, 400);
+    const model = (typeof body.model === "string" ? body.model.trim() : "") || LLM_PRESETS[provider]?.defaultModel || "";
+    if (!model || model.length > 100) return c.json({ error: `Enter a model name for ${provider}.` }, 400);
+
+    await c.get("store").forUser(c.get("user")!.id).setConnection({
+      provider: "llm",
+      accountLogin: `${provider} · ${model}`,
+      accessToken: await encrypt(apiKey, c.env.ENCRYPTION_KEY),
+      refreshToken: null,
+      expiresAt: null,
+      meta: { provider, model },
+    });
+    return c.json({ ok: true });
   });
 
   // GitHub is the sign-in itself; only Netlify and an own LLM key can be disconnected.
@@ -294,6 +325,20 @@ export function createApp(deps: AppDeps = {}) {
     const known = new Set(projects.projects.map((p) => p.key));
     const unknown = unique.filter((k) => !known.has(k));
     if (unknown.length) return c.json({ error: `Unknown projects: ${unknown.join(", ")}` }, 400);
+
+    // Refuse up front what the quota can't cover, instead of failing project by project.
+    const quota = await quotaFor(store, c.env, now());
+    if (!quota.ownKey) {
+      if (!quota.shared) return c.json({ error: "No AI key available: add your own in your profile." }, 400);
+      if (unique.length > quota.remaining) {
+        const left = quota.remaining ? `only ${quota.remaining} left` : "none left";
+        return c.json(
+          { error: `Your free AI generations this month: ${quota.limit}, ${left}. Pick fewer projects or add your own AI key in your profile.` },
+          402,
+        );
+      }
+    }
+
     const running = await store.latestJob();
     if (isActive(running)) return c.json({ job: running }, 409);
 

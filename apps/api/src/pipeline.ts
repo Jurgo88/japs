@@ -5,7 +5,7 @@ import {
   GitHubClient,
   isPublished,
   NetlifyClient,
-  OpenAiCompatibleClient,
+  type LlmClient,
 } from "@japs/core";
 import {
   type AnalysisFile,
@@ -17,7 +17,11 @@ import {
 } from "@japs/schema";
 import type { UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
+import { llmFor, monthOf, quotaFor } from "./llm.ts";
 import { githubToken, netlifyToken } from "./tokens.ts";
+
+export const QUOTA_REACHED = (limit: number) =>
+  `Free monthly limit of ${limit} AI generations reached. Add your own AI key in your profile, or wait for next month.`;
 
 /**
  * The CLI pipeline for one user in the hosted version (#32): the same core functions, with
@@ -100,18 +104,25 @@ export async function runProject(user: UserStore, key: string, deps: PipelineDep
   if (!facts) throw new Error(`Project ${key} not found.`);
   await user.putProjectDoc(key, "facts", facts);
 
-  if (!deps.env.OPENAI_API_KEY) {
-    return { generated: false, warnings: [...warnings, "No LLM configured on the server."], usage: { input: 0, output: 0 } };
+  const chosen = await llmFor(user, deps.env, deps.fetch);
+  if (!chosen) {
+    return { generated: false, warnings: [...warnings, "No AI key available: add your own in your profile."], usage: { input: 0, output: 0 } };
   }
+  // On the shared key, an exhausted quota blocks only a real generation: unchanged projects
+  // never reach the model, so they neither count nor fail.
+  const quota = await quotaFor(user, deps.env, now);
+  const llm: LlmClient =
+    chosen.shared && quota.remaining <= 0
+      ? {
+          provider: chosen.client.provider,
+          model: chosen.client.model,
+          generateJson: () => Promise.reject(new Error(QUOTA_REACHED(quota.limit))),
+        }
+      : chosen.client;
+
   const previousAnalysis = (await user.getProjectDoc(key, "analysis")) as ProjectAnalysis | null;
   const result = await analyzeProjects(wrapFacts([facts], now), {
-    llm: new OpenAiCompatibleClient({
-      provider: "openai",
-      baseUrl: "https://api.openai.com/v1",
-      apiKey: deps.env.OPENAI_API_KEY,
-      model: deps.env.JAPS_LLM_MODEL || "gpt-5-mini",
-      fetch: deps.fetch,
-    }),
+    llm,
     locales: config.locales,
     projects: config.projects,
     accountLogin: projectsFile.account.github,
@@ -122,8 +133,9 @@ export async function runProject(user: UserStore, key: string, deps: PipelineDep
   warnings.push(...result.file.warnings);
   const analysis = result.file.projects.find((p) => p.key === key);
   if (analysis && result.generated) await user.putProjectDoc(key, "analysis", analysis);
-  if (result.usage.input || result.usage.output) {
-    await user.addUsage(now.toISOString().slice(0, 7), {
+  // Only the shared key counts towards the quota; an own key is the user's own cost.
+  if (chosen.shared && (result.usage.input || result.usage.output)) {
+    await user.addUsage(monthOf(now), {
       generations: result.generated,
       inputTokens: result.usage.input,
       outputTokens: result.usage.output,

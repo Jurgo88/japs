@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import AiSettings from "./components/AiSettings.vue";
+import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
@@ -20,6 +22,7 @@ import {
   startImport,
   state,
   status,
+  unreadableRepos,
 } from "./store.ts";
 
 const tab = ref<"projects" | "profile">("projects");
@@ -157,6 +160,14 @@ window.addEventListener("beforeunload", (e) => {
     </button>
   </div>
 
+  <div v-if="unreadableRepos.length && account?.githubAppInstallUrl && tab === 'projects'" class="banner info">
+    <span>
+      {{ unreadableRepos.length }} {{ unreadableRepos.length === 1 ? "project uses a repository" : "projects use repositories" }}
+      JAPS can't read yet (private). Without access, their texts are based on the live site only.
+    </span>
+    <a class="btn" :href="account.githubAppInstallUrl">Grant access on GitHub</a>
+  </div>
+
   <main v-if="status.loading" class="empty muted">Loading…</main>
 
   <main v-else-if="tab === 'projects' && !state?.projects && isCloud" class="empty">
@@ -194,6 +205,8 @@ pnpm japs analyze</pre>
 
   <main v-else class="single">
     <ProfileEditor />
+    <LanguagesEditor />
+    <AiSettings v-if="isCloud" />
   </main>
   </template>
 </template>
@@ -244,6 +257,8 @@ a.btn.primary { color: #fff; }
   justify-content: space-between;
 }
 .banner.warn .btn { flex-shrink: 0; }
+.banner.info { background: var(--accent-soft); display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.banner.info .btn { flex-shrink: 0; }
 .banner.warn { flex-wrap: wrap; }
 .private-note { flex-basis: 100%; order: 3; font-size: 13px; }
 @media (prefers-color-scheme: dark) { .banner.error { background: #3a1513; } }
@@ -254,7 +269,7 @@ a.btn.primary { color: #fff; }
   padding: 16px 20px;
   align-items: start;
 }
-.single { padding: 16px 20px; max-width: 820px; }
+.single { padding: 16px 20px; max-width: 820px; display: grid; gap: 16px; }
 .empty { padding: 48px 20px; text-align: center; }
 .empty pre { display: inline-block; text-align: left; background: var(--panel); padding: 12px 16px; border-radius: 8px; }
 @media (max-width: 860px) {
