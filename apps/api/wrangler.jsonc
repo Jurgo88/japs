@@ -14,12 +14,15 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/auth/*"]
   },
+  // japs.app is in the same Cloudflare account; wrangler creates the DNS record and certificate.
+  "routes": [{ "pattern": "japs.app", "custom_domain": true }],
+  "observability": { "enabled": true },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "japs",
-      // Filled in when the database is created (`wrangler d1 create japs`).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // Production database (created with `wrangler d1 create japs --location weur`).
+      "database_id": "2b2cac86-9e2d-4c82-bd80-d1e58a5324ab",
       "migrations_dir": "migrations"
     }
   ],
@@ -30,8 +33,8 @@
     { "name": "japs-project", "binding": "PROJECT_JOBS", "class_name": "ProjectWorkflow" }
   ],
   "vars": {
-    // Public URL of the app, used for OAuth redirect URIs.
-    "APP_URL": "http://localhost:8787",
+    // Public URL of the app, used for OAuth redirect URIs. Local dev overrides it in .dev.vars.
+    "APP_URL": "https://japs.app",
     // GitHub App URL slug (github.com/apps/<slug>), for "install on your repositories".
     "GITHUB_APP_SLUG": "japs-portfolio",
     "JAPS_LLM_MODEL": "gpt-5-mini",
