@@ -41,7 +41,7 @@ pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_
 pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: pnpm --filter @japs/cli exec playwright install chromium)
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
 pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
-pnpm edit            # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
+pnpm editor          # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
 ```
 
 ## Files (until Supabase in Phase 3)

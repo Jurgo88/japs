@@ -319,7 +319,7 @@ async function runEdit(args: string[]): Promise<void> {
   const port = Number(values.port);
   const dashboardDir = fileURLToPath(new URL("../../../apps/dashboard/dist", import.meta.url));
   if (!existsSync(join(dashboardDir, "index.html"))) {
-    console.error("The dashboard is not built yet. Run: pnpm --filter @japs/dashboard build  (or `pnpm edit`)");
+    console.error("The dashboard is not built yet. Run: pnpm --filter @japs/dashboard build  (or `pnpm editor`)");
     process.exit(1);
   }
 
