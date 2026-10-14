@@ -27,6 +27,11 @@ const STRINGS = {
     next: "Next project",
     enlarge: "Enlarge screenshot",
     close: "Close",
+    work: "Work",
+    contact: "Contact",
+    available: "Available for new projects",
+    unavailable: "Not taking new projects",
+    viewProject: "View project",
   },
   sk: {
     projects: "Projekty",
@@ -52,6 +57,11 @@ const STRINGS = {
     next: "Ďalší projekt",
     enlarge: "Zväčšiť screenshot",
     close: "Zavrieť",
+    work: "Práca",
+    contact: "Kontakt",
+    available: "Prijímam nové projekty",
+    unavailable: "Momentálne neprijímam nové projekty",
+    viewProject: "Zobraziť projekt",
   },
   cs: {
     projects: "Projekty",
@@ -77,6 +87,11 @@ const STRINGS = {
     next: "Další projekt",
     enlarge: "Zvětšit snímek",
     close: "Zavřít",
+    work: "Práce",
+    contact: "Kontakt",
+    available: "Přijímám nové projekty",
+    unavailable: "Momentálně nepřijímám nové projekty",
+    viewProject: "Zobrazit projekt",
   },
   de: {
     projects: "Projekte",
@@ -102,6 +117,11 @@ const STRINGS = {
     next: "Nächstes Projekt",
     enlarge: "Screenshot vergrößern",
     close: "Schließen",
+    work: "Arbeiten",
+    contact: "Kontakt",
+    available: "Offen für neue Projekte",
+    unavailable: "Derzeit keine neuen Projekte",
+    viewProject: "Projekt ansehen",
   },
 } as const;
 

@@ -1,0 +1,20 @@
+{
+  "name": "@japs/theme-studio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JAPS theme \"studio\": a static Astro site built from portfolio.json",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@japs/schema": "workspace:*",
+    "@japs/theme-kit": "workspace:*",
+    "astro": "^7.3.6",
+    "gsap": "^3.15.0"
+  }
+}

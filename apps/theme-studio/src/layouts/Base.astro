@@ -1,0 +1,265 @@
+---
+import "@fontsource-variable/archivo/wdth.css";
+import "@fontsource/dm-mono/400.css";
+import "@fontsource/dm-mono/500.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  /** The same page in every locale, for the switcher and hreflang. */
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#0b0b0a" />
+    {
+      site &&
+        alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)
+    }
+    <link
+      rel="icon"
+      href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230b0b0a'/><text x='16' y='23' font-family='Arial,sans-serif' font-weight='900' font-size='19' fill='%23c8ff3c' text-anchor='middle'>${encodeURIComponent(profile.name.trim().charAt(0).toUpperCase())}</text></svg>`}
+    />
+    <!-- Animated elements start hidden only when motion is allowed and JS runs; a timer shows them if the script fails. -->
+    <script is:inline>
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.documentElement.classList.add("motion");
+        setTimeout(() => document.documentElement.classList.add("motion-ready"), 3000);
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header mono">
+      {
+        profile.available !== null ? (
+          <span class:list={["status", { on: profile.available }]}>{tt(locale, profile.available ? "available" : "unavailable")}</span>
+        ) : (
+          <a href={homeHref}>{profile.name}</a>
+        )
+      }
+      <span class="header-right">
+        {profile.location && <span class="muted">{profile.location}</span>}
+        {
+          alternates.length > 1 &&
+            alternates.map((a) => (
+              <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "true" : undefined} title={languageName(a.locale)}>
+                {a.locale.toUpperCase()}
+              </a>
+            ))
+        }
+      </span>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      {
+        profile.email && (
+          <p class="cta">
+            <a href={`mailto:${profile.email}`}>{tt(locale, "sayHello")} →</a>
+          </p>
+        )
+      }
+      <div class="bottom mono">
+        <span>© {new Date().getFullYear()} {profile.name}</span>
+        <span class="footer-links">
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+          {
+            profile.links.map((link) => (
+              <a href={link.url} rel="me noopener">
+                {link.label} ↗
+              </a>
+            ))
+          }
+        </span>
+      </div>
+    </footer>
+    <div class="preview" data-preview aria-hidden="true"></div>
+    <script>
+      import "../lib/motion.ts";
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #0b0b0a;
+    --ink: #ecebe4;
+    --muted: #85837a;
+    --line: #262522;
+    --accent: #c8ff3c;
+    --sans: "Archivo Variable", system-ui, sans-serif;
+    --mono: "DM Mono", ui-monospace, monospace;
+    --pad: clamp(16px, 3vw, 40px);
+    color-scheme: dark;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 var(--sans);
+    overflow-x: clip;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .mono {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .motion:not(.motion-ready) [data-intro] {
+    visibility: hidden;
+  }
+
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 18px var(--pad);
+    border-bottom: 1px solid var(--line);
+  }
+  .header-right {
+    display: flex;
+    gap: 16px;
+  }
+  .header-right a {
+    color: var(--muted);
+  }
+  .header-right a[aria-current="true"],
+  .header-right a:hover {
+    color: var(--ink);
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+  }
+  .status::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status.on {
+    color: var(--ink);
+  }
+  .status.on::before {
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  .site-footer {
+    padding: clamp(96px, 18vh, 200px) var(--pad) 32px;
+  }
+  .cta {
+    margin: 0 0 40px;
+    font-weight: 800;
+    font-stretch: 125%;
+    text-transform: uppercase;
+    font-size: clamp(44px, 9vw, 150px);
+    line-height: 0.85;
+  }
+  .cta a:hover {
+    color: var(--accent);
+  }
+  .bottom {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    color: var(--muted);
+  }
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+  }
+  .footer-links a:hover {
+    color: var(--ink);
+  }
+
+  /* Screenshot that follows the cursor over project rows (pointer devices only, see motion.ts). */
+  .preview {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 20;
+    width: min(34vw, 460px);
+    aspect-ratio: 16 / 10;
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: none;
+    background: #1a1a18;
+    box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.8);
+    visibility: hidden;
+  }
+  .preview > * {
+    position: absolute;
+    inset: 0;
+  }
+  .preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .preview .ph {
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-stretch: 125%;
+    font-size: 120px;
+    color: var(--accent);
+  }
+  .split-mask {
+    padding-bottom: 0.06em;
+    margin-bottom: -0.06em;
+  }
+</style>
