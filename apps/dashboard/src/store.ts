@@ -27,7 +27,19 @@ export const status = reactive<{
   /** Project key whose texts are being generated. */
   generating: string | null;
   generated: (GenerateSummary & { key: string }) | null;
-}>({ loading: true, saving: false, building: false, error: null, issues: [], build: null, generating: null, generated: null });
+  /** Progress of "generate for all shown projects". */
+  batch: { done: number; total: number; failed: string[]; tokens: number } | null;
+}>({
+  loading: true,
+  saving: false,
+  building: false,
+  error: null,
+  issues: [],
+  build: null,
+  generating: null,
+  generated: null,
+  batch: null,
+});
 
 export const dirty = computed(() => JSON.stringify(draft.value) !== savedJson.value);
 
@@ -144,5 +156,41 @@ export async function generate(key: string): Promise<void> {
     fail(err);
   } finally {
     status.generating = null;
+  }
+}
+
+/**
+ * Shown projects that `japs build` would skip for lack of texts: never analyzed, or analyzed
+ * with names although now anonymized.
+ */
+export const missingTexts = computed(() =>
+  (state.value?.projects?.projects ?? []).filter((p) => {
+    if (!published(p)) return false;
+    const analysis = analysisByKey.value.get(p.key);
+    return !analysis || (draft.value.projects?.[p.key]?.anonymize === true && !analysis.anonymized);
+  }),
+);
+
+/** Generates texts for every project in `missingTexts`, one at a time, then reloads once. */
+export async function generateMissing(): Promise<void> {
+  if (dirty.value && !(await save())) return;
+  const keys = missingTexts.value.map((p) => p.key);
+  status.batch = { done: 0, total: keys.length, failed: [], tokens: 0 };
+  for (const key of keys) {
+    status.generating = key;
+    try {
+      const summary = await backend.generate(key);
+      status.batch.tokens += summary.usage.input + summary.usage.output;
+      if (!summary.generated) status.batch.failed.push(`${key}: ${summary.warnings.at(-1) ?? "no text generated"}`);
+    } catch (err) {
+      status.batch.failed.push(`${key}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    status.batch.done++;
+  }
+  status.generating = null;
+  const loaded = await backend.load();
+  if (state.value) {
+    state.value.analysis = loaded.analysis;
+    state.value.projects = loaded.projects;
   }
 }

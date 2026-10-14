@@ -5,9 +5,12 @@ import { SUPPORTED_LOCALES } from "./i18n.ts";
 
 let cached: Portfolio | null = null;
 
-/** Loads and validates portfolio.json once per build. The theme reads nothing else. */
+/**
+ * Loads and validates portfolio.json. The theme reads nothing else. Cached for a build;
+ * in `astro dev` it is re-read on every request, so a new `japs build` shows up on reload.
+ */
 export function loadPortfolio(): Portfolio {
-  if (cached) return cached;
+  if (cached && !import.meta.env.DEV) return cached;
   const dir = process.env.JAPS_PORTFOLIO_DIR;
   if (!dir) throw new Error("JAPS_PORTFOLIO_DIR is not set (astro.config.mjs sets it).");
 

@@ -24,8 +24,24 @@ function portfolioDir() {
 const dir = portfolioDir();
 process.env.JAPS_PORTFOLIO_DIR = dir;
 
+/** In `astro dev`, reload the browser when `japs build` (or the editor) rewrites portfolio.json. */
+/** @returns {import("vite").Plugin} */
+function reloadOnPortfolioChange() {
+  const file = resolve(dir, "portfolio.json");
+  return {
+    name: "japs-portfolio-reload",
+    configureServer(server) {
+      server.watcher.add(file);
+      server.watcher.on("change", (changed) => {
+        if (resolve(changed) === file) server.ws.send({ type: "full-reload" });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // Screenshots are served straight from the portfolio directory: no copying, no hotlinks.
   publicDir: dir,
   site: process.env.JAPS_SITE_URL,
+  vite: { plugins: [reloadOnPortfolioChange()] },
 });

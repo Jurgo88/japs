@@ -3,7 +3,18 @@ import { computed, onMounted, ref } from "vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
-import { dirty, draftIssues, load, published, save, saveAndBuild, state, status } from "./store.ts";
+import {
+  dirty,
+  draftIssues,
+  generateMissing,
+  load,
+  missingTexts,
+  published,
+  save,
+  saveAndBuild,
+  state,
+  status,
+} from "./store.ts";
 
 const tab = ref<"projects" | "profile">("projects");
 const selectedKey = ref<string | null>(null);
@@ -11,6 +22,7 @@ const selectedKey = ref<string | null>(null);
 const projects = computed(() => state.value?.projects?.projects ?? []);
 const selected = computed(() => projects.value.find((p) => p.key === selectedKey.value) ?? null);
 const shownCount = computed(() => projects.value.filter(published).length);
+const privateMissing = computed(() => missingTexts.value.filter((p) => p.private).length);
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
@@ -65,6 +77,29 @@ window.addEventListener("beforeunload", (e) => {
     </ul>
   </div>
 
+  <div v-if="status.batch && status.generating" class="banner">
+    Generating texts {{ status.batch.done + 1 }}/{{ status.batch.total }}: <code>{{ status.generating }}</code>…
+  </div>
+  <div v-else-if="status.batch" class="banner" :class="status.batch.failed.length ? 'error' : 'ok'">
+    Generated texts for {{ status.batch.total - status.batch.failed.length }} of {{ status.batch.total }} projects
+    ({{ status.batch.tokens }} tokens). Press <strong>Save &amp; build</strong> to update the portfolio.
+    <ul v-if="status.batch.failed.length">
+      <li v-for="f in status.batch.failed" :key="f">{{ f }}</li>
+    </ul>
+  </div>
+  <div v-else-if="missingTexts.length && tab === 'projects'" class="banner warn">
+    <span>
+      {{ missingTexts.length }} shown {{ missingTexts.length === 1 ? "project has" : "projects have" }} no texts yet and
+      will be left out of the build: {{ missingTexts.map((p) => p.title).join(", ") }}.
+      <template v-if="privateMissing">
+        For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
+      </template>
+    </span>
+    <button class="btn primary" :disabled="status.generating !== null || status.saving" @click="generateMissing()">
+      Generate texts ({{ missingTexts.length }})
+    </button>
+  </div>
+
   <main v-if="status.loading" class="empty muted">Loading…</main>
 
   <main v-else-if="tab === 'projects' && !state?.projects" class="empty">
@@ -113,6 +148,15 @@ pnpm japs analyze</pre>
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }
 .banner.ok { background: var(--accent-soft); }
+.banner.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.banner.warn .btn { flex-shrink: 0; }
 @media (prefers-color-scheme: dark) { .banner.error { background: #3a1513; } }
 .split {
   display: grid;
