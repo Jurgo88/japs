@@ -16,6 +16,7 @@ import { wrapAnalysis } from "./pipeline.ts";
 import { OWN_KEY_PROVIDERS, quotaFor } from "./llm.ts";
 import { LLM_PRESETS } from "@japs/core";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
+import { deleteUserImages, objectKey } from "./screenshots.ts";
 import { githubToken } from "./tokens.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
@@ -260,6 +261,7 @@ export function createApp(deps: AppDeps = {}) {
     } catch {
       // An expired or already revoked token: nothing left to revoke.
     }
+    if (c.env.SHOTS) await deleteUserImages(c.env.SHOTS, user.id);
     await store.deleteAccount();
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
     return c.json({ ok: true, githubRevoked });
@@ -295,7 +297,8 @@ export function createApp(deps: AppDeps = {}) {
       analysis: analysis.length
         ? wrapAnalysis(analysis.map((a) => a.body as ProjectAnalysis), (config as { locales?: string[] } | null)?.locales ?? ["en"], now())
         : null,
-      screenshots: await store.getDocument("screenshots"),
+      // Stored per shot (#33); the dashboard reads the screenshots/manifest.json shape.
+      screenshots: { version: 1, shots: await store.listScreenshots() },
       built: false,
       job: await store.latestJob(),
     });
@@ -373,11 +376,26 @@ export function createApp(deps: AppDeps = {}) {
 
     const jobId = await store.createJob("generate", unique.length, `Generating texts for ${unique.length} project(s)…`);
     await c.env.PROJECT_JOBS.createBatch(unique.map((key) => ({ params: { userId: user.id, jobId, key } })));
+    // Screenshots of the same projects, paced separately (#33). Never blocks the texts.
+    await c.env.SHOT_JOBS?.create({ params: { userId: user.id, keys: unique } }).catch((err: unknown) => {
+      console.warn(`screenshots not started: ${err instanceof Error ? err.message : String(err)}`);
+    });
     return c.json({ job: await store.getJob(jobId) }, 202);
   });
 
   app.get("/api/jobs/latest", async (c) => {
     return c.json({ job: await c.get("store").forUser(c.get("user")!.id).latestJob() });
+  });
+
+  /** The user's own screenshots from R2 (#33); only under their own prefix. */
+  app.get("/api/screenshots/:file", async (c) => {
+    const file = c.req.param("file");
+    if (!c.env.SHOTS || !/^[\w.-]+\.jpg$/.test(file)) return c.json({ error: "Not found" }, 404);
+    const object = await c.env.SHOTS.get(objectKey(c.get("user")!.id, file));
+    if (!object) return c.json({ error: "Not found" }, 404);
+    return new Response(object.body, {
+      headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=300" },
+    });
   });
 
   // Building and publishing come with #34.

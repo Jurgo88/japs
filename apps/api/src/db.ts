@@ -1,3 +1,5 @@
+import type { ScreenshotRecord } from "@japs/schema";
+
 /**
  * The only place that talks SQL (ADR 0009). D1 has no row-level security, so isolation is
  * structural: everything user-owned is reached through `forUser(userId)`, whose methods all
@@ -295,6 +297,26 @@ export class UserStore {
     return results.map((r) => ({ key: r.project_key, body: JSON.parse(r.body) as unknown }));
   }
 
+  // --- Screenshots (#33): the manifest; images are in R2 ---
+
+  async listScreenshots(): Promise<ScreenshotRecord[]> {
+    const { results } = await this.db
+      .prepare("SELECT project_key, viewport, file, url, taken_at FROM screenshots WHERE user_id = ? ORDER BY project_key, viewport")
+      .bind(this.userId)
+      .all<{ project_key: string; viewport: ScreenshotRecord["viewport"]; file: string; url: string; taken_at: string }>();
+    return results.map((r) => ({ key: r.project_key, viewport: r.viewport, file: r.file, url: r.url, takenAt: r.taken_at }));
+  }
+
+  async putScreenshot(shot: ScreenshotRecord): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO screenshots (user_id, project_key, viewport, file, url, taken_at) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(user_id, project_key, viewport) DO UPDATE SET file = excluded.file, url = excluded.url, taken_at = excluded.taken_at`,
+      )
+      .bind(this.userId, shot.key, shot.viewport, shot.file, shot.url, shot.takenAt)
+      .run();
+  }
+
   // --- Jobs (#32) ---
 
   async createJob(kind: JobKind, total = 0, message: string | null = null): Promise<string> {
@@ -361,7 +383,7 @@ export class UserStore {
       .run();
   }
 
-  /** Account deletion (#36): the user row cascades to sessions, connections, documents and usage. */
+  /** Account deletion (#36): the user row cascades to every table. R2 images are deleted by the caller. */
   async deleteAccount(): Promise<void> {
     await this.db.prepare("DELETE FROM users WHERE id = ?").bind(this.userId).run();
   }

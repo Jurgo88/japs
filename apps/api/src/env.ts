@@ -26,6 +26,24 @@ export interface Env {
   /** Workflows (#32): discovery per user, then one instance per project. */
   SYNC_JOBS?: WorkflowBinding<{ userId: string; jobId: string }>;
   PROJECT_JOBS?: WorkflowBinding<ProjectJobParams>;
+  /** Screenshots (#33): Browser Run, R2 for the images, one sequential workflow per run. */
+  BROWSER?: Fetcher;
+  SHOTS?: Bucket;
+  SHOT_JOBS?: WorkflowBinding<ShotJobParams>;
+}
+
+export interface ShotJobParams {
+  userId: string;
+  /** Projects to capture; only those the portfolio shows with screenshots are taken. */
+  keys: string[];
+}
+
+/** The part of R2Bucket we use; tests pass an in-memory fake. */
+export interface Bucket {
+  put(key: string, value: Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>;
+  list(options: { prefix: string; cursor?: string }): Promise<{ objects: { key: string }[]; truncated: boolean; cursor?: string }>;
+  delete(keys: string[]): Promise<void>;
 }
 
 export interface ProjectJobParams {

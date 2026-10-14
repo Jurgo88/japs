@@ -1,32 +1,12 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ScreenshotTarget } from "@japs/core";
+import { SCREENSHOT_HIDE_CSS, SCREENSHOT_VIEWPORTS, type ScreenshotTarget } from "@japs/core";
 import { ScreenshotsManifest, type ScreenshotRecord, type Viewport } from "@japs/schema";
 
 /** Own captures live outside out/ so `japs build` can be rerun without re-shooting. */
 export const SCREENSHOTS_DIR = "screenshots";
 const MANIFEST = "manifest.json";
-
-const VIEWPORTS: Record<Viewport, { width: number; height: number; deviceScaleFactor: number; isMobile: boolean }> = {
-  desktop: { width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false },
-  mobile: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true },
-};
-
-/**
- * Hides cookie and consent banners and scrollbars before the shot. Matching by id/class/aria
- * names covers the common consent tools without clicking anything on the user's site.
- */
-const HIDE_CSS = `
-  :is([id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i],
-    [id*="gdpr" i], [class*="gdpr" i], [aria-label*="cookie" i], [aria-label*="consent" i],
-    #onetrust-consent-sdk, #CybotCookiebotDialog, .cc-window, .cky-consent-container,
-    #usercentrics-root, .fc-consent-root, #didomi-host, .klaro):not(html):not(body) { display: none !important; }
-  html, body { scrollbar-width: none !important; }
-  ::-webkit-scrollbar { display: none !important; }
-`;
-// Sites often lock scrolling or blur the page while a banner is open (e.g. <body class="cookie-open">);
-// nothing here hides <html> or <body> themselves.
 
 export async function loadManifest(dir: string): Promise<ScreenshotsManifest | null> {
   const path = join(dir, MANIFEST);
@@ -54,7 +34,7 @@ async function launch(): Promise<Browser> {
 }
 
 async function capture(browser: Browser, target: ScreenshotTarget, viewport: Viewport, file: string): Promise<void> {
-  const { width, height, deviceScaleFactor, isMobile } = VIEWPORTS[viewport];
+  const { width, height, deviceScaleFactor, isMobile } = SCREENSHOT_VIEWPORTS[viewport];
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor, isMobile, hasTouch: isMobile });
   try {
     const page = await context.newPage();
@@ -64,7 +44,7 @@ async function capture(browser: Browser, target: ScreenshotTarget, viewport: Vie
     } catch {
       await page.goto(target.url, { waitUntil: "load", timeout: 30_000 });
     }
-    await page.addStyleTag({ content: HIDE_CSS });
+    await page.addStyleTag({ content: SCREENSHOT_HIDE_CSS });
     // Let intro animations (GSAP, fade-ins) settle.
     await page.waitForTimeout(1500);
     await page.screenshot({ path: file, type: "jpeg", quality: 82 });
