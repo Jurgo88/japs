@@ -25,7 +25,7 @@ packages/schema   Zod types (ProjectsFile, Portfolio, ProjectFacts). No deps bes
 packages/core     discovery (Netlify, GitHub), pairing, filters, fact extraction. Uses only fetch.
 packages/cli      `japs` command (pnpm japs discover)
 apps/theme-default  Astro theme, reads only out/portfolio.json (Phase 2)
-apps/dashboard      Vue 3 editor (Phase 3, not started)
+apps/dashboard      Vue 3 editor served by `japs edit`; data via EditorBackend (local now, Supabase in Phase 3)
 ```
 
 ## Commands
@@ -41,11 +41,12 @@ pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_
 pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: pnpm --filter @japs/cli exec playwright install chromium)
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
 pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
+pnpm edit            # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
 ```
 
 ## Files (until Supabase in Phase 3)
 
-- `japs.config.json` — user decisions (profile, locales, manual links, merges, per-project overrides). **Written only by the user**; tools read it, `japs init` may create it if missing (ADR 0004).
+- `japs.config.json` — user decisions (profile, locales, manual links, merges, per-project overrides). Written by the user, by hand or through the editor's Save (ADR 0004, 0007); pipeline commands only read it, `japs init` may create it if missing. The editor stores only differences from the defaults.
 - `projects.json`, `facts.json`, `analysis.json`, `portfolio.json` — generated, overwritten on every run.
 - Projects are referenced in config by a stable key: `repo:<owner>/<repo>` or `site:<netlify id>`, never by slug.
 

@@ -1,0 +1,22 @@
+{
+  "name": "@japs/dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JAPS editor: choose and edit portfolio projects (served by `japs edit`)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@japs/core": "workspace:*",
+    "@japs/schema": "workspace:*",
+    "vue": "^3.5.40"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.0",
+    "vue-tsc": "^3.3.10"
+  }
+}

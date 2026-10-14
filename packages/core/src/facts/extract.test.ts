@@ -1,3 +1,4 @@
+import { JapsConfig } from "@japs/schema";
 import { describe, expect, it } from "vitest";
 import { NOW, repos, sites } from "../__fixtures__/phase0.ts";
 import { GitHubClient } from "../discovery/github.ts";
@@ -136,5 +137,25 @@ describe("extractFacts", () => {
     const { options } = clients([]);
     const { file } = await extractFacts(projectsFile, { ...options, keys: ["repo:devuser/nope"] });
     expect(file.warnings).toEqual(['project "repo:devuser/nope" not found']);
+  });
+
+  it("keeps facts of projects not extracted this run", async () => {
+    const first = clients([...githubRoutes, ...netlifyRoutes]);
+    const { file: previous } = await extractFacts(projectsFile, { ...first.options, keys: ["repo:devuser/acmeshop"] });
+    const second = clients([...githubRoutes, ...netlifyRoutes]);
+    const { file } = await extractFacts(projectsFile, { ...second.options, previous, keys: ["repo:devuser/tiny-lib"] });
+    expect(file.projects.map((p) => p.key).sort()).toEqual(["repo:devuser/acmeshop", "repo:devuser/tiny-lib"]);
+  });
+
+  it("follows the current config's visibility instead of projects.json", async () => {
+    const { options } = clients([...githubRoutes, ...netlifyRoutes]);
+    const config = JapsConfig.parse({
+      version: 1,
+      projects: { "repo:devuser/client-app": { hidden: false }, "repo:devuser/acmeshop": { hidden: true } },
+    });
+    const { file } = await extractFacts(projectsFile, { ...options, config });
+    const keys = file.projects.map((p) => p.key);
+    expect(keys).toContain("repo:devuser/client-app");
+    expect(keys).not.toContain("repo:devuser/acmeshop");
   });
 });
