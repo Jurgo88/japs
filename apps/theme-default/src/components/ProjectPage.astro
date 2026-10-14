@@ -1,17 +1,18 @@
 ---
 import type { PortfolioProject } from "@japs/schema";
-import Base from "../layouts/Base.astro";
-import { formatMonth, t } from "../lib/i18n.ts";
-import { renderMarkdown } from "../lib/markdown.ts";
 import {
   coverShot,
+  formatMonth,
   loadPortfolio,
   localePrefix,
   neighbours,
   projectUrl,
+  renderMarkdown,
+  t,
   text,
   transitionName,
-} from "../lib/portfolio.ts";
+} from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
 
 interface Props {
   project: PortfolioProject;

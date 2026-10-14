@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@japs/schema": "workspace:*",
-    "astro": "^7.3.6",
-    "marked": "^18.1.0"
+    "@japs/theme-kit": "workspace:*",
+    "astro": "^7.3.6"
   }
 }

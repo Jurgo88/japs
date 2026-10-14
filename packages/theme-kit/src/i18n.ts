@@ -1,4 +1,7 @@
-/** UI strings of this theme. Project content comes localized in portfolio.json. */
+/**
+ * UI strings shared by the built-in themes; a theme adds its own with extendStrings().
+ * Project content comes localized in portfolio.json.
+ */
 const STRINGS = {
   en: {
     projects: "Projects",
@@ -130,10 +133,23 @@ const PLURALS: Record<keyof typeof STRINGS, Record<PluralKey, PluralForms>> = {
 };
 
 export type UiKey = keyof (typeof STRINGS)["en"];
+export type KitLocale = keyof typeof STRINGS;
 export const SUPPORTED_LOCALES: string[] = Object.keys(STRINGS);
 
 export const t = (locale: string, key: UiKey): string =>
   (STRINGS as Record<string, Record<UiKey, string>>)[locale]?.[key] ?? STRINGS.en[key];
+
+/**
+ * A theme's own UI strings on top of the shared ones. Every kit locale must be covered,
+ * so a theme can't ship half-translated:
+ *   const tt = extendStrings({ en: { hello: "Hi" }, sk: { hello: "Ahoj" }, cs: …, de: … });
+ */
+export function extendStrings<K extends string>(extra: Record<KitLocale, Record<K, string>>) {
+  return (locale: string, key: UiKey | K): string => {
+    const own = (extra as Record<string, Record<K, string>>)[locale] ?? extra.en;
+    return key in own ? own[key as K] : t(locale, key as UiKey);
+  };
+}
 
 /** Label for a count in the page's language: plural("sk", "projects", 3) -> "projekty". */
 export function plural(locale: string, key: PluralKey, count: number): string {

@@ -210,6 +210,8 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
       bio: profile.bio,
       location: profile.location,
       links: profile.links,
+      email: profile.email ?? null,
+      available: profile.available ?? null,
     },
     projects: ordered.flatMap((p) => toPortfolioProject(p) ?? []),
   };

@@ -98,18 +98,18 @@ const env = { NETLIFY_TOKEN: "t" };
 describe("publishWorkspace", () => {
   it("creates a site on the first run, builds for its URL, deploys and remembers it", async () => {
     const { fetch, calls } = fakeNetlify();
-    let builtFor: [string, string] | null = null;
+    let builtFor: [string, string, string] | null = null;
     const result = await publishWorkspace(ws, {
       env,
       fetch,
-      buildTheme: async (portfolioDir, siteUrl) => {
-        builtFor = [portfolioDir, siteUrl];
+      buildTheme: async (portfolioDir, siteUrl, theme) => {
+        builtFor = [portfolioDir, siteUrl, theme];
         return dist;
       },
     });
 
     expect(calls.find((c) => c.path === "/sites")?.body).toEqual({ name: "jane-doe-portfolio" });
-    expect(builtFor).toEqual([ws.out, "https://jane-doe-portfolio.netlify.app"]);
+    expect(builtFor).toEqual([ws.out, "https://jane-doe-portfolio.netlify.app", "default"]);
     const deploy = calls.find((c) => c.path === "/sites/new-site/deploys")!;
     expect(Object.keys((deploy.body as { files: object }).files).sort()).toEqual(["/index.html", "/projects/shop/index.html"]);
     expect(result).toMatchObject({ created: true, projects: 1, deploy: { uploaded: 2, total: 2 } });

@@ -1,53 +1,5 @@
 // @ts-check
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { japsAstroConfig } from "@japs/theme-kit/astro";
 import { defineConfig } from "astro/config";
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-/**
- * Directory with portfolio.json and its screenshots (output of `japs build`).
- * JAPS_PORTFOLIO_DIR overrides; otherwise the repo's out/, or the bundled sample when that's missing.
- */
-function portfolioDir() {
-  // Relative to where the command was run: pnpm --filter switches cwd but keeps INIT_CWD.
-  if (process.env.JAPS_PORTFOLIO_DIR) {
-    return resolve(process.env.INIT_CWD ?? process.cwd(), process.env.JAPS_PORTFOLIO_DIR);
-  }
-  const out = resolve(here, "../../out");
-  if (existsSync(resolve(out, "portfolio.json"))) return out;
-  console.warn("[japs] out/portfolio.json not found — using the sample portfolio. Run `pnpm japs build` for yours.");
-  return resolve(here, "sample");
-}
-
-const dir = portfolioDir();
-process.env.JAPS_PORTFOLIO_DIR = dir;
-
-/** In `astro dev`, reload the browser when `japs build` (or the editor) rewrites portfolio.json. */
-/** @returns {import("vite").Plugin} */
-function reloadOnPortfolioChange() {
-  const file = resolve(dir, "portfolio.json");
-  return {
-    name: "japs-portfolio-reload",
-    configureServer(server) {
-      server.watcher.add(file);
-      server.watcher.on("change", (changed) => {
-        if (resolve(changed) !== file) return;
-        // getStaticPaths() results are cached in dev; a new project would 404 until restart.
-        // Astro clears that cache on its (internal) content-changed event, as for content collections.
-        for (const environment of Object.values(server.environments)) {
-          if (environment.name !== "client") environment.hot.send("astro:content-changed", {});
-        }
-        server.ws.send({ type: "full-reload" });
-      });
-    },
-  };
-}
-
-export default defineConfig({
-  // Screenshots are served straight from the portfolio directory: no copying, no hotlinks.
-  publicDir: dir,
-  site: process.env.JAPS_SITE_URL,
-  vite: { plugins: [reloadOnPortfolioChange()] },
-});
+export default defineConfig({ ...japsAstroConfig(import.meta.url) });

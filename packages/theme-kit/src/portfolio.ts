@@ -1,33 +1,34 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { Portfolio, type LocalizedText, type PortfolioProject } from "@japs/schema";
-
-type Screenshot = PortfolioProject["screenshots"][number];
 import { SUPPORTED_LOCALES } from "./i18n.ts";
 
-let cached: Portfolio | null = null;
+type Screenshot = PortfolioProject["screenshots"][number];
+
+let cached: { file: string; mtime: number; portfolio: Portfolio } | null = null;
 
 /**
- * Loads and validates portfolio.json. The theme reads nothing else. Cached for a build;
- * in `astro dev` it is re-read on every request, so a new `japs build` shows up on reload.
+ * Loads and validates portfolio.json from JAPS_PORTFOLIO_DIR (set by japsAstroConfig).
+ * Re-read only when the file changes, so `astro dev` picks up a new `japs build` on reload.
  */
-export function loadPortfolio(): Portfolio {
-  if (cached && !import.meta.env.DEV) return cached;
-  const dir = process.env.JAPS_PORTFOLIO_DIR;
-  if (!dir) throw new Error("JAPS_PORTFOLIO_DIR is not set (astro.config.mjs sets it).");
+export function loadPortfolio(dir = process.env.JAPS_PORTFOLIO_DIR): Portfolio {
+  if (!dir) throw new Error("JAPS_PORTFOLIO_DIR is not set (japsAstroConfig() in astro.config.mjs sets it).");
+  const file = join(dir, "portfolio.json");
+  const mtime = statSync(file).mtimeMs;
+  if (cached?.file === file && cached.mtime === mtime) return cached.portfolio;
 
-  const result = Portfolio.safeParse(JSON.parse(readFileSync(join(dir, "portfolio.json"), "utf8")));
+  const result = Portfolio.safeParse(JSON.parse(readFileSync(file, "utf8")));
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
-    throw new Error(`${join(dir, "portfolio.json")} is invalid:\n${issues}`);
+    throw new Error(`${file} is invalid:\n${issues}`);
   }
-  // ADR 0005: a locale the theme has no UI strings for is a build error, not a half-translated page.
+  // ADR 0005: a locale without UI strings is a build error, not a half-translated page.
   const unsupported = result.data.locales.filter((l) => !SUPPORTED_LOCALES.includes(l));
   if (unsupported.length) {
-    throw new Error(`theme-default has no UI strings for: ${unsupported.join(", ")} (supported: ${SUPPORTED_LOCALES.join(", ")})`);
+    throw new Error(`No theme UI strings for: ${unsupported.join(", ")} (supported: ${SUPPORTED_LOCALES.join(", ")})`);
   }
-  cached = result.data;
-  return cached;
+  cached = { file, mtime, portfolio: result.data };
+  return result.data;
 }
 
 export const text = (value: LocalizedText, locale: string): string => value[locale] ?? "";

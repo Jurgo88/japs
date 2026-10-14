@@ -1,8 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import ProjectCard from "./ProjectCard.astro";
-import { plural, t } from "../lib/i18n.ts";
-import { loadPortfolio, localePrefix, orderedProjects, portfolioStats, tagCounts, text } from "../lib/portfolio.ts";
+import { loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, t, tagCounts, text } from "@japs/theme-kit";
 
 interface Props {
   locale: string;
@@ -41,9 +40,10 @@ const primaryCount = shared.length >= 4 ? shared.length : Math.min(tags.length, 
     <p class="headline">{text(profile.headline, locale)}</p>
     {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
     {
-      (profile.location || profile.links.length > 0) && (
+      (profile.location || profile.links.length > 0 || profile.email) && (
         <p class="links">
           {profile.location && <span>{profile.location}</span>}
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
           {profile.links.map((link) => (
             <a href={link.url} rel="me noopener">
               {link.label}
