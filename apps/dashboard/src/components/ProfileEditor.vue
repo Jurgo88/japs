@@ -16,7 +16,8 @@ const profile = computed<Profile>(() => ({
 
 function edit(change: (p: Profile) => void): void {
   update((c) => {
-    const next = structuredClone(profile.value);
+    // JSON copy: profile.value holds Vue proxies, which structuredClone rejects.
+    const next = JSON.parse(JSON.stringify(profile.value)) as Profile;
     change(next);
     return { ...c, profile: next };
   });

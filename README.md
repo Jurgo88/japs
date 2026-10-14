@@ -38,7 +38,7 @@ pnpm japs analyze      # writes analysis.json (project copy in your locales)
 pnpm japs screenshots  # desktop + mobile shots of your live sites (Playwright, runs locally)
 pnpm japs build        # writes out/portfolio.json + screenshots
 pnpm dev               # preview the portfolio at http://localhost:4321
-pnpm edit              # choose and edit projects in the browser at http://localhost:4310
+pnpm editor            # choose and edit projects in the browser at http://localhost:4310
 ```
 
 The editor writes your choices to `japs.config.json` when you press Save. It can also generate texts for a single project (one LLM call) when you show a project that had none.

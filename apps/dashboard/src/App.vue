@@ -3,7 +3,18 @@ import { computed, onMounted, ref } from "vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
-import { dirty, load, published, save, saveAndBuild, state, status } from "./store.ts";
+import {
+  dirty,
+  draftIssues,
+  generateMissing,
+  load,
+  missingTexts,
+  published,
+  save,
+  saveAndBuild,
+  state,
+  status,
+} from "./store.ts";
 
 const tab = ref<"projects" | "profile">("projects");
 const selectedKey = ref<string | null>(null);
@@ -11,6 +22,8 @@ const selectedKey = ref<string | null>(null);
 const projects = computed(() => state.value?.projects?.projects ?? []);
 const selected = computed(() => projects.value.find((p) => p.key === selectedKey.value) ?? null);
 const shownCount = computed(() => projects.value.filter(published).length);
+const privateMissing = computed(() => missingTexts.value.filter((p) => p.private).length);
+const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
   await load();
@@ -33,7 +46,14 @@ window.addEventListener("beforeunload", (e) => {
       <button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">Profile</button>
     </nav>
     <div class="actions">
-      <span v-if="dirty" class="muted">Unsaved changes</span>
+      <span
+        v-if="draftIssues.length"
+        class="issues"
+        :title="issuesTitle"
+      >
+        {{ draftIssues.length }} {{ draftIssues.length === 1 ? "problem" : "problems" }} to fix before saving
+      </span>
+      <span v-else-if="dirty" class="muted">Unsaved changes</span>
       <button class="btn" :disabled="!dirty || status.saving" @click="save()">
         {{ status.saving ? "Saving…" : "Save" }}
       </button>
@@ -55,6 +75,29 @@ window.addEventListener("beforeunload", (e) => {
     <ul v-if="status.build.warnings.length" class="muted">
       <li v-for="w in status.build.warnings" :key="w">{{ w }}</li>
     </ul>
+  </div>
+
+  <div v-if="status.batch && status.generating" class="banner">
+    Generating texts {{ status.batch.done + 1 }}/{{ status.batch.total }}: <code>{{ status.generating }}</code>…
+  </div>
+  <div v-else-if="status.batch" class="banner" :class="status.batch.failed.length ? 'error' : 'ok'">
+    Generated texts for {{ status.batch.total - status.batch.failed.length }} of {{ status.batch.total }} projects
+    ({{ status.batch.tokens }} tokens). Press <strong>Save &amp; build</strong> to update the portfolio.
+    <ul v-if="status.batch.failed.length">
+      <li v-for="f in status.batch.failed" :key="f">{{ f }}</li>
+    </ul>
+  </div>
+  <div v-else-if="missingTexts.length && tab === 'projects'" class="banner warn">
+    <span>
+      {{ missingTexts.length }} shown {{ missingTexts.length === 1 ? "project has" : "projects have" }} no texts yet and
+      will be left out of the build: {{ missingTexts.map((p) => p.title).join(", ") }}.
+      <template v-if="privateMissing">
+        For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
+      </template>
+    </span>
+    <button class="btn primary" :disabled="status.generating !== null || status.saving" @click="generateMissing()">
+      Generate texts ({{ missingTexts.length }})
+    </button>
   </div>
 
   <main v-if="status.loading" class="empty muted">Loading…</main>
@@ -100,10 +143,20 @@ pnpm japs analyze</pre>
 }
 .tabs button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.issues { color: var(--warn); font-size: 13px; cursor: help; }
 .banner { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; }
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }
 .banner.ok { background: var(--accent-soft); }
+.banner.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.banner.warn .btn { flex-shrink: 0; }
 @media (prefers-color-scheme: dark) { .banner.error { background: #3a1513; } }
 .split {
   display: grid;
