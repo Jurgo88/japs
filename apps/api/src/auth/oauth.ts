@@ -125,3 +125,24 @@ export async function fetchNetlifyUser(fetchImpl: typeof fetch, accessToken: str
   const user = z.object({ email: z.string().nullish(), full_name: z.string().nullish(), slug: z.string().nullish() }).parse(await res.json());
   return { login: user.email ?? user.slug ?? user.full_name ?? "Netlify account" };
 }
+
+/**
+ * Revokes the user's authorization of the GitHub App, so every token JAPS holds stops working
+ * (account deletion, #36). Installations on repos stay until the user removes them on GitHub.
+ */
+export async function revokeGithubGrant(
+  fetchImpl: typeof fetch,
+  params: { clientId: string; clientSecret: string; accessToken: string },
+): Promise<boolean> {
+  const res = await fetchImpl(`https://api.github.com/applications/${encodeURIComponent(params.clientId)}/grant`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Basic ${btoa(`${params.clientId}:${params.clientSecret}`)}`,
+      "Content-Type": "application/json",
+      "User-Agent": "JAPS",
+    },
+    body: JSON.stringify({ access_token: params.accessToken }),
+  });
+  return res.status === 204;
+}
