@@ -23,6 +23,8 @@ export interface Workspace {
   analysis: string;
   screenshots: string;
   out: string;
+  /** State of the published Netlify site (ADR 0008). */
+  publish: string;
 }
 
 export function resolveWorkspace(cwd: string, overrides: Partial<Record<keyof Workspace, string | undefined>> = {}): Workspace {
@@ -34,6 +36,7 @@ export function resolveWorkspace(cwd: string, overrides: Partial<Record<keyof Wo
     analysis: at(overrides.analysis, "analysis.json"),
     screenshots: at(overrides.screenshots, SCREENSHOTS_DIR),
     out: at(overrides.out, "out"),
+    publish: at(overrides.publish, "publish.json"),
   };
 }
 

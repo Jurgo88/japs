@@ -69,7 +69,7 @@ describe("NetlifyClient.listSiteInputs", () => {
   it("throws a readable error on API failure", async () => {
     const impl = (async () => new Response("nope", { status: 401, statusText: "Unauthorized" })) as typeof fetch;
     await expect(new NetlifyClient({ token: "bad", fetch: impl }).listSites()).rejects.toThrow(
-      "Netlify /sites?filter=all&per_page=100&page=1 failed: 401 Unauthorized",
+      "Netlify GET /sites failed: 401 Unauthorized — nope",
     );
   });
 });

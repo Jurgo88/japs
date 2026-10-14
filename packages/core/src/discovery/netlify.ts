@@ -78,11 +78,28 @@ export class NetlifyClient {
   }
 
   async get(path: string): Promise<unknown> {
+    return this.send("GET", path);
+  }
+
+  /** JSON or raw-bytes request; throws with Netlify's message on failure. */
+  async send(method: "GET" | "POST" | "PUT" | "PATCH", path: string, body?: unknown): Promise<unknown> {
+    const raw = body instanceof Uint8Array;
     const res = await this.fetchImpl(`${API}${path}`, {
-      headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
+      method,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": raw ? "application/octet-stream" : "application/json" }),
+      },
+      body: body === undefined ? undefined : raw ? (body as Uint8Array<ArrayBuffer>) : JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`Netlify ${path} failed: ${res.status} ${res.statusText}`);
-    return res.json();
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      const message = /"message"\s*:\s*"([^"]+)"/.exec(detail)?.[1] ?? detail.slice(0, 200);
+      throw new Error(`Netlify ${method} ${path.split("?")[0]} failed: ${res.status} ${res.statusText}${message ? ` — ${message}` : ""}`);
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   }
 
   async listSites(): Promise<RawSite[]> {
