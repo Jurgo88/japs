@@ -252,6 +252,31 @@ async function refreshData(): Promise<void> {
   }
 }
 
+/**
+ * Hosted screenshots (#33) are taken one project at a time, about half a minute each, and
+ * keep coming after the texts are done: reload them for a while until nothing changes.
+ */
+let following = false;
+async function followScreenshots(): Promise<void> {
+  if (following || !isCloud.value) return;
+  following = true;
+  try {
+    let unchanged = 0;
+    for (let i = 0; i < 40 && unchanged < 4; i++) {
+      await new Promise((r) => setTimeout(r, 30_000));
+      const before = JSON.stringify(state.value?.screenshots ?? null);
+      const loaded = await backend.load();
+      if (!state.value) break;
+      state.value.screenshots = loaded.screenshots;
+      unchanged = JSON.stringify(loaded.screenshots) === before ? unchanged + 1 : 0;
+    }
+  } catch {
+    // Only a convenience; the next load shows them anyway.
+  } finally {
+    following = false;
+  }
+}
+
 let watching = false;
 /** Polls the running job; when it ends, reloads projects and texts. */
 async function watchJob(): Promise<void> {
@@ -265,6 +290,7 @@ async function watchJob(): Promise<void> {
         job.value = latest;
         await refreshData();
         await refreshAccount(); // the AI quota changed
+        void followScreenshots();
         break;
       }
       job.value = latest;

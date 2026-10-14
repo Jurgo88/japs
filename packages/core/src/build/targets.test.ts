@@ -11,7 +11,7 @@ const keys = (targets: { key: string }[]) => targets.map((t) => t.key);
 describe("screenshotTargets", () => {
   it("captures only published projects with a deployed site, at their primary URL", () => {
     const targets = screenshotTargets(projectsFile, config());
-    expect(targets).toContainEqual({ key: "repo:devuser/acmeshop", slug: "acme-shop", url: "https://acme-shop.example" });
+    expect(targets).toContainEqual(expect.objectContaining({ key: "repo:devuser/acmeshop", slug: "acme-shop", url: "https://acme-shop.example" }));
     // Private, hidden, repo-only and never-deployed projects are never photographed.
     for (const key of ["repo:devuser/client-app", "repo:devuser/tiny-lib", "site:s-empty", "repo:devuser/shopmaster"]) {
       expect(keys(targets)).not.toContain(key);

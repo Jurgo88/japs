@@ -17,6 +17,9 @@
   // japs.app is in the same Cloudflare account; wrangler creates the DNS record and certificate.
   "routes": [{ "pattern": "japs.app", "custom_domain": true }],
   "observability": { "enabled": true },
+  "browser": { "binding": "BROWSER" },
+  // Own screenshots, under <user id>/<file>. Private: served only through /api/screenshots.
+  "r2_buckets": [{ "binding": "SHOTS", "bucket_name": "japs-screenshots" }],
   "d1_databases": [
     {
       "binding": "DB",
@@ -30,7 +33,9 @@
   // free plan allows 50 external subrequests per instance (ADR 0009).
   "workflows": [
     { "name": "japs-sync", "binding": "SYNC_JOBS", "class_name": "SyncWorkflow" },
-    { "name": "japs-project", "binding": "PROJECT_JOBS", "class_name": "ProjectWorkflow" }
+    { "name": "japs-project", "binding": "PROJECT_JOBS", "class_name": "ProjectWorkflow" },
+    // Screenshots (#33): one run per user, sequential, paced to the Browser Run limits.
+    { "name": "japs-screenshots", "binding": "SHOT_JOBS", "class_name": "ScreenshotWorkflow" }
   ],
   "vars": {
     // Public URL of the app, used for OAuth redirect URIs. Local dev overrides it in .dev.vars.

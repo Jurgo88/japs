@@ -34,7 +34,7 @@ export {
   publishedWith,
   type ScreenshotAsset,
 } from "./build/portfolio.ts";
-export { screenshotTargets, type ScreenshotTarget } from "./build/targets.ts";
+export { SCREENSHOT_HIDE_CSS, SCREENSHOT_VIEWPORTS, screenshotTargets, type ScreenshotTarget } from "./build/targets.ts";
 export {
   defaultPublished,
   setClientLabel,

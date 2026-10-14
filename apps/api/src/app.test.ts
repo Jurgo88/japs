@@ -3,6 +3,7 @@ import { createApp } from "./app.ts";
 import { base64url, decrypt } from "./crypto.ts";
 import { Store } from "./db.ts";
 import type { Env } from "./env.ts";
+import { fakeBucket } from "./testing/bucket.ts";
 import { testDb } from "./testing/sqlite.ts";
 
 /** Response bodies are `unknown` in the Workers types; tests read them loosely. */
@@ -427,5 +428,60 @@ describe("account deletion", () => {
       expect(await count(table), table).toBe(1);
     }
     expect((await body(john.request("/api/me"))).user.login).toBe("johndoe");
+  });
+});
+
+describe("screenshots API", () => {
+  async function twoUsers() {
+    const { bucket, objects } = fakeBucket();
+    env.SHOTS = bucket;
+    const { fetch } = fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+    const jane = new Browser(createApp({ fetch }));
+    const john = new Browser(createApp({ fetch }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+    const store = new Store(env.DB);
+    const janeId = (await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null })).id;
+    const johnId = (await store.upsertGithubUser({ githubId: 2, login: "johndoe", name: null, avatarUrl: null })).id;
+    objects.set(`${janeId}/shop-desktop.jpg`, new Uint8Array([0xff, 0xd8, 1]));
+    await store.forUser(janeId).putScreenshot({ key: "site:s1", viewport: "desktop", file: "shop-desktop.jpg", url: "https://shop.example.dev", takenAt: "2026-10-05T00:00:00.000Z" });
+    return { jane, john, objects, janeId, johnId };
+  }
+
+  it("serves a user's own images only, and lists them in the state", async () => {
+    const { jane, john } = await twoUsers();
+    const own = await jane.request("/api/screenshots/shop-desktop.jpg");
+    expect(own.status).toBe(200);
+    expect(own.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(new Uint8Array(await own.arrayBuffer())).toEqual(new Uint8Array([0xff, 0xd8, 1]));
+
+    expect((await john.request("/api/screenshots/shop-desktop.jpg")).status).toBe(404);
+    expect((await jane.request("/api/screenshots/..%2Fother.jpg")).status).toBe(404);
+    expect((await new Browser(createApp()).request("/api/screenshots/shop-desktop.jpg")).status).toBe(401);
+
+    expect((await body(jane.request("/api/state"))).screenshots.shots).toEqual([expect.objectContaining({ key: "site:s1", file: "shop-desktop.jpg" })]);
+    expect((await body(john.request("/api/state"))).screenshots).toEqual({ version: 1, shots: [] });
+  });
+
+  it("deletes a user's images with the account", async () => {
+    const { jane, objects, johnId } = await twoUsers();
+    objects.set(`${johnId}/blog-desktop.jpg`, new Uint8Array([1]));
+    const res = await jane.request("/api/account", { method: "DELETE", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "janedoe" }) });
+    expect(res.status).toBe(200);
+    expect([...objects.keys()]).toEqual([`${johnId}/blog-desktop.jpg`]);
+  });
+
+  it("starts screenshots for the projects whose texts are generated", async () => {
+    const shots: unknown[] = [];
+    env.PROJECT_JOBS = { create: async () => ({ id: "x" }), createBatch: async (b: unknown[]) => b.map(() => ({ id: "x" })) } as Env["PROJECT_JOBS"];
+    env.SHOT_JOBS = { create: async (o: { params: unknown }) => (shots.push(o.params), { id: "s" }), createBatch: async () => [] } as Env["SHOT_JOBS"];
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const store = new Store(env.DB);
+    const user = store.forUser((await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null })).id);
+    await user.putDocument("projects", { projects: [{ key: "site:s1" }] });
+    const res = await browser.request("/api/generate", { method: "POST", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["site:s1"] }) });
+    expect(res.status).toBe(202);
+    expect(shots).toEqual([{ userId: expect.any(String), keys: ["site:s1"] }]);
   });
 });
