@@ -12,6 +12,18 @@ const STRINGS = {
     clientWork: "Client project",
     back: "All projects",
     language: "Language",
+    theme: "Theme",
+    themeSystem: "System",
+    themeLight: "Light",
+    themeDark: "Dark",
+    filter: "Filter by technology",
+    all: "All",
+    moreTags: "Show all technologies",
+    showing: "Showing {shown} of {total} projects",
+    previous: "Previous project",
+    next: "Next project",
+    enlarge: "Enlarge screenshot",
+    close: "Close",
   },
   sk: {
     projects: "Projekty",
@@ -25,6 +37,18 @@ const STRINGS = {
     clientWork: "Klientsky projekt",
     back: "Všetky projekty",
     language: "Jazyk",
+    theme: "Vzhľad",
+    themeSystem: "Systémový",
+    themeLight: "Svetlý",
+    themeDark: "Tmavý",
+    filter: "Filtrovať podľa technológie",
+    all: "Všetky",
+    moreTags: "Zobraziť všetky technológie",
+    showing: "Zobrazené projekty: {shown} z {total}",
+    previous: "Predošlý projekt",
+    next: "Ďalší projekt",
+    enlarge: "Zväčšiť screenshot",
+    close: "Zavrieť",
   },
   cs: {
     projects: "Projekty",
@@ -38,6 +62,18 @@ const STRINGS = {
     clientWork: "Klientský projekt",
     back: "Všechny projekty",
     language: "Jazyk",
+    theme: "Vzhled",
+    themeSystem: "Systémový",
+    themeLight: "Světlý",
+    themeDark: "Tmavý",
+    filter: "Filtrovat podle technologie",
+    all: "Vše",
+    moreTags: "Zobrazit všechny technologie",
+    showing: "Zobrazené projekty: {shown} z {total}",
+    previous: "Předchozí projekt",
+    next: "Další projekt",
+    enlarge: "Zvětšit snímek",
+    close: "Zavřít",
   },
   de: {
     projects: "Projekte",
@@ -51,14 +87,59 @@ const STRINGS = {
     clientWork: "Kundenprojekt",
     back: "Alle Projekte",
     language: "Sprache",
+    theme: "Darstellung",
+    themeSystem: "System",
+    themeLight: "Hell",
+    themeDark: "Dunkel",
+    filter: "Nach Technologie filtern",
+    all: "Alle",
+    moreTags: "Alle Technologien anzeigen",
+    showing: "{shown} von {total} Projekten",
+    previous: "Vorheriges Projekt",
+    next: "Nächstes Projekt",
+    enlarge: "Screenshot vergrößern",
+    close: "Schließen",
   },
 } as const;
+
+type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
+type PluralKey = "projects" | "technologies" | "years";
+
+/** Labels that follow a number ("3 projects"), in every plural form the locale uses. */
+const PLURALS: Record<keyof typeof STRINGS, Record<PluralKey, PluralForms>> = {
+  en: {
+    projects: { one: "project", other: "projects" },
+    technologies: { one: "technology", other: "technologies" },
+    years: { one: "year", other: "years" },
+  },
+  sk: {
+    projects: { one: "projekt", few: "projekty", other: "projektov" },
+    technologies: { one: "technológia", few: "technológie", other: "technológií" },
+    years: { one: "rok", few: "roky", other: "rokov" },
+  },
+  cs: {
+    projects: { one: "projekt", few: "projekty", other: "projektů" },
+    technologies: { one: "technologie", few: "technologie", other: "technologií" },
+    years: { one: "rok", few: "roky", other: "let" },
+  },
+  de: {
+    projects: { one: "Projekt", other: "Projekte" },
+    technologies: { one: "Technologie", other: "Technologien" },
+    years: { one: "Jahr", other: "Jahre" },
+  },
+};
 
 export type UiKey = keyof (typeof STRINGS)["en"];
 export const SUPPORTED_LOCALES: string[] = Object.keys(STRINGS);
 
 export const t = (locale: string, key: UiKey): string =>
   (STRINGS as Record<string, Record<UiKey, string>>)[locale]?.[key] ?? STRINGS.en[key];
+
+/** Label for a count in the page's language: plural("sk", "projects", 3) -> "projekty". */
+export function plural(locale: string, key: PluralKey, count: number): string {
+  const forms = ((PLURALS as Record<string, Record<PluralKey, PluralForms>>)[locale] ?? PLURALS.en)[key];
+  return forms[new Intl.PluralRules(locale).select(count)] ?? forms.other;
+}
 
 /** "2025-03" -> "March 2025" / "marec 2025" in the page's language. */
 export function formatMonth(value: string | null, locale: string): string | null {
