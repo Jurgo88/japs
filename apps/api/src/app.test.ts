@@ -249,3 +249,77 @@ describe("editor API", () => {
     expect((await browser.request("/api/nope")).status).toBe(401);
   });
 });
+
+describe("jobs API", () => {
+  /** Records workflow starts instead of running them. */
+  function fakeWorkflows() {
+    const started: { binding: string; params: unknown }[] = [];
+    const binding = (name: string) => ({
+      create: async (o: { params: unknown }) => (started.push({ binding: name, params: o.params }), { id: `wf-${started.length}` }),
+      createBatch: async (batch: { params: unknown }[]) => batch.map((o) => (started.push({ binding: name, params: o.params }), { id: "wf" })),
+    });
+    env.SYNC_JOBS = binding("sync") as Env["SYNC_JOBS"];
+    env.PROJECT_JOBS = binding("project") as Env["PROJECT_JOBS"];
+    return started;
+  }
+  const post = (browser: Browser, path: string, json?: unknown) =>
+    browser.request(path, {
+      method: "POST",
+      headers: { Origin: APP_URL, "Content-Type": "application/json" },
+      body: json === undefined ? undefined : JSON.stringify(json),
+    });
+  async function signedInWithNetlify() {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const start = await browser.request("/auth/netlify/connect");
+    const state = new URL(start.headers.get("Location")!).searchParams.get("state")!;
+    await browser.request(`/auth/netlify/callback?code=nf&state=${state}`);
+    return browser;
+  }
+
+  it("refuses to import before Netlify is connected", async () => {
+    fakeWorkflows();
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const res = await post(browser, "/api/jobs/sync");
+    expect(res.status).toBe(400);
+    expect((await body(res)).error).toBe("Connect Netlify first.");
+  });
+
+  it("starts one import workflow per user and refuses a second while it runs", async () => {
+    const started = fakeWorkflows();
+    const browser = await signedInWithNetlify();
+    const first = await post(browser, "/api/jobs/sync");
+    expect(first.status).toBe(202);
+    const { job } = await body(first);
+    expect(job).toMatchObject({ kind: "sync", status: "running" });
+    expect(started).toEqual([{ binding: "sync", params: { userId: expect.any(String), jobId: job.id } }]);
+
+    expect((await post(browser, "/api/jobs/sync")).status).toBe(409);
+    expect((await body(browser.request("/api/jobs/latest"))).job.id).toBe(job.id);
+    expect((await body(browser.request("/api/state"))).job.id).toBe(job.id);
+  });
+
+  it("generates texts for one project only after an import", async () => {
+    const started = fakeWorkflows();
+    const browser = await signedInWithNetlify();
+    expect((await post(browser, "/api/generate", { key: "repo:jane/shop" })).status).toBe(400);
+
+    const store = new Store(env.DB);
+    const user = await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null });
+    await store.forUser(user.id).putDocument("projects", { version: 1, projects: [] });
+    expect((await post(browser, "/api/generate", { nope: 1 })).status).toBe(400);
+    const res = await post(browser, "/api/generate", { key: "repo:jane/shop" });
+    expect(res.status).toBe(202);
+    expect(started.at(-1)).toMatchObject({ binding: "project", params: { key: "repo:jane/shop" } });
+  });
+
+  it("assembles per-project analysis into the analysis.json shape for the editor", async () => {
+    const browser = await signedInWithNetlify();
+    const store = new Store(env.DB);
+    const user = await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null });
+    await store.forUser(user.id).putProjectDoc("repo:jane/shop", "analysis", { key: "repo:jane/shop", copy: { title: { en: "Shop" } } });
+    const state = await body(browser.request("/api/state"));
+    expect(state.analysis).toMatchObject({ version: 1, locales: ["en"], projects: [{ key: "repo:jane/shop" }] });
+  });
+});

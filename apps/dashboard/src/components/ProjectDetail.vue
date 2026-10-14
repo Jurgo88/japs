@@ -4,7 +4,7 @@ import type { Project } from "@japs/schema";
 import { computed, reactive, ref, watch } from "vue";
 import { thumbnail } from "../thumbnail.ts";
 import LocalizedField from "./LocalizedField.vue";
-import { analysisByKey, draft, generate, isCloud, locales, projectTitle, published, state, status, update } from "../store.ts";
+import { analysisByKey, draft, generate, job, locales, projectTitle, published, state, status, update } from "../store.ts";
 
 const props = defineProps<{ project: Project }>();
 
@@ -55,7 +55,7 @@ const commitScreenshotUrl = () =>
   update((c) => setOverride(c, props.project.key, "screenshotUrl", screenshotUrl.value.trim() || undefined));
 
 const generatingThis = computed(() => status.generating === props.project.key);
-const busy = computed(() => status.generating !== null || status.saving || status.building);
+const busy = computed(() => status.generating !== null || status.saving || status.building || job.value?.status === "running");
 const result = computed(() => (status.generated?.key === props.project.key ? status.generated : null));
 
 const desktop = computed(() => thumbnail(props.project, "desktop"));
@@ -122,7 +122,7 @@ const mobile = computed(() => thumbnail(props.project, "mobile"));
       </template>
       <div v-if="needsReanalysis" class="notice action">
         <span>These texts were generated with the project's name; until they are regenerated anonymously, the project is left out of the build.</span>
-        <button v-if="!isCloud" class="btn primary" :disabled="busy" @click="generate(project.key)">
+        <button class="btn primary" :disabled="busy" @click="generate(project.key)">
           {{ generatingThis ? "Generating…" : "Regenerate anonymously" }}
         </button>
       </div>
@@ -131,7 +131,7 @@ const mobile = computed(() => thumbnail(props.project, "mobile"));
     <div class="card texts">
       <div v-if="!analysis" class="notice action">
         <span>No generated texts yet. Generate them from the project's facts (about a cent with the default model), or write your own below.</span>
-        <button v-if="!isCloud" class="btn primary" :disabled="busy" @click="generate(project.key)">
+        <button class="btn primary" :disabled="busy" @click="generate(project.key)">
           {{ generatingThis ? "Generating…" : "Generate texts" }}
         </button>
       </div>

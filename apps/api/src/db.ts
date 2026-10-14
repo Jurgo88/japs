@@ -36,6 +36,47 @@ export interface Connection {
   meta: Record<string, unknown> | null;
 }
 
+export type ProjectDocKind = "facts" | "analysis";
+export type JobKind = "sync" | "generate";
+
+export interface Job {
+  id: string;
+  kind: JobKind;
+  status: "running" | "complete" | "failed";
+  total: number;
+  done: number;
+  failed: number;
+  message: string | null;
+  problems: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+type JobRow = {
+  id: string;
+  kind: JobKind;
+  status: Job["status"];
+  total: number;
+  done: number;
+  failed: number;
+  message: string | null;
+  problems: string;
+  created_at: string;
+  updated_at: string;
+};
+const toJob = (r: JobRow): Job => ({
+  id: r.id,
+  kind: r.kind,
+  status: r.status,
+  total: r.total,
+  done: r.done,
+  failed: r.failed,
+  message: r.message,
+  problems: JSON.parse(r.problems) as string[],
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
 /** What the browser may see about a connection: never a token. */
 export type PublicConnection = Pick<Connection, "provider" | "accountLogin"> & { updatedAt: string };
 
@@ -214,6 +255,101 @@ export class UserStore {
       .bind(this.userId, month)
       .first<{ generations: number; input_tokens: number; output_tokens: number }>();
     return { generations: row?.generations ?? 0, inputTokens: row?.input_tokens ?? 0, outputTokens: row?.output_tokens ?? 0 };
+  }
+
+  // --- Per-project facts and analysis (#32) ---
+
+  async getProjectDoc(key: string, kind: ProjectDocKind): Promise<unknown> {
+    const row = await this.db
+      .prepare("SELECT body FROM project_docs WHERE user_id = ? AND project_key = ? AND kind = ?")
+      .bind(this.userId, key, kind)
+      .first<{ body: string }>();
+    return row ? (JSON.parse(row.body) as unknown) : null;
+  }
+
+  async putProjectDoc(key: string, kind: ProjectDocKind, body: unknown): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO project_docs (user_id, project_key, kind, body, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(user_id, project_key, kind) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+      )
+      .bind(this.userId, key, kind, JSON.stringify(body), this.iso())
+      .run();
+  }
+
+  /** All of one kind, for assembling facts.json / analysis.json shapes. */
+  async listProjectDocs(kind: ProjectDocKind): Promise<{ key: string; body: unknown }[]> {
+    const { results } = await this.db
+      .prepare("SELECT project_key, body FROM project_docs WHERE user_id = ? AND kind = ? ORDER BY project_key")
+      .bind(this.userId, kind)
+      .all<{ project_key: string; body: string }>();
+    return results.map((r) => ({ key: r.project_key, body: JSON.parse(r.body) as unknown }));
+  }
+
+  // --- Jobs (#32) ---
+
+  async createJob(kind: JobKind, total = 0, message: string | null = null): Promise<string> {
+    const id = crypto.randomUUID();
+    const at = this.iso();
+    await this.db
+      .prepare(
+        `INSERT INTO jobs (id, user_id, kind, status, total, done, failed, message, created_at, updated_at)
+         VALUES (?, ?, ?, 'running', ?, 0, 0, ?, ?, ?)`,
+      )
+      .bind(id, this.userId, kind, total, message, at, at)
+      .run();
+    return id;
+  }
+
+  async getJob(id: string): Promise<Job | null> {
+    const row = await this.db.prepare("SELECT * FROM jobs WHERE user_id = ? AND id = ?").bind(this.userId, id).first<JobRow>();
+    return row ? toJob(row) : null;
+  }
+
+  async latestJob(): Promise<Job | null> {
+    const row = await this.db
+      .prepare("SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+      .bind(this.userId)
+      .first<JobRow>();
+    return row ? toJob(row) : null;
+  }
+
+  /** Sets the plan of a job; a job with nothing to do is complete right away. */
+  async planJob(id: string, total: number, message: string | null): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE jobs SET total = ?, message = ?, status = CASE WHEN ? = 0 THEN 'complete' ELSE status END, updated_at = ?
+         WHERE user_id = ? AND id = ?`,
+      )
+      .bind(total, message, total, this.iso(), this.userId, id)
+      .run();
+  }
+
+  async failJob(id: string, message: string): Promise<void> {
+    await this.db
+      .prepare("UPDATE jobs SET status = 'failed', message = ?, updated_at = ? WHERE user_id = ? AND id = ?")
+      .bind(message, this.iso(), this.userId, id)
+      .run();
+  }
+
+  /**
+   * One project finished (ok or not). A single statement, because per-project workflow
+   * instances finish concurrently; the job completes when every project has reported.
+   */
+  async reportJobProject(id: string, outcome: { ok: true } | { ok: false; problem: string }): Promise<void> {
+    const ok = outcome.ok ? 1 : 0;
+    const bad = outcome.ok ? 0 : 1;
+    const problem = outcome.ok ? null : outcome.problem.slice(0, 300);
+    await this.db
+      .prepare(
+        `UPDATE jobs SET done = done + ?, failed = failed + ?,
+           problems = CASE WHEN ? IS NULL OR json_array_length(problems) >= 50 THEN problems ELSE json_insert(problems, '$[#]', ?) END,
+           status = CASE WHEN status = 'running' AND done + ? + failed + ? >= total THEN 'complete' ELSE status END,
+           updated_at = ?
+         WHERE user_id = ? AND id = ?`,
+      )
+      .bind(ok, bad, problem, problem, ok, bad, this.iso(), this.userId, id)
+      .run();
   }
 
   /** Account deletion (#36): the user row cascades to sessions, connections, documents and usage. */
