@@ -59,6 +59,8 @@ export class GitHubClient {
         Authorization: `Bearer ${this.token}`,
         Accept: accept,
         "X-GitHub-Api-Version": "2022-11-28",
+        // Required by GitHub (403 without it). Node adds one by itself; Workers do not.
+        "User-Agent": "JAPS (+https://github.com/Jurgo88/japs)",
       },
     });
   }
