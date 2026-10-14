@@ -33,7 +33,9 @@
     // Public URL of the app, used for OAuth redirect URIs.
     "APP_URL": "http://localhost:8787",
     // GitHub App URL slug (github.com/apps/<slug>), for "install on your repositories".
-    "GITHUB_APP_SLUG": "",
-    "JAPS_LLM_MODEL": "gpt-5-mini"
+    "GITHUB_APP_SLUG": "japs-portfolio",
+    "JAPS_LLM_MODEL": "gpt-5-mini",
+    // AI generations per user and month on the shared key; then the user adds an own key.
+    "JAPS_FREE_GENERATIONS": "50"
   }
 }

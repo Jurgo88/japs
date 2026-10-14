@@ -194,9 +194,25 @@ export const missingTexts = computed(() =>
   (state.value?.projects?.projects ?? []).filter((p) => {
     if (!published(p)) return false;
     const analysis = analysisByKey.value.get(p.key);
-    return !analysis || (draft.value.projects?.[p.key]?.anonymize === true && !analysis.anonymized);
+    if (!analysis) return true;
+    // Texts are needed in every language, and without names once anonymized.
+    if (locales.value.some((l) => !(l in analysis.copy.title))) return true;
+    return draft.value.projects?.[p.key]?.anonymize === true && !analysis.anonymized;
   }),
 );
+
+/** Hosted only: projects whose repository JAPS can't read yet (private, app not installed there). */
+export const unreadableRepos = computed(() => {
+  const file = state.value?.projects;
+  if (!file || !isCloud.value) return [];
+  const visible = new Set(file.repos.map((r) => r.id));
+  return file.projects.filter((p) => p.repoIds.some((id) => !visible.has(id)));
+});
+
+/** Hosted only: reload the account (connections, AI quota) after a change. */
+export async function refreshAccount(): Promise<void> {
+  if (isCloud.value) account.value = await backend.account();
+}
 
 /** Generates texts for every project in `missingTexts`, one at a time, then reloads once. */
 export async function generateMissing(): Promise<void> {
@@ -248,6 +264,7 @@ async function watchJob(): Promise<void> {
       if (latest?.id !== job.value.id || latest.status !== "running") {
         job.value = latest;
         await refreshData();
+        await refreshAccount(); // the AI quota changed
         break;
       }
       job.value = latest;

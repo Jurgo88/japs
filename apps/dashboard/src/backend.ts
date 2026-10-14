@@ -44,6 +44,10 @@ export interface GenerateSummary {
 export interface Account {
   user: { login: string; name: string | null; avatarUrl: string | null };
   connections: { provider: "github" | "netlify" | "llm"; accountLogin: string | null }[];
+  /** AI generations on the shared key this month (#35). */
+  quota: { used: number; limit: number; remaining: number; ownKey: { provider: string; model: string } | null; shared: boolean };
+  /** Install the GitHub App on repositories, so private ones become readable. */
+  githubAppInstallUrl: string | null;
 }
 
 /**
@@ -65,6 +69,9 @@ export interface EditorBackend {
   /** Hosted only: facts + texts for the picked projects, in the background. */
   startGenerate(keys: string[]): Promise<CloudJob>;
   latestJob(): Promise<CloudJob | null>;
+  /** Hosted only: the user's own AI key (stored encrypted on the server). */
+  saveAiKey(provider: string, model: string, apiKey: string): Promise<void>;
+  removeAiKey(): Promise<void>;
 }
 
 export class BackendError extends Error {
@@ -137,5 +144,13 @@ export class HttpBackend implements EditorBackend {
 
   async latestJob(): Promise<CloudJob | null> {
     return (await this.call<{ job: CloudJob | null }>("/api/jobs/latest")).job;
+  }
+
+  async saveAiKey(provider: string, model: string, apiKey: string): Promise<void> {
+    await this.call("/api/llm", { method: "PUT", body: JSON.stringify({ provider, model, apiKey }) });
+  }
+
+  async removeAiKey(): Promise<void> {
+    await this.call("/api/connections/llm", { method: "DELETE" });
   }
 }

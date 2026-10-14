@@ -153,7 +153,46 @@ describe("hosted pipeline", () => {
     const { fetch } = fakeWorld();
     await runDiscovery(user, { env, fetch, now: () => NOW });
     const result = await runProject(user, "repo:jane/shop", { env, fetch, now: () => NOW });
-    expect(result).toMatchObject({ generated: false, warnings: ["No LLM configured on the server."] });
+    expect(result).toMatchObject({ generated: false, warnings: ["No AI key available: add your own in your profile."] });
     expect(await user.getProjectDoc("repo:jane/shop", "facts")).not.toBeNull();
+  });
+});
+
+describe("AI quota in the pipeline", () => {
+  it("blocks a new generation on the shared key once the monthly limit is used", async () => {
+    env.JAPS_FREE_GENERATIONS = "1";
+    await user.addUsage("2026-10", { generations: 1, inputTokens: 0, outputTokens: 0 });
+    const { fetch, calls } = fakeWorld();
+    await runDiscovery(user, { env, fetch, now: () => NOW });
+    const result = await runProject(user, "repo:jane/shop", { env, fetch, now: () => NOW });
+    expect(result.generated).toBe(false);
+    expect(result.warnings.join(" ")).toContain("Free monthly limit of 1 AI generations reached");
+    expect(calls.some((c) => c.includes("openai.com"))).toBe(false);
+    // Facts are still saved, so generating later doesn't start from scratch.
+    expect(await user.getProjectDoc("repo:jane/shop", "facts")).not.toBeNull();
+  });
+
+  it("uses the user's own key instead of the shared one, without counting it", async () => {
+    env.JAPS_FREE_GENERATIONS = "0";
+    await user.setConnection({
+      provider: "llm",
+      accountLogin: "openai · gpt-5-mini",
+      accessToken: await encrypt("sk-user", env.ENCRYPTION_KEY),
+      refreshToken: null,
+      expiresAt: null,
+      meta: { provider: "openai", model: "gpt-5-mini" },
+    });
+    let authorization = "";
+    const world = fakeWorld();
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes("openai.com")) authorization = String((init?.headers as Record<string, string>).Authorization);
+      return world.fetch(input, init);
+    }) as typeof globalThis.fetch;
+
+    await runDiscovery(user, { env, fetch, now: () => NOW });
+    const result = await runProject(user, "repo:jane/shop", { env, fetch, now: () => NOW });
+    expect(result.generated).toBe(true);
+    expect(authorization).toBe("Bearer sk-user");
+    expect((await user.getUsage("2026-10")).generations).toBe(0);
   });
 });

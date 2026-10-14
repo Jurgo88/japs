@@ -17,6 +17,8 @@ export interface Env {
   ENCRYPTION_KEY: string;
   /** Shared LLM key for the free quota (#35). Without it, texts aren't generated. */
   OPENAI_API_KEY?: string;
+  /** Free AI generations per user and month on the shared key (#35). Default 50. */
+  JAPS_FREE_GENERATIONS?: string;
   /** Default gpt-5-mini. */
   JAPS_LLM_MODEL?: string;
   /** GitHub App URL slug, for the "install on your repositories" link. */
