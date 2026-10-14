@@ -114,6 +114,13 @@ describe("GitHub sign-in", () => {
     expect(calls).toEqual([]);
   });
 
+  it("turns the redirect after an app installation into a fresh sign-in, ignoring its code", async () => {
+    const { fetch, calls } = fakeProviders();
+    const res = await new Browser(createApp({ fetch })).request("/auth/github/callback?code=code-jane&installation_id=42&setup_action=install");
+    expect(res.headers.get("Location")).toBe("/auth/github/login");
+    expect(calls).toEqual([]);
+  });
+
   it("reports a bad code from GitHub without signing in", async () => {
     const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
     const res = await browser.signIn("code-wrong");

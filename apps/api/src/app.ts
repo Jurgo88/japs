@@ -92,6 +92,10 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   app.get("/auth/github/callback", async (c) => {
+    // Installing the app on GitHub redirects here with a code but without our state. That code
+    // isn't bound to this browser, so it's not used: a normal sign-in starts instead, which
+    // completes at once because the user has just authorized the app.
+    if (c.req.query("setup_action") && !c.req.query("state")) return c.redirect("/auth/github/login");
     if (!(await checkState(c, "github"))) return fail(c, "Sign-in expired or was tampered with. Please try again.");
     const code = c.req.query("code");
     if (!code) return fail(c, c.req.query("error_description") ?? "GitHub sign-in was cancelled.");
@@ -197,6 +201,23 @@ export function createApp(deps: AppDeps = {}) {
     if (provider !== "netlify" && provider !== "llm") return c.json({ error: "Cannot disconnect this provider" }, 400);
     await c.get("store").forUser(c.get("user")!.id).deleteConnection(provider);
     return c.json({ ok: true });
+  });
+
+  // Placeholder home until the dashboard is served here (#31): shows who is signed in.
+  app.get("/", async (c) => {
+    const user = c.get("user");
+    const escape = (s: string) => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`);
+    const error = c.req.query("auth_error");
+    const connections = user ? await c.get("store").forUser(user.id).listConnections() : [];
+    const body = user
+      ? `<p>Signed in as <strong>${escape(user.githubLogin)}</strong>.</p>
+         <ul>${connections.map((x) => `<li>${escape(x.provider)}: ${escape(x.accountLogin ?? "connected")}</li>`).join("")}</ul>
+         ${connections.some((x) => x.provider === "netlify") ? "" : '<p><a href="/auth/netlify/connect">Connect Netlify</a></p>'}
+         <form method="post" action="/auth/logout" onsubmit="event.preventDefault();fetch('/auth/logout',{method:'POST'}).then(()=>location.reload())"><button>Sign out</button></form>`
+      : '<p><a href="/auth/github/login">Sign in with GitHub</a></p>';
+    return c.html(`<!doctype html><meta charset="utf-8"><title>JAPS</title>
+      <body style="font:16px system-ui;max-width:40rem;margin:4rem auto;padding:0 1rem">
+      <h1>JAPS</h1>${error ? `<p style="color:#b42318">${escape(error)}</p>` : ""}${body}</body>`);
   });
 
   app.notFound((c) => c.json({ error: "Not found" }, 404));
