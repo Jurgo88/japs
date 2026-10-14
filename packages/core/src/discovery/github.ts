@@ -47,7 +47,9 @@ export class GitHubClient {
 
   constructor(options: GitHubClientOptions) {
     this.token = options.token;
-    this.fetchImpl = options.fetch ?? globalThis.fetch;
+    // Called as a plain function: Workers throw "Illegal invocation" when fetch runs as a method of another object.
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    this.fetchImpl = (input, init) => fetchFn(input, init);
   }
 
   /** Raw request for callers that need status codes or headers (Link pagination, 404 = missing). */

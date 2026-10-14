@@ -26,7 +26,7 @@ export class SyncWorkflow extends WorkflowEntrypoint<Env, { userId: string; jobI
     try {
       found = await step.do("discover", RETRY, async () => {
         try {
-          return await runDiscovery(user(), { env: this.env, fetch });
+          return await runDiscovery(user(), { env: this.env, fetch: (input, init) => fetch(input, init) });
         } catch (err) {
           // Missing connections won't fix themselves on retry.
           if (err instanceof ConnectionError) throw new NonRetryableError(err.message);
@@ -66,7 +66,7 @@ export class ProjectWorkflow extends WorkflowEntrypoint<Env, ProjectJobParams> {
     try {
       const result = await step.do(`facts and texts: ${key}`.slice(0, 256), RETRY, async () => {
         try {
-          return await runProject(user(), key, { env: this.env, fetch });
+          return await runProject(user(), key, { env: this.env, fetch: (input, init) => fetch(input, init) });
         } catch (err) {
           if (err instanceof ConnectionError) throw new NonRetryableError(err.message);
           throw err;
