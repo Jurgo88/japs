@@ -1,34 +1,11 @@
-import { spawn } from "node:child_process";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createSite, type DeployFile, type DeployResult, deploySite, findSite, NetlifyClient, type NetlifySite, slugify } from "@japs/core";
-import { PublishState } from "@japs/schema";
+import { PublishState, type ThemeId } from "@japs/schema";
+import { buildTheme } from "./theme.ts";
 import { buildWorkspace, readOptional, requireConfig, type Workspace, WorkspaceError } from "./workspace.ts";
 
 /** `japs publish` (ADR 0008): build portfolio + theme, deploy to the user's own Netlify site. */
-
-const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-const THEME_DIST = join(REPO_ROOT, "apps", "theme-default", "dist");
-
-/** Builds theme-default for `portfolioDir`, with absolute URLs on `siteUrl`. Returns the dist directory. */
-export async function buildTheme(portfolioDir: string, siteUrl: string): Promise<string> {
-  const output: string[] = [];
-  const code = await new Promise<number>((resolveExit, reject) => {
-    // pnpm is a .cmd shim on Windows, which needs a shell; a fixed command string, no user input.
-    const child = spawn("pnpm --filter @japs/theme-default build", {
-      cwd: REPO_ROOT,
-      shell: true,
-      env: { ...process.env, JAPS_PORTFOLIO_DIR: portfolioDir, JAPS_SITE_URL: siteUrl },
-    });
-    child.stdout.on("data", (d: Buffer) => output.push(d.toString()));
-    child.stderr.on("data", (d: Buffer) => output.push(d.toString()));
-    child.on("error", reject);
-    child.on("close", (c) => resolveExit(c ?? 1));
-  });
-  if (code !== 0) throw new WorkspaceError(`Theme build failed:\n${output.join("").split("\n").slice(-15).join("\n")}`);
-  return THEME_DIST;
-}
 
 /** Every file under `dir`, as Netlify site paths ("/sk/index.html"). */
 export async function collectFiles(dir: string): Promise<DeployFile[]> {
@@ -53,7 +30,7 @@ export interface PublishOptions {
   draft?: boolean;
   onProgress?: (message: string) => void;
   /** Injectable for tests. */
-  buildTheme?: (portfolioDir: string, siteUrl: string) => Promise<string>;
+  buildTheme?: (portfolioDir: string, siteUrl: string, theme: ThemeId) => Promise<string>;
   fetch?: typeof fetch;
 }
 
@@ -101,8 +78,8 @@ export async function publishWorkspace(ws: Workspace, options: PublishOptions): 
     await writeState(ws, { site, lastDeploy: null });
   }
 
-  progress("Building the site…");
-  const dist = await (options.buildTheme ?? buildTheme)(ws.out, site.url);
+  progress(`Building the site with the "${config.theme}" theme…`);
+  const dist = await (options.buildTheme ?? buildTheme)(ws.out, site.url, config.theme);
   const files = await collectFiles(dist);
 
   progress(`Deploying ${files.length} files${options.draft ? " as a draft" : ""}…`);

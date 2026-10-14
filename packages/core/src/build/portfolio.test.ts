@@ -65,6 +65,13 @@ describe("buildPortfolio", () => {
     expect(() => build({ config: config({ profile: undefined }) })).toThrow(BuildError);
   });
 
+  it("copies the contact email and availability, null when unset", () => {
+    const profile = { name: "Jane Doe", headline: t("Developer", "Vývojárka"), bio: t("Hi.", "Ahoj.") };
+    expect(build().portfolio.profile).toMatchObject({ email: null, available: null });
+    const set = build({ config: config({ profile: { ...profile, email: "jane@example.com", available: false } }) });
+    expect(set.portfolio.profile).toMatchObject({ email: "jane@example.com", available: false });
+  });
+
   it("includes visible, analyzed projects and warns about the rest", () => {
     const { portfolio, warnings } = build();
     expect(portfolio.projects.map((p) => p.slug)).toEqual(["acme-shop", "portfolio-v2", "tiny-lib"]);

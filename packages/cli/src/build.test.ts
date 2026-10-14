@@ -34,7 +34,7 @@ const result: BuildPortfolioResult = {
     generatedAt: "2026-10-13T10:00:00.000Z",
     locales: ["en"],
     defaultLocale: "en",
-    profile: { name: "Jane", headline: t("h"), bio: t("b"), location: null, links: [] },
+    profile: { name: "Jane", headline: t("h"), bio: t("b"), location: null, links: [], email: null, available: null },
     projects: [project("ok"), project("broken")],
   },
   screenshots: [

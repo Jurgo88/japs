@@ -57,6 +57,28 @@ const value = (e: Event) => (e.target as HTMLInputElement).value;
       <input type="text" :value="profile.location ?? ''" @change="edit((p) => (p.location = value($event).trim() || null))" />
     </label>
 
+    <label class="field">
+      <span>Contact email <span class="muted">(optional, shown as the call to action)</span></span>
+      <input
+        type="email"
+        :value="profile.email ?? ''"
+        placeholder="you@example.com"
+        @change="edit((p) => (value($event).trim() ? (p.email = value($event).trim()) : delete p.email))"
+      />
+    </label>
+
+    <label class="field">
+      <span>Availability <span class="muted">(badge in themes that show one)</span></span>
+      <select
+        :value="profile.available === undefined ? '' : String(profile.available)"
+        @change="edit((p) => (value($event) === '' ? delete p.available : (p.available = value($event) === 'true')))"
+      >
+        <option value="">Don't show</option>
+        <option value="true">Available for projects</option>
+        <option value="false">Not taking projects</option>
+      </select>
+    </label>
+
     <div class="field">
       <span>Links</span>
       <div v-for="(link, i) in profile.links ?? []" :key="i" class="link">

@@ -22,7 +22,9 @@ Texty sú viacjazyčné (`LocalizedText`, [ADR 0005](../adr/0005-bilingual-portf
     "headline": { "en": "Freelance full-stack developer", "sk": "Freelance full-stack vývojárka" },
     "bio": { "en": "…", "sk": "…" },
     "location": "Bratislava",
-    "links": [{ "label": "GitHub", "url": "https://github.com/…" }]
+    "links": [{ "label": "GitHub", "url": "https://github.com/…" }],
+    "email": "jane@example.com",
+    "available": true
   },
   "projects": [
     {
@@ -50,6 +52,7 @@ Texty sú viacjazyčné (`LocalizedText`, [ADR 0005](../adr/0005-bilingual-portf
 ## Pravidlá
 
 - Lokalizované: `profile.headline`, `profile.bio`, `title`, `summary`, `description`, `role`, `client.label`, `screenshots[].alt`. Ostatné polia (vrátane `tags`) sú jazykovo neutrálne.
+- `profile.email` (kontakt pre výzvu na spoluprácu) a `profile.available` (odznak dostupnosti) sú voliteľné, `null` keď nie sú v configu. Pribudli v rámci verzie 1 ([ADR 0010](../adr/0010-selectable-themes.md)); súbor bez nich sa načíta s `null`.
 - `defaultLocale` musí byť v `locales`. Jednojazyčné portfólio = `locales` s jedným prvkom.
 
 - `links.repo` je `null` pre privátne repá (nikdy neprezradiť existenciu privátneho repa).

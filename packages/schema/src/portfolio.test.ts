@@ -81,6 +81,12 @@ describe("Portfolio", () => {
     expect(messages({ ...valid(), defaultLocale: "de" })).toEqual(['defaultLocale: defaultLocale "de" is not in locales']);
   });
 
+  it("loads a v1 file from before profile email/availability with nulls", () => {
+    const parsed = Portfolio.parse(valid());
+    expect(parsed.profile.email).toBeNull();
+    expect(parsed.profile.available).toBeNull();
+  });
+
   it("limits summary length in every locale", () => {
     const p = valid();
     p.projects[0]!.summary.sk = "x".repeat(201);

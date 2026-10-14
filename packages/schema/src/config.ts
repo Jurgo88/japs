@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Link, Locale, LocalizedText } from "./portfolio.ts";
 import { RepoId } from "./projects.ts";
+import { ThemeId } from "./themes.ts";
 
 /**
  * japs.config.json — user decisions, written only by the user. See ADR 0004.
@@ -70,6 +71,10 @@ export const Profile = z
     bio: LocalizedText,
     location: z.string().nullable().default(null),
     links: z.array(Link).default([]),
+    /** Contact address for the theme's call to action. */
+    email: z.string().email().optional(),
+    /** Shows an "available for projects" badge (true) or "not taking projects" (false). Unset = no badge. */
+    available: z.boolean().optional(),
   })
   .strict();
 export type Profile = z.infer<typeof Profile>;
@@ -81,6 +86,8 @@ export const JapsConfig = z
     version: z.literal(1),
     locales: z.array(Locale).min(1).default(["en"]),
     defaultLocale: Locale.default("en"),
+    /** Theme the portfolio is built with (ADR 0010). */
+    theme: ThemeId.default("default"),
     /** Required by `japs build`; discovery works without it. */
     profile: Profile.optional(),
     discovery: z

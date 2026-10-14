@@ -1,0 +1,18 @@
+{
+  "name": "@japs/theme-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional helpers for JAPS themes: load portfolio.json, locales, URLs, UI strings, Astro config (ADR 0010)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./astro": "./src/astro.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@japs/schema": "workspace:*",
+    "marked": "^18.1.0"
+  }
+}

@@ -68,7 +68,8 @@ The default theme has light and dark mode, a technology filter, screenshots in d
 | `packages/schema` | Shared types and validation (Zod) |
 | `packages/core` | Discovery, pairing, filters, fact extraction, AI copy, publishing (runs in Node and Workers) |
 | `packages/cli` | `japs` command line |
-| `apps/theme-default` | Default Astro theme, built from `portfolio.json` |
+| `packages/theme-kit` | Optional helpers shared by the built-in themes |
+| `apps/theme-*` | Astro themes built from `portfolio.json`; pick one with `"theme"` in `japs.config.json` |
 | `apps/dashboard` | Vue 3 editor, served locally by `japs edit` and online by the API |
 | `apps/api` | Hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub sign-in, Netlify connect |
 | `docs/` | Kickoff, specs and architecture decisions (Slovak) |

@@ -63,6 +63,9 @@ export const Portfolio = z
       bio: LocalizedText,
       location: z.string().nullable(),
       links: z.array(Link),
+      /** Added within v1 (ADR 0010): older files load with null. */
+      email: z.string().email().nullable().default(null),
+      available: z.boolean().nullable().default(null),
     }),
     projects: z.array(PortfolioProject),
   })

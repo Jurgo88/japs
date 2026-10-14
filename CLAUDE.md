@@ -24,7 +24,8 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 packages/schema   Zod types (ProjectsFile, Portfolio, ProjectFacts). No deps besides zod.
 packages/core     discovery (Netlify, GitHub), pairing, filters, fact extraction. Uses only fetch.
 packages/cli      `japs` command (pnpm japs discover)
-apps/theme-default  Astro theme, reads only out/portfolio.json (Phase 2)
+packages/theme-kit  optional theme helpers: load portfolio.json, locales, UI strings, Astro config, sample (ADR 0010)
+apps/theme-<id>     Astro themes, read only out/portfolio.json; chosen by `theme` in japs.config.json (ADR 0010)
 apps/dashboard      Vue 3 editor served by `japs edit`; data via EditorBackend (local now, cloud API next)
 apps/api            hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub App sign-in, Netlify OAuth (ADR 0009)
 ```
@@ -41,7 +42,7 @@ pnpm japs facts      # projects.json -> facts.json (no LLM; repo facts cached by
 pnpm japs analyze    # facts.json -> analysis.json via LLM (JAPS_LLM_* / OPENAI_API_KEY in .env, ADR 0006)
 pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: pnpm --filter @japs/cli exec playwright install chromium)
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
-pnpm dev             # theme-default on localhost:4321 (falls back to apps/theme-default/sample)
+pnpm dev             # configured theme on localhost:4321 (--theme <id> to try another; falls back to packages/theme-kit/sample)
 pnpm editor          # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
 pnpm japs publish    # build + deploy to a dedicated Netlify site (--draft for a preview; ADR 0008)
 ```

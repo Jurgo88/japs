@@ -12,8 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r --parallel typecheck",
     "japs": "pnpm --filter @japs/cli start",
-    "dev": "pnpm --filter @japs/theme-default dev",
-    "theme:build": "pnpm --filter @japs/theme-default build",
+    "dev": "pnpm japs theme dev",
+    "theme:build": "pnpm japs theme build",
     "editor": "pnpm --filter @japs/dashboard build && pnpm japs edit"
   },
   "devDependencies": {

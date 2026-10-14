@@ -16,7 +16,8 @@ import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 import { createEditorServer } from "./editor-server.ts";
 import { publishWorkspace } from "./publish.ts";
 import { captureScreenshots, PlaywrightMissingError, SCREENSHOTS_DIR } from "./screenshots.ts";
-import { analyzeWorkspace, buildWorkspace, factsWorkspace, resolveWorkspace } from "./workspace.ts";
+import { parseThemeId, runThemeScript, themeDir } from "./theme.ts";
+import { analyzeWorkspace, buildWorkspace, factsWorkspace, resolveWorkspace, WorkspaceError } from "./workspace.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -45,6 +46,7 @@ Usage:
                                                   generate project copy with an LLM
   japs screenshots [--project <key>]…             capture live sites with Playwright into screenshots/
   japs build [--out out]                          assemble out/portfolio.json + screenshots
+  japs theme [dev|build|preview] [--theme <id>]   run the configured theme on out/ (or the sample)
   japs edit [--port 4310]                         choose and edit projects in the browser
   japs publish [--draft] [--site-name <name>]     build and deploy to your Netlify (new site on first run)
 
@@ -390,6 +392,31 @@ async function runBuild(args: string[]): Promise<void> {
   console.log(`\nWritten to ${join(ws.out, "portfolio.json")}`);
 }
 
+async function runTheme(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      theme: { type: "string" },
+      config: { type: "string", default: CONFIG_FILE },
+      out: { type: "string", default: "out" },
+    },
+  });
+  const task = positionals[0] ?? "dev";
+  if (task !== "dev" && task !== "build" && task !== "preview") {
+    throw new WorkspaceError(`Unknown theme task "${task}". Use: japs theme dev | build | preview`);
+  }
+  const config = await loadConfig(resolve(userCwd, values.config ?? CONFIG_FILE));
+  const theme = values.theme ? parseThemeId(values.theme) : (config?.theme ?? "default");
+
+  // Without a built portfolio the theme falls back to its bundled sample.
+  const out = resolve(userCwd, values.out ?? "out");
+  const env = existsSync(join(out, "portfolio.json")) ? { JAPS_PORTFOLIO_DIR: out } : {};
+  console.log(`Theme "${theme}" (${themeDir(theme)})`);
+  await runThemeScript(theme, task, { stdio: "inherit", env });
+  if (task === "build") console.log(`\nStatic site in ${join(themeDir(theme), "dist")}`);
+}
+
 async function main(): Promise<void> {
   loadedEnvFile = findEnvFile(userCwd);
   if (loadedEnvFile) process.loadEnvFile(loadedEnvFile);
@@ -412,6 +439,8 @@ async function main(): Promise<void> {
       return runPublish(rest);
     case "build":
       return runBuild(rest);
+    case "theme":
+      return runTheme(rest);
     case undefined:
     case "help":
     case "--help":

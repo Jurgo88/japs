@@ -12,6 +12,7 @@ describe("JapsConfig", () => {
       version: 1,
       locales: ["en"],
       defaultLocale: "en",
+      theme: "default",
       discovery: { staleAfterMonths: 24, includeOrgRepos: false },
       links: [],
       merge: [],
@@ -45,6 +46,17 @@ describe("JapsConfig", () => {
         },
       }),
     ).toEqual([]);
+  });
+
+  it("accepts only built-in themes", () => {
+    expect(messages({ version: 1, theme: "default" })).toEqual([]);
+    expect(messages({ version: 1, theme: "neon" })[0]).toMatch(/^theme: Invalid enum value/);
+  });
+
+  it("validates the profile contact email and availability", () => {
+    const profile = { name: "Jane", headline: { en: "" }, bio: { en: "" } };
+    expect(messages({ version: 1, profile: { ...profile, email: "jane@example.com", available: true } })).toEqual([]);
+    expect(messages({ version: 1, profile: { ...profile, email: "jane" } })).toEqual(["profile.email: Invalid email"]);
   });
 
   it("rejects typos in hand-edited keys", () => {
