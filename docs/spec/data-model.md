@@ -1,8 +1,22 @@
 # Spec: Dátový model
 
-**Status:** Návrh (Supabase až vo Fáze 3; do vtedy súbory, pozri nižšie)
+**Status:** Lokálny režim: súbory. Hostovaný režim: Cloudflare D1 (ADR 0009). Normalizované tabuľky nižšie sú cieľový model.
 
-## Do Fázy 3: súbory
+## Hostovaný režim (Cloudflare D1)
+
+Podľa [ADR 0009](../adr/0009-hosted-on-cloudflare.md) hostovaná verzia drží rovnaké dokumenty ako súbory nižšie, len v D1 (`apps/api/migrations`):
+
+| Tabuľka | Obsah |
+|---|---|
+| `users` | GitHub identita (`github_id` je stabilné ID) |
+| `sessions` | SHA-256 tokenu relácie, expirácia |
+| `connections` | `github` / `netlify` / `llm`: login, šifrované tokeny (AES-GCM), expirácia |
+| `documents` | `config`, `projects`, `facts`, `analysis`, `screenshots`, `publish` ako JSON na používateľa |
+| `usage` | LLM generovania a tokeny za mesiac (limit) |
+
+Izoláciu zabezpečuje `apps/api/src/db.ts`: všetko, čo patrí používateľovi, sa číta a zapisuje cez `forUser(userId)`. Normalizované tabuľky nižšie sa zavedú, keď bude treba dotazovať naprieč projektmi.
+
+## Lokálny režim: súbory
 
 | Súbor | Kto ho píše | Obsah | Neskôr v Supabase |
 |---|---|---|---|

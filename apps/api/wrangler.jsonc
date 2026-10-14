@@ -1,0 +1,22 @@
+{
+  // Hosted JAPS (ADR 0009). Secrets are set with `wrangler secret put`, never committed:
+  // GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, NETLIFY_CLIENT_ID, NETLIFY_CLIENT_SECRET,
+  // SESSION_SECRET, ENCRYPTION_KEY, OPENAI_API_KEY. For local dev put them in .dev.vars.
+  "name": "japs",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "japs",
+      // Filled in when the database is created (`wrangler d1 create japs`).
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // Public URL of the app, used for OAuth redirect URIs.
+    "APP_URL": "http://localhost:8787"
+  }
+}

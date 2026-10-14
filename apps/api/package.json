@@ -1,0 +1,23 @@
+{
+  "name": "@japs/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hosted JAPS: Cloudflare Worker with GitHub login, Netlify OAuth and per-user data in D1 (ADR 0009)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply japs --local",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@japs/core": "workspace:*",
+    "@japs/schema": "workspace:*",
+    "hono": "^4.13.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261001.0",
+    "wrangler": "^4.150.0"
+  }
+}
