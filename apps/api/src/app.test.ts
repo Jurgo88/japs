@@ -194,3 +194,58 @@ describe("Netlify connect", () => {
     expect((await del("netlify")).status).toBe(200);
   });
 });
+
+describe("editor API", () => {
+  const put = (browser: Browser, config: unknown) =>
+    browser.request("/api/config", {
+      method: "PUT",
+      headers: { Origin: APP_URL, "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
+
+  it("gives a new user a starter config prefilled from GitHub", async () => {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const state = await body(browser.request("/api/state"));
+    expect(state).toMatchObject({
+      mode: "cloud",
+      configExists: false,
+      config: { version: 1, profile: { name: "janedoe", links: [{ label: "GitHub", url: "https://github.com/janedoe" }] } },
+      projects: null,
+      analysis: null,
+    });
+  });
+
+  it("stores a valid config as sent, rejects an invalid one, and keeps users apart", async () => {
+    const { fetch } = fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+    const jane = new Browser(createApp({ fetch }));
+    const john = new Browser(createApp({ fetch }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+
+    const bad = await put(jane, { version: 1, projects: { "site:x": { hiden: true } } });
+    expect(bad.status).toBe(400);
+    expect((await body(bad)).issues).toEqual(["projects.site:x: Unrecognized key(s) in object: 'hiden'"]);
+
+    const config = { version: 1, locales: ["en"], projects: { "site:x": { featured: true } } };
+    expect((await put(jane, config)).status).toBe(200);
+    expect(await body(jane.request("/api/state"))).toMatchObject({ configExists: true, config });
+    expect((await body(john.request("/api/state"))).configExists).toBe(false);
+  });
+
+  it("requires sign-in and our origin for saving", async () => {
+    const anonymous = new Browser(createApp());
+    expect((await put(anonymous, { version: 1 })).status).toBe(401);
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const res = await browser.request("/api/config", { method: "PUT", body: JSON.stringify({ version: 1 }) });
+    expect(res.status).toBe(403);
+  });
+
+  it("serves the dashboard for other GET paths, but not for unknown API paths", async () => {
+    env.ASSETS = { fetch: async (req: Request) => new Response(`dashboard ${new URL(req.url).pathname}`) };
+    const browser = new Browser(createApp());
+    expect(await (await browser.request("/projects/x")).text()).toBe("dashboard /projects/x");
+    expect((await browser.request("/api/nope")).status).toBe(401);
+  });
+});

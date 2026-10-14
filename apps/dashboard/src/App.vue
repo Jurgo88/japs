@@ -4,14 +4,18 @@ import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
 import {
+  account,
   dirty,
   draftIssues,
+  isCloud,
   generateMissing,
   load,
   missingTexts,
   published,
   save,
   saveAndBuild,
+  signedOut,
+  signOut,
   state,
   status,
 } from "./store.ts";
@@ -23,6 +27,10 @@ const projects = computed(() => state.value?.projects?.projects ?? []);
 const selected = computed(() => projects.value.find((p) => p.key === selectedKey.value) ?? null);
 const shownCount = computed(() => projects.value.filter(published).length);
 const privateMissing = computed(() => missingTexts.value.filter((p) => p.private).length);
+const hasNetlify = computed(() => account.value?.connections.some((c) => c.provider === "netlify") ?? false);
+const accountTitle = computed(
+  () => account.value?.connections.map((c) => `${c.provider}: ${c.accountLogin ?? "connected"}`).join("\n") ?? "",
+);
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
@@ -37,6 +45,18 @@ window.addEventListener("beforeunload", (e) => {
 </script>
 
 <template>
+  <main v-if="signedOut" class="signin">
+    <h1>JAPS</h1>
+    <p class="lead">Your portfolio, minus the part where you build your portfolio.</p>
+    <p class="muted">
+      Sign in with GitHub, connect Netlify, pick the projects to show — JAPS writes the texts and publishes the
+      site to your own Netlify. GitHub access is read-only.
+    </p>
+    <p v-if="status.error" class="banner error">{{ status.error }}</p>
+    <a class="btn primary big" href="/auth/github/login">Sign in with GitHub</a>
+  </main>
+
+  <template v-else>
   <header class="top">
     <div class="brand">JAPS <span class="muted">editor</span></div>
     <nav class="tabs">
@@ -57,9 +77,17 @@ window.addEventListener("beforeunload", (e) => {
       <button class="btn" :disabled="!dirty || status.saving" @click="save()">
         {{ status.saving ? "Saving…" : "Save" }}
       </button>
-      <button class="btn primary" :disabled="status.building || status.saving" @click="saveAndBuild()">
+      <button v-if="!isCloud" class="btn primary" :disabled="status.building || status.saving" @click="saveAndBuild()">
         {{ status.building ? "Building…" : "Save & build" }}
       </button>
+      <template v-if="account">
+        <a v-if="!hasNetlify" class="btn" href="/auth/netlify/connect">Connect Netlify</a>
+        <span class="who" :title="accountTitle">
+          <img v-if="account.user.avatarUrl" :src="account.user.avatarUrl" alt="" />
+          {{ account.user.login }}
+        </span>
+        <button class="btn" @click="signOut()">Sign out</button>
+      </template>
     </div>
   </header>
 
@@ -87,7 +115,7 @@ window.addEventListener("beforeunload", (e) => {
       <li v-for="f in status.batch.failed" :key="f">{{ f }}</li>
     </ul>
   </div>
-  <div v-else-if="missingTexts.length && tab === 'projects'" class="banner warn">
+  <div v-else-if="missingTexts.length && tab === 'projects' && !isCloud" class="banner warn">
     <span>
       {{ missingTexts.length }} shown {{ missingTexts.length === 1 ? "project has" : "projects have" }} no texts yet and
       will be left out of the build: {{ missingTexts.map((p) => p.title).join(", ") }}.
@@ -101,6 +129,19 @@ window.addEventListener("beforeunload", (e) => {
   </div>
 
   <main v-if="status.loading" class="empty muted">Loading…</main>
+
+  <main v-else-if="tab === 'projects' && !state?.projects && isCloud" class="empty">
+    <h2>No projects yet</h2>
+    <p class="muted">
+      Importing your sites from Netlify and repositories from GitHub is coming to the hosted version next.
+      <template v-if="!hasNetlify">Connect Netlify now so it's ready.</template>
+      Meanwhile, set up your profile.
+    </p>
+    <p>
+      <a v-if="!hasNetlify" class="btn primary" href="/auth/netlify/connect">Connect Netlify</a>
+      <button class="btn" @click="tab = 'profile'">Edit profile</button>
+    </p>
+  </main>
 
   <main v-else-if="tab === 'projects' && !state?.projects" class="empty">
     <h2>No projects yet</h2>
@@ -118,6 +159,7 @@ pnpm japs analyze</pre>
   <main v-else class="single">
     <ProfileEditor />
   </main>
+  </template>
 </template>
 
 <style scoped>
@@ -144,6 +186,15 @@ pnpm japs analyze</pre>
 .tabs button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .issues { color: var(--warn); font-size: 13px; cursor: help; }
+.who { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.who img { width: 24px; height: 24px; border-radius: 50%; }
+.signin { max-width: 520px; margin: 12vh auto 0; padding: 0 20px; text-align: center; }
+.signin h1 { font-size: 40px; margin: 0 0 8px; }
+.signin .lead { font-size: 18px; margin: 0 0 16px; }
+.signin .banner { margin: 16px 0; text-align: left; }
+.btn.big { display: inline-block; margin-top: 16px; padding: 10px 20px; font-size: 16px; text-decoration: none; }
+a.btn { text-decoration: none; color: inherit; }
+a.btn.primary { color: #fff; }
 .banner { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; }
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }

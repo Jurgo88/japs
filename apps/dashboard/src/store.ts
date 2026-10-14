@@ -2,16 +2,23 @@ import { publishedWith } from "@japs/core";
 import { JapsConfig, type JapsConfigInput, type Project, type ProjectAnalysis } from "@japs/schema";
 import { computed, reactive, ref } from "vue";
 import {
+  type Account,
   BackendError,
   type BuildSummary,
   type EditorBackend,
   type EditorState,
   type GenerateSummary,
-  LocalBackend,
+  HttpBackend,
 } from "./backend.ts";
 
 /** One reactive store: the loaded snapshot, the config draft, and save/build status. */
-export const backend: EditorBackend = new LocalBackend();
+export const backend: EditorBackend = new HttpBackend();
+
+/** Hosted version (ADR 0009): the signed-in account; null locally or when signed out. */
+export const account = ref<Account | null>(null);
+/** Hosted version and nobody is signed in: show the sign-in screen. */
+export const signedOut = ref(false);
+export const isCloud = computed(() => state.value?.mode === "cloud");
 
 export const state = ref<EditorState | null>(null);
 export const draft = ref<JapsConfigInput>({ version: 1 });
@@ -81,17 +88,31 @@ function fail(err: unknown): void {
 
 export async function load(): Promise<void> {
   status.loading = true;
+  // A failed OAuth round trip comes back as ?auth_error=… — show it, then clean the URL.
+  const authError = new URLSearchParams(location.search).get("auth_error");
+  if (authError) history.replaceState(null, "", location.pathname);
   try {
     const loaded = await backend.load();
+    if (loaded.mode === "cloud") account.value = await backend.account();
     state.value = loaded;
     draft.value = loaded.config;
     savedJson.value = loaded.configExists ? JSON.stringify(loaded.config) : "";
-    status.error = null;
+    status.error = authError;
   } catch (err) {
-    fail(err);
+    if (err instanceof BackendError && err.status === 401) {
+      signedOut.value = true;
+      status.error = authError;
+    } else {
+      fail(err);
+    }
   } finally {
     status.loading = false;
   }
+}
+
+export async function signOut(): Promise<void> {
+  await backend.signOut();
+  location.reload();
 }
 
 export async function save(): Promise<boolean> {

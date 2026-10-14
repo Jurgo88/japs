@@ -2,6 +2,8 @@ import type { AnalysisFile, JapsConfigInput, ProjectsFile, ScreenshotsManifest }
 
 /** Everything the editor needs, as one snapshot. */
 export interface EditorState {
+  /** "cloud" when served by the hosted API (ADR 0009); the local `japs edit` server omits it. */
+  mode?: "local" | "cloud";
   configExists: boolean;
   config: JapsConfigInput;
   projects: ProjectsFile | null;
@@ -16,9 +18,23 @@ export interface BuildSummary {
   warnings: string[];
 }
 
+export interface GenerateSummary {
+  generated: number;
+  usage: { input: number; output: number };
+  dropped: { locale: string; text: string }[];
+  warnings: string[];
+  model: string;
+}
+
+/** The signed-in user in the hosted version. */
+export interface Account {
+  user: { login: string; name: string | null; avatarUrl: string | null };
+  connections: { provider: "github" | "netlify" | "llm"; accountLogin: string | null }[];
+}
+
 /**
- * Data layer of the editor (ADR 0007). Today: the local `japs edit` server.
- * Phase 3 adds a Supabase implementation; components only see this interface.
+ * Data layer of the editor (ADR 0007, 0009). The local `japs edit` server and the hosted API
+ * expose the same endpoints, so one HTTP implementation serves both; components only see this.
  */
 export interface EditorBackend {
   load(): Promise<EditorState>;
@@ -27,28 +43,40 @@ export interface EditorBackend {
   /** Facts + LLM texts for one project (costs money: only on an explicit click). */
   generate(key: string): Promise<GenerateSummary>;
   screenshotUrl(file: string): string;
+  /** Hosted only: who is signed in. */
+  account(): Promise<Account>;
+  signOut(): Promise<void>;
 }
 
 export class BackendError extends Error {
   constructor(
     message: string,
+    readonly status: number,
     readonly issues: string[] = [],
   ) {
     super(message);
   }
 }
 
-/** Talks to `japs edit`. Writes carry the session token the server put into the page. */
-export class LocalBackend implements EditorBackend {
+/**
+ * Same-origin HTTP. Locally, writes carry the session token `japs edit` put into the page;
+ * hosted, the session cookie goes along automatically.
+ */
+export class HttpBackend implements EditorBackend {
   private readonly token = document.querySelector<HTMLMetaElement>('meta[name="japs-token"]')?.content ?? "";
 
   private async call<T>(path: string, init: RequestInit = {}): Promise<T> {
     const res = await fetch(path, {
       ...init,
-      headers: { "Content-Type": "application/json", "X-Japs-Token": this.token, ...init.headers },
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        ...(this.token ? { "X-Japs-Token": this.token } : {}),
+        ...init.headers,
+      },
     });
     const body = (await res.json().catch(() => ({}))) as { error?: string; issues?: string[] };
-    if (!res.ok) throw new BackendError(body.error ?? `${res.status} ${res.statusText}`, body.issues);
+    if (!res.ok) throw new BackendError(body.error ?? `${res.status} ${res.statusText}`, res.status, body.issues);
     return body as T;
   }
 
@@ -71,12 +99,12 @@ export class LocalBackend implements EditorBackend {
   screenshotUrl(file: string): string {
     return `/api/screenshots/${encodeURIComponent(file)}`;
   }
-}
 
-export interface GenerateSummary {
-  generated: number;
-  usage: { input: number; output: number };
-  dropped: { locale: string; text: string }[];
-  warnings: string[];
-  model: string;
+  account(): Promise<Account> {
+    return this.call("/api/me");
+  }
+
+  async signOut(): Promise<void> {
+    await this.call("/auth/logout", { method: "POST" });
+  }
 }
