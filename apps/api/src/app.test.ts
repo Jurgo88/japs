@@ -44,6 +44,7 @@ function fakeProviders(users: Record<string, { id: number; login: string }> = { 
       const user = Object.values(users).find((u) => u.login === login)!;
       return json({ id: user.id, login: user.login, name: login, avatar_url: null });
     }
+    if (url === "https://api.github.com/applications/gh-client/grant") return new Response(null, { status: 204 });
     if (url === "https://api.netlify.com/oauth/token") return json({ access_token: "nf_token" });
     if (url === "https://api.netlify.com/api/v1/user") return json({ email: "jane@example.com" });
     return json({ message: "not found" }, 404);
@@ -384,5 +385,47 @@ describe("AI quota and own key", () => {
     const del = await browser.request("/api/connections/llm", { method: "DELETE", headers: { Origin: APP_URL } });
     expect(del.status).toBe(200);
     expect((await generate(browser, ["repo:jane/a"])).status).toBe(402);
+  });
+});
+
+describe("account deletion", () => {
+  const del = (browser: Browser, json: unknown, origin = APP_URL) =>
+    browser.request("/api/account", { method: "DELETE", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(json) });
+  const count = async (table: string) =>
+    ((await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first()) as { n: number }).n;
+
+  it("needs the GitHub login typed and our origin", async () => {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    expect((await del(browser, { confirm: "janedoe" }, "https://evil.example")).status).toBe(403);
+    expect((await del(browser, {})).status).toBe(400);
+    expect((await del(browser, { confirm: "johndoe" })).status).toBe(400);
+    expect((await browser.request("/api/me")).status).toBe(200);
+  });
+
+  it("revokes the GitHub authorization and deletes only this user's data", async () => {
+    const { fetch, calls } = fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+    const jane = new Browser(createApp({ fetch }));
+    const john = new Browser(createApp({ fetch }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+    const store = new Store(env.DB);
+    for (const login of ["janedoe", "johndoe"]) {
+      const user = store.forUser((await store.upsertGithubUser({ githubId: login === "janedoe" ? 1 : 2, login, name: null, avatarUrl: null })).id);
+      await user.putDocument("config", { version: 1 });
+      await user.putProjectDoc("repo:x/y", "facts", { key: "repo:x/y" });
+      await user.addUsage("2026-10", { generations: 1, inputTokens: 1, outputTokens: 1 });
+    }
+
+    const res = await del(jane, { confirm: "janedoe" });
+    expect(res.status).toBe(200);
+    expect(await body(res)).toEqual({ ok: true, githubRevoked: true });
+    expect(calls).toContain("DELETE https://api.github.com/applications/gh-client/grant");
+    expect((await jane.request("/api/me")).status).toBe(401);
+
+    for (const table of ["users", "sessions", "connections", "documents", "project_docs", "usage"]) {
+      expect(await count(table), table).toBe(1);
+    }
+    expect((await body(john.request("/api/me"))).user.login).toBe("johndoe");
   });
 });

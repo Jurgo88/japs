@@ -72,6 +72,8 @@ export interface EditorBackend {
   /** Hosted only: the user's own AI key (stored encrypted on the server). */
   saveAiKey(provider: string, model: string, apiKey: string): Promise<void>;
   removeAiKey(): Promise<void>;
+  /** Hosted only: deletes the account and all its data; `confirm` is the GitHub login. */
+  deleteAccount(confirm: string): Promise<void>;
 }
 
 export class BackendError extends Error {
@@ -144,6 +146,10 @@ export class HttpBackend implements EditorBackend {
 
   async latestJob(): Promise<CloudJob | null> {
     return (await this.call<{ job: CloudJob | null }>("/api/jobs/latest")).job;
+  }
+
+  async deleteAccount(confirm: string): Promise<void> {
+    await this.call("/api/account", { method: "DELETE", body: JSON.stringify({ confirm }) });
   }
 
   async saveAiKey(provider: string, model: string, apiKey: string): Promise<void> {
