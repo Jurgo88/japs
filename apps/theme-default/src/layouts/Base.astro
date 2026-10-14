@@ -1,4 +1,5 @@
 ---
+import ThemeToggle from "../components/ThemeToggle.astro";
 import { languageName, t } from "../lib/i18n.ts";
 
 interface Props {
@@ -32,22 +33,32 @@ const site = Astro.site;
       rel="icon"
       href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23111827'/><text x='16' y='22' font-family='system-ui' font-size='16' font-weight='700' fill='white' text-anchor='middle'>${encodeURIComponent(name.trim().charAt(0).toUpperCase())}</text></svg>`}
     />
+    <!-- Apply the stored light/dark choice before first paint (ThemeToggle writes it). -->
+    <script is:inline>
+      try {
+        const theme = localStorage.getItem("japs-theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <header class="site-header">
       <div class="wrap header-inner">
         <a class="brand" href={homeHref}>{name}</a>
-        {
-          alternates.length > 1 && (
-            <nav class="langs" aria-label={t(locale, "language")}>
-              {alternates.map((a) => (
-                <a href={a.href} hreflang={a.locale} aria-current={a.locale === locale ? "true" : undefined}>
-                  {languageName(a.locale)}
-                </a>
-              ))}
-            </nav>
-          )
-        }
+        <div class="header-tools">
+          {
+            alternates.length > 1 && (
+              <nav class="langs" aria-label={t(locale, "language")}>
+                {alternates.map((a) => (
+                  <a href={a.href} hreflang={a.locale} aria-current={a.locale === locale ? "true" : undefined}>
+                    {languageName(a.locale)}
+                  </a>
+                ))}
+              </nav>
+            )
+          }
+          <ThemeToggle locale={locale} />
+        </div>
       </div>
     </header>
     <main class="wrap">
@@ -67,21 +78,62 @@ const site = Astro.site;
     --muted: #5b6474;
     --border: #e5e7eb;
     --accent: #2563eb;
+    --on-accent: #ffffff;
+    --accent-2: #9333ea;
+    --frame: #e9ecf1;
+    --shadow: 0 18px 40px -18px rgb(15 23 42 / 0.28);
     --radius: 14px;
+    --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
     color-scheme: light dark;
   }
+  /* Dark tokens twice: for the system setting (unless the visitor chose light) and for an explicit choice. */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0d1117;
       --surface: #161b22;
       --text: #e6edf3;
       --muted: #9aa4b2;
       --border: #2a313c;
       --accent: #6ea8fe;
+      --on-accent: #0d1117;
+      --accent-2: #c084fc;
+      --frame: #1f2630;
+      --shadow: 0 18px 40px -18px rgb(0 0 0 / 0.7);
     }
   }
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --text: #e6edf3;
+    --muted: #9aa4b2;
+    --border: #2a313c;
+    --accent: #6ea8fe;
+    --on-accent: #0d1117;
+    --accent-2: #c084fc;
+    --frame: #1f2630;
+    --shadow: 0 18px 40px -18px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  /* Card → detail morph between pages (browsers without support just navigate). */
+  @media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+      navigation: auto;
+    }
+    ::view-transition-group(*) {
+      animation-duration: 0.38s;
+      animation-timing-function: var(--ease-out);
+    }
+  }
+
   * {
     box-sizing: border-box;
+  }
+  [hidden] {
+    display: none !important;
   }
   html {
     -webkit-text-size-adjust: 100%;
@@ -91,6 +143,8 @@ const site = Astro.site;
     background: var(--bg);
     color: var(--text);
     font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* Decorative gradients may reach past the edge; never scroll sideways. */
+    overflow-x: clip;
   }
   a {
     color: var(--accent);
@@ -99,6 +153,19 @@ const site = Astro.site;
     max-width: 100%;
     display: block;
   }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
   .wrap {
     max-width: 1080px;
     margin: 0 auto;
@@ -106,6 +173,8 @@ const site = Astro.site;
   }
   .site-header {
     border-bottom: 1px solid var(--border);
+    /* Stays put while the page content morphs. */
+    view-transition-name: site-header;
   }
   .header-inner {
     display: flex;
@@ -113,6 +182,11 @@ const site = Astro.site;
     justify-content: space-between;
     gap: 16px;
     min-height: 60px;
+  }
+  .header-tools {
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
   .brand {
     color: var(--text);

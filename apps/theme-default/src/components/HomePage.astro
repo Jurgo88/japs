@@ -1,8 +1,8 @@
 ---
 import Base from "../layouts/Base.astro";
 import ProjectCard from "./ProjectCard.astro";
-import { t } from "../lib/i18n.ts";
-import { loadPortfolio, localePrefix, orderedProjects, text } from "../lib/portfolio.ts";
+import { plural, t } from "../lib/i18n.ts";
+import { loadPortfolio, localePrefix, orderedProjects, portfolioStats, tagCounts, text } from "../lib/portfolio.ts";
 
 interface Props {
   locale: string;
@@ -12,6 +12,19 @@ const { locale } = Astro.props;
 const portfolio = loadPortfolio();
 const { profile } = portfolio;
 const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const tags = tagCounts(portfolio);
+const stats = portfolioStats(portfolio);
+const statItems = [
+  { value: stats.projects, label: plural(locale, "projects", stats.projects) },
+  { value: stats.years, label: stats.years === null ? "" : plural(locale, "years", stats.years) },
+  { value: stats.technologies, label: plural(locale, "technologies", stats.technologies) },
+].filter((s): s is { value: number; label: string } => s.value !== null && s.value > 0);
+// A filter needs a choice: at least two tags and more than one project.
+const showFilter = tags.length > 1 && projects.length > 1;
+// Shared tags come first; one-off ones wait behind a "+N" button so the chips don't bury the projects.
+const shared = tags.filter((t) => t.count > 1).slice(0, 12);
+const primaryCount = shared.length >= 4 ? shared.length : Math.min(tags.length, 8);
 ---
 
 <Base
@@ -23,6 +36,7 @@ const home = (l: string) => `${localePrefix(l, portfolio)}/`;
   name={profile.name}
 >
   <section class="intro">
+    <div class="glow" aria-hidden="true"></div>
     <h1>{profile.name}</h1>
     <p class="headline">{text(profile.headline, locale)}</p>
     {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
@@ -38,20 +52,169 @@ const home = (l: string) => `${localePrefix(l, portfolio)}/`;
         </p>
       )
     }
+    {
+      statItems.length > 0 && (
+        <ul class="stats">
+          {statItems.map((s) => (
+            <li>
+              <span class="value" data-count={s.value}>
+                {s.value}
+              </span>
+              <span class="label">{s.label}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
   </section>
 
   <section>
     <h2>{t(locale, "projects")}</h2>
+    {
+      showFilter && (
+        <div
+          class="filter"
+          role="group"
+          aria-label={t(locale, "filter")}
+          hidden
+          data-filter
+          data-showing={t(locale, "showing")}
+        >
+          <button type="button" data-tag="" aria-pressed="true">
+            {t(locale, "all")}
+            <span class="count">{projects.length}</span>
+          </button>
+          {tags.map(({ tag, count }, i) => (
+            <button type="button" data-tag={tag.toLowerCase()} aria-pressed="false" hidden={i >= primaryCount}>
+              {tag}
+              <span class="count">{count}</span>
+            </button>
+          ))}
+          {tags.length > primaryCount && (
+            <button type="button" class="more" data-more aria-label={t(locale, "moreTags")}>
+              +{tags.length - primaryCount}
+            </button>
+          )}
+        </div>
+      )
+    }
+    <p class="sr-only" aria-live="polite" data-filter-status></p>
     <div class="grid">
-      {orderedProjects(portfolio).map((project) => <ProjectCard project={project} portfolio={portfolio} locale={locale} />)}
+      {projects.map((project) => <ProjectCard project={project} portfolio={portfolio} locale={locale} />)}
     </div>
   </section>
 </Base>
 
+<script>
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Tag filter. Without JS the chips stay hidden and every project shows.
+  const filter = document.querySelector<HTMLElement>("[data-filter]");
+  if (filter) {
+    const chips = [...filter.querySelectorAll<HTMLButtonElement>("button[data-tag]")];
+    const cards = [...document.querySelectorAll<HTMLElement>("[data-tags]")];
+    const status = document.querySelector<HTMLElement>("[data-filter-status]");
+    let current = "";
+
+    const apply = (tag: string) => {
+      current = tag;
+      let shown = 0;
+      for (const card of cards) {
+        const match = !tag || card.dataset.tags!.split("|").includes(tag);
+        card.hidden = !match;
+        if (match) shown++;
+      }
+      for (const chip of chips) chip.setAttribute("aria-pressed", String(chip.dataset.tag === tag));
+      if (status) {
+        status.textContent = tag
+          ? filter.dataset.showing!.replace("{shown}", String(shown)).replace("{total}", String(cards.length))
+          : "";
+      }
+    };
+
+    const select = (tag: string) => {
+      const url = new URL(location.href);
+      if (tag) url.searchParams.set("tag", tag);
+      else url.searchParams.delete("tag");
+      history.replaceState(history.state, "", url);
+
+      if (reduceMotion || !document.startViewTransition) return apply(tag);
+      // Name every card for the duration of the transition, so they glide to their new places.
+      for (const card of cards) card.style.viewTransitionName = card.dataset.card!;
+      const transition = document.startViewTransition(() => apply(tag));
+      transition.finished.finally(() => {
+        for (const card of cards) card.style.viewTransitionName = "";
+      });
+    };
+
+    for (const chip of chips) {
+      chip.addEventListener("click", () => select(chip.dataset.tag === current ? "" : chip.dataset.tag!));
+    }
+    const more = filter.querySelector<HTMLButtonElement>("[data-more]");
+    const showAll = () => {
+      for (const chip of chips) chip.hidden = false;
+      more?.remove();
+    };
+    more?.addEventListener("click", () => {
+      const firstHidden = chips.find((c) => c.hidden);
+      showAll();
+      firstHidden?.focus();
+    });
+
+    const fromUrl = new URLSearchParams(location.search).get("tag")?.toLowerCase() ?? "";
+    const initial = chips.find((c) => c.dataset.tag === fromUrl);
+    if (initial?.hidden) showAll();
+    apply(initial ? fromUrl : "");
+    filter.hidden = false;
+  }
+
+  // Stats count up once when they come into view. The HTML holds the final numbers.
+  const counters = [...document.querySelectorAll<HTMLElement>("[data-count]")];
+  if (!reduceMotion && counters.length && "IntersectionObserver" in window) {
+    const run = (el: HTMLElement) => {
+      const target = Number(el.dataset.count);
+      const start = performance.now();
+      const duration = 900 + Math.min(target, 40) * 10;
+      const step = (now: number) => {
+        const p = Math.min((now - start) / duration, 1);
+        el.textContent = String(Math.round(target * (1 - (1 - p) ** 3)));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        observer.unobserve(entry.target);
+        run(entry.target as HTMLElement);
+      }
+    });
+    for (const el of counters) {
+      el.textContent = "0";
+      observer.observe(el);
+    }
+  }
+</script>
+
 <style>
   .intro {
+    position: relative;
+    isolation: isolate;
     padding: 56px 0 40px;
     max-width: 720px;
+  }
+  .glow {
+    position: absolute;
+    z-index: -1;
+    top: -120px;
+    left: -160px;
+    width: min(640px, 100vw);
+    height: 480px;
+    background:
+      radial-gradient(closest-side at 35% 45%, color-mix(in srgb, var(--accent) 22%, transparent), transparent),
+      radial-gradient(closest-side at 65% 55%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent);
+    filter: blur(24px);
+    pointer-events: none;
   }
   h1 {
     font-size: clamp(32px, 6vw, 48px);
@@ -74,13 +237,121 @@ const home = (l: string) => `${localePrefix(l, portfolio)}/`;
     color: var(--muted);
     margin: 0;
   }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 36px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .stats .value {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .stats .label {
+    color: var(--muted);
+    font-size: 15px;
+  }
   h2 {
     font-size: 22px;
     margin: 0 0 20px;
+  }
+  .filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 24px;
+  }
+  .filter button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-size: 14px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background-color 0.2s,
+      color 0.2s,
+      border-color 0.2s;
+  }
+  .filter button:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+  .filter button[aria-pressed="true"] {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
+  }
+  .filter .more {
+    border-style: dashed;
+  }
+  .count {
+    font-size: 12px;
+    opacity: 0.65;
+    font-variant-numeric: tabular-nums;
   }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
     gap: 20px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .intro > :not(.glow) {
+      animation: rise 0.7s var(--ease-out) both;
+    }
+    .intro > :nth-child(3) {
+      animation-delay: 80ms;
+    }
+    .intro > :nth-child(4) {
+      animation-delay: 160ms;
+    }
+    .intro > :nth-child(5) {
+      animation-delay: 240ms;
+    }
+    .intro > :nth-child(6) {
+      animation-delay: 320ms;
+    }
+    .glow {
+      animation:
+        fade 1.2s ease-out both,
+        drift 16s ease-in-out infinite alternate;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      translate: 0 14px;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes drift {
+    to {
+      translate: 60px 30px;
+      rotate: 12deg;
+      scale: 1.08;
+    }
   }
 </style>

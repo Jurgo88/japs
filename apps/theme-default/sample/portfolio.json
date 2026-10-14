@@ -32,6 +32,63 @@
       "client": { "isClient": false, "anonymized": false, "label": null },
       "screenshots": [],
       "featured": true
+    },
+    {
+      "slug": "trail-planner",
+      "title": { "en": "Trail Planner", "sk": "Plánovač túr" },
+      "summary": {
+        "en": "Plan hiking routes and share them with friends.",
+        "sk": "Plánovanie turistických trás a ich zdieľanie s priateľmi."
+      },
+      "description": {
+        "en": "A map-based planner with elevation profiles and shareable links.",
+        "sk": "Plánovač nad mapou s výškovým profilom a odkazmi na zdieľanie."
+      },
+      "role": { "en": "Solo developer", "sk": "Samostatný vývoj" },
+      "period": { "from": "2024-04", "to": null },
+      "tags": ["Vue", "TypeScript", "Supabase"],
+      "links": { "live": "https://trails.example.com", "repo": null },
+      "client": { "isClient": false, "anonymized": false, "label": null },
+      "screenshots": [],
+      "featured": false
+    },
+    {
+      "slug": "bakery-orders",
+      "title": { "en": "Bakery Orders", "sk": "Objednávky pre pekáreň" },
+      "summary": {
+        "en": "Pre-order system for a local bakery.",
+        "sk": "Systém predobjednávok pre miestnu pekáreň."
+      },
+      "description": {
+        "en": "Customers order online, the bakery sees a daily production list.",
+        "sk": "Zákazníci objednávajú online, pekáreň vidí denný plán výroby."
+      },
+      "role": { "en": "Developer", "sk": "Vývojár" },
+      "period": { "from": "2023-02", "to": "2023-11" },
+      "tags": ["Vue", "Netlify Functions"],
+      "links": { "live": "https://bakery.example.com", "repo": null },
+      "client": { "isClient": true, "anonymized": false, "label": null },
+      "screenshots": [],
+      "featured": false
+    },
+    {
+      "slug": "habit-tracker",
+      "title": { "en": "Habit Tracker", "sk": "Sledovanie návykov" },
+      "summary": {
+        "en": "A tiny offline-first habit tracker.",
+        "sk": "Malá aplikácia na sledovanie návykov, ktorá funguje aj offline."
+      },
+      "description": {
+        "en": "Streaks, reminders and a calendar view, all stored locally.",
+        "sk": "Série, pripomienky a kalendár, všetko uložené lokálne."
+      },
+      "role": null,
+      "period": { "from": "2022-09", "to": "2023-01" },
+      "tags": ["Astro", "TypeScript", "IndexedDB"],
+      "links": { "live": null, "repo": "https://github.com/example/habits" },
+      "client": { "isClient": false, "anonymized": false, "label": null },
+      "screenshots": [],
+      "featured": false
     }
   ]
 }
