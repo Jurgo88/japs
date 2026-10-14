@@ -12,6 +12,7 @@ import {
 import { encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
 import { Store, type User } from "./db.ts";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
+import { JapsConfig } from "@japs/schema";
 
 /**
  * Hosted JAPS API (ADR 0009): GitHub sign-in, Netlify connect, sessions.
@@ -92,6 +93,10 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   app.get("/auth/github/callback", async (c) => {
+    // Installing the app on GitHub redirects here with a code but without our state. That code
+    // isn't bound to this browser, so it's not used: a normal sign-in starts instead, which
+    // completes at once because the user has just authorized the app.
+    if (c.req.query("setup_action") && !c.req.query("state")) return c.redirect("/auth/github/login");
     if (!(await checkState(c, "github"))) return fail(c, "Sign-in expired or was tampered with. Please try again.");
     const code = c.req.query("code");
     if (!code) return fail(c, c.req.query("error_description") ?? "GitHub sign-in was cancelled.");
@@ -199,6 +204,58 @@ export function createApp(deps: AppDeps = {}) {
     return c.json({ ok: true });
   });
 
-  app.notFound((c) => c.json({ error: "Not found" }, 404));
+  // --- Editor API: same shape as the local `japs edit` server, so one dashboard serves both ---
+
+  /** A first config for a new user: their GitHub name and profile link prefilled. */
+  const starterConfig = (user: User) => ({
+    version: 1,
+    locales: ["en"],
+    defaultLocale: "en",
+    profile: {
+      name: user.name ?? user.githubLogin,
+      headline: { en: "" },
+      bio: { en: "" },
+      location: null,
+      links: [{ label: "GitHub", url: `https://github.com/${user.githubLogin}` }],
+    },
+  });
+
+  app.get("/api/state", async (c) => {
+    const user = c.get("user")!;
+    const store = c.get("store").forUser(user.id);
+    const config = await store.getDocument("config");
+    return c.json({
+      mode: "cloud",
+      configExists: config !== null,
+      config: config ?? starterConfig(user),
+      projects: await store.getDocument("projects"),
+      analysis: await store.getDocument("analysis"),
+      screenshots: await store.getDocument("screenshots"),
+      built: false,
+    });
+  });
+
+  app.put("/api/config", async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const parsed = JapsConfig.safeParse(body);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`);
+      return c.json({ error: "Invalid config", issues }, 400);
+    }
+    // Stored as sent (minimal, ADR 0007), not the parsed form with defaults.
+    await c.get("store").forUser(c.get("user")!.id).putDocument("config", body);
+    return c.json({ ok: true });
+  });
+
+  // Discovery, texts and publishing run as background jobs in the cloud (#32, #34).
+  for (const path of ["/api/build", "/api/generate"]) {
+    app.post(path, (c) => c.json({ error: "Not available in the hosted version yet — coming with background jobs." }, 501));
+  }
+
+  // Everything else is the dashboard (static assets, client-side routing); unknown API paths are 404.
+  app.notFound(async (c) => {
+    if (c.env.ASSETS && c.req.method === "GET" && !c.req.path.startsWith("/api/")) return c.env.ASSETS.fetch(c.req.raw);
+    return c.json({ error: "Not found" }, 404);
+  });
   return app;
 }

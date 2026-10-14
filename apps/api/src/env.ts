@@ -3,6 +3,8 @@ import type { Db } from "./db.ts";
 /** Worker bindings and secrets (wrangler.jsonc; secrets via `wrangler secret put` / .dev.vars). */
 export interface Env {
   DB: Db;
+  /** The built dashboard (wrangler `assets`); absent in tests. */
+  ASSETS?: { fetch(request: Request): Promise<Response> };
   /** Public base URL of the app, e.g. https://japs.example.workers.dev — OAuth redirects go here. */
   APP_URL: string;
   GITHUB_CLIENT_ID: string;

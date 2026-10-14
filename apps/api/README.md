@@ -1,6 +1,6 @@
 # @japs/api
 
-Hosted JAPS on Cloudflare Workers ([ADR 0009](../../docs/adr/0009-hosted-on-cloudflare.md)): GitHub sign-in, Netlify connect, per-user data in D1. Work in progress — see the "Phase 3 — Cloud" milestone.
+Hosted JAPS on Cloudflare Workers ([ADR 0009](../../docs/adr/0009-hosted-on-cloudflare.md)): GitHub sign-in, Netlify connect, per-user data in D1. The same Worker serves the dashboard (`apps/dashboard/dist` as static assets; only `/api/*` and `/auth/*` reach the Worker). Work in progress — see the "Phase 3 — Cloud" milestone.
 
 ## Local development
 
@@ -8,7 +8,7 @@ Hosted JAPS on Cloudflare Workers ([ADR 0009](../../docs/adr/0009-hosted-on-clou
 cd apps/api
 cp .dev.vars.example .dev.vars        # fill in (see below); never commit .dev.vars
 pnpm db:migrate:local                 # creates the local D1 database
-pnpm dev                              # http://localhost:8787
+pnpm dev                              # builds the dashboard, serves it + the API on http://localhost:8787
 ```
 
 Tests run in Node against `node:sqlite` with the same migrations: `pnpm test` from the repo root.
@@ -19,7 +19,7 @@ Tests run in Node against `node:sqlite` with the same migrations: `pnpm test` fr
 
 GitHub → Settings → Developer settings → **GitHub Apps** → New GitHub App:
 
-- **Callback URL:** `<APP_URL>/auth/github/callback` (locally `http://localhost:8787/auth/github/callback`)
+- **Callback URL / Redirect URI:** `<APP_URL>/auth/github/callback`, plus `http://localhost:8787/auth/github/callback` for local development (a GitHub App accepts several)
 - **Expire user authorization tokens:** on
 - **Request user authorization (OAuth) during installation:** on
 - **Webhook:** off
@@ -34,7 +34,7 @@ A GitHub App, not an OAuth App: OAuth Apps can only ask for `repo`, which includ
 
 Netlify → User settings → Applications → **OAuth applications** → New OAuth app:
 
-- **Redirect URI:** `<APP_URL>/auth/netlify/callback`
+- **Redirect URI:** `<APP_URL>/auth/netlify/callback`. Netlify allows one per app, so create a second app (`JAPS (local)`) with `http://localhost:8787/auth/netlify/callback` for development.
 
 → `NETLIFY_CLIENT_ID`, `NETLIFY_CLIENT_SECRET`.
 
