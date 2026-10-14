@@ -33,7 +33,13 @@ function reloadOnPortfolioChange() {
     configureServer(server) {
       server.watcher.add(file);
       server.watcher.on("change", (changed) => {
-        if (resolve(changed) === file) server.ws.send({ type: "full-reload" });
+        if (resolve(changed) !== file) return;
+        // getStaticPaths() results are cached in dev; a new project would 404 until restart.
+        // Astro clears that cache on its (internal) content-changed event, as for content collections.
+        for (const environment of Object.values(server.environments)) {
+          if (environment.name !== "client") environment.hot.send("astro:content-changed", {});
+        }
+        server.ws.send({ type: "full-reload" });
       });
     },
   };
