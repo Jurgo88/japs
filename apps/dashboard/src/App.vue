@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import AiSettings from "./components/AiSettings.vue";
+import DeleteAccount from "./components/DeleteAccount.vue";
 import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
@@ -58,6 +59,7 @@ onMounted(async () => {
 window.addEventListener("beforeunload", (e) => {
   if (dirty.value) e.preventDefault();
 });
+const accountDeleted = new URLSearchParams(location.search).has("deleted");
 </script>
 
 <template>
@@ -69,7 +71,9 @@ window.addEventListener("beforeunload", (e) => {
       site to your own Netlify. GitHub access is read-only.
     </p>
     <p v-if="status.error" class="banner error">{{ status.error }}</p>
+    <p v-if="accountDeleted" class="banner ok">Your account and all its data were deleted.</p>
     <a class="btn primary big" href="/auth/github/login">Sign in with GitHub</a>
+    <p class="muted legal">By signing in you agree to the <a href="/terms">terms</a>. <a href="/privacy">Privacy</a></p>
   </main>
 
   <template v-else>
@@ -207,11 +211,14 @@ pnpm japs analyze</pre>
     <ProfileEditor />
     <LanguagesEditor />
     <AiSettings v-if="isCloud" />
+    <DeleteAccount v-if="isCloud" />
+    <p v-if="isCloud" class="muted legal"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
   </main>
   </template>
 </template>
 
 <style scoped>
+.legal { font-size: 13px; }
 .top {
   position: sticky;
   top: 0;

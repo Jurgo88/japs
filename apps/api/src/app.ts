@@ -8,6 +8,7 @@ import {
   GITHUB_AUTHORIZE,
   NETLIFY_AUTHORIZE,
   OAuthError,
+  revokeGithubGrant,
 } from "./auth/oauth.ts";
 import { encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
 import { type Job, Store, type User } from "./db.ts";
@@ -15,6 +16,7 @@ import { wrapAnalysis } from "./pipeline.ts";
 import { OWN_KEY_PROVIDERS, quotaFor } from "./llm.ts";
 import { LLM_PRESETS } from "@japs/core";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
+import { githubToken } from "./tokens.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
 /**
@@ -234,6 +236,33 @@ export function createApp(deps: AppDeps = {}) {
     if (provider !== "netlify" && provider !== "llm") return c.json({ error: "Cannot disconnect this provider" }, 400);
     await c.get("store").forUser(c.get("user")!.id).deleteConnection(provider);
     return c.json({ ok: true });
+  });
+
+  /**
+   * Deletes the account and everything stored for it (#36). The user types their GitHub login to
+   * confirm. The GitHub authorization is revoked first (best effort: the data goes either way).
+   * Netlify has no revoke endpoint, so the page tells the user where to remove the app there.
+   */
+  app.delete("/api/account", async (c) => {
+    const user = c.get("user")!;
+    const body = (await c.req.json().catch(() => ({}))) as { confirm?: unknown };
+    if (body.confirm !== user.githubLogin) {
+      return c.json({ error: `Type your GitHub username (${user.githubLogin}) to confirm.` }, 400);
+    }
+    const store = c.get("store").forUser(user.id);
+    let githubRevoked = false;
+    try {
+      githubRevoked = await revokeGithubGrant(fetchImpl, {
+        clientId: c.env.GITHUB_CLIENT_ID,
+        clientSecret: c.env.GITHUB_CLIENT_SECRET,
+        accessToken: await githubToken(store, c.env, fetchImpl, now()),
+      });
+    } catch {
+      // An expired or already revoked token: nothing left to revoke.
+    }
+    await store.deleteAccount();
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    return c.json({ ok: true, githubRevoked });
   });
 
   // --- Editor API: same shape as the local `japs edit` server, so one dashboard serves both ---

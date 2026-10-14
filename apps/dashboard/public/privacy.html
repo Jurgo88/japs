@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy · JAPS</title>
+<link rel="stylesheet" href="/legal.css" />
+</head>
+<body>
+<main>
+<p><a href="/">← JAPS</a></p>
+<h1>Privacy</h1>
+<p class="muted">Last updated: 15 October 2026</p>
+
+<p>
+  JAPS (Just Another Portfolio Site) turns your GitHub repositories and Netlify sites into a portfolio. This page
+  says what JAPS stores, where it goes and how to delete it. JAPS is run by Juraj Paluš as a personal project; the
+  source code is public at <a href="https://github.com/Jurgo88/japs">github.com/Jurgo88/japs</a>.
+</p>
+
+<h2>What JAPS stores</h2>
+<ul>
+  <li><strong>Your GitHub profile:</strong> user id, username, name and avatar URL, from signing in.</li>
+  <li>
+    <strong>Access tokens</strong> for GitHub and Netlify, and an AI key if you add your own. They are encrypted
+    (AES-GCM) before they are stored, used only on the server, and never sent back to your browser.
+  </li>
+  <li>
+    <strong>What JAPS finds in your accounts:</strong> the list of your Netlify sites and GitHub repositories, and
+    for the projects you pick, facts such as languages, frameworks, dates, commit counts and README excerpts.
+  </li>
+  <li><strong>Your portfolio:</strong> the profile texts, settings and generated project texts you edit in JAPS.</li>
+  <li><strong>Usage:</strong> how many AI generations and tokens you used per month, to apply the free limit.</li>
+</ul>
+<p>
+  GitHub access is read-only. JAPS sees private repositories only where you install the JAPS GitHub App on them.
+</p>
+
+<h2>Who else receives data</h2>
+<ul>
+  <li>
+    <strong>The AI provider.</strong> To write project texts, JAPS sends the facts of the projects you picked
+    (including README excerpts, also from private repositories) to OpenAI, or to the provider of your own key if
+    you added one. Nothing is sent for projects you didn't pick. A project marked “anonymize” is sent without its
+    name, description, URLs or README. The provider handles the data under its API terms.
+  </li>
+  <li>
+    <strong>Cloudflare</strong> hosts JAPS (Workers, D1 database) and processes requests and stored data on JAPS's
+    behalf.
+  </li>
+  <li>
+    <strong>GitHub and Netlify</strong> receive the requests JAPS makes with your tokens, as they would from any app
+    you authorize.
+  </li>
+</ul>
+<p>JAPS has no ads, no analytics and no tracking, and does not sell or share data with anyone else.</p>
+
+<h2>Cookies</h2>
+<p>
+  Two cookies, both needed for signing in: a session cookie (30 days, only a random value; the server stores its
+  hash) and a short-lived cookie that protects the GitHub and Netlify sign-in from forgery (10 minutes).
+</p>
+
+<h2>How long, and how to delete it</h2>
+<p>
+  Data is kept while you have an account. <strong>Profile → Delete account</strong> deletes your account and
+  everything listed above at once and revokes JAPS's GitHub authorization. To be thorough, also remove the app on
+  <a href="https://github.com/settings/installations">GitHub → Applications</a> and in Netlify under
+  <em>User settings → Applications</em>. A portfolio you already published stays on your Netlify until you delete
+  that site there.
+</p>
+
+<h2>Your rights</h2>
+<p>
+  You can see and change your data in the editor, and delete it at any time. For any other question or request
+  (for example under the GDPR), open an issue at
+  <a href="https://github.com/Jurgo88/japs/issues">github.com/Jurgo88/japs/issues</a>.
+</p>
+
+<p class="muted"><a href="/terms">Terms of use</a></p>
+</main>
+</body>
+</html>
