@@ -62,8 +62,8 @@ export interface EditorBackend {
   signOut(): Promise<void>;
   /** Hosted only: import projects (+ facts and texts) in the background. */
   startSync(): Promise<CloudJob>;
-  /** Hosted only: texts for one project in the background. */
-  startGenerate(key: string): Promise<CloudJob>;
+  /** Hosted only: facts + texts for the picked projects, in the background. */
+  startGenerate(keys: string[]): Promise<CloudJob>;
   latestJob(): Promise<CloudJob | null>;
 }
 
@@ -131,8 +131,8 @@ export class HttpBackend implements EditorBackend {
     return (await this.call<{ job: CloudJob }>("/api/jobs/sync", { method: "POST" })).job;
   }
 
-  async startGenerate(key: string): Promise<CloudJob> {
-    return (await this.call<{ job: CloudJob }>("/api/generate", { method: "POST", body: JSON.stringify({ key }) })).job;
+  async startGenerate(keys: string[]): Promise<CloudJob> {
+    return (await this.call<{ job: CloudJob }>("/api/generate", { method: "POST", body: JSON.stringify({ keys }) })).job;
   }
 
   async latestJob(): Promise<CloudJob | null> {

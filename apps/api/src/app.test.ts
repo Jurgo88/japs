@@ -300,18 +300,26 @@ describe("jobs API", () => {
     expect((await body(browser.request("/api/state"))).job.id).toBe(job.id);
   });
 
-  it("generates texts for one project only after an import", async () => {
+  it("generates texts only for the picked, known projects, after an import", async () => {
     const started = fakeWorkflows();
     const browser = await signedInWithNetlify();
-    expect((await post(browser, "/api/generate", { key: "repo:jane/shop" })).status).toBe(400);
+    expect((await post(browser, "/api/generate", { keys: ["repo:jane/shop"] })).status).toBe(400);
 
     const store = new Store(env.DB);
     const user = await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null });
-    await store.forUser(user.id).putDocument("projects", { version: 1, projects: [] });
-    expect((await post(browser, "/api/generate", { nope: 1 })).status).toBe(400);
-    const res = await post(browser, "/api/generate", { key: "repo:jane/shop" });
+    await store.forUser(user.id).putDocument("projects", { version: 1, projects: [{ key: "repo:jane/shop" }, { key: "repo:jane/blog" }] });
+    expect((await post(browser, "/api/generate", { keys: [] })).status).toBe(400);
+    expect((await post(browser, "/api/generate", { key: "repo:jane/shop" })).status).toBe(400);
+    const unknown = await post(browser, "/api/generate", { keys: ["repo:jane/nope"] });
+    expect((await body(unknown)).error).toBe("Unknown projects: repo:jane/nope");
+
+    const res = await post(browser, "/api/generate", { keys: ["repo:jane/shop", "repo:jane/blog", "repo:jane/shop"] });
     expect(res.status).toBe(202);
-    expect(started.at(-1)).toMatchObject({ binding: "project", params: { key: "repo:jane/shop" } });
+    expect((await body(res)).job).toMatchObject({ kind: "generate", total: 2 });
+    expect(started.filter((s) => s.binding === "project").map((s) => (s.params as { key: string }).key)).toEqual([
+      "repo:jane/shop",
+      "repo:jane/blog",
+    ]);
   });
 
   it("assembles per-project analysis into the analysis.json shape for the editor", async () => {

@@ -272,19 +272,33 @@ export function createApp(deps: AppDeps = {}) {
     return c.json({ job: await store.getJob(jobId) }, 202);
   });
 
-  /** Texts for one project (the editor's "Generate texts"), as a one-project job. */
+  /** Max projects per generation request (createBatch takes 100; also caps a single click's cost). */
+  const MAX_GENERATE = 100;
+
+  /**
+   * Facts + texts for the projects the user picked (the editor's "Generate texts"). Only these
+   * are processed; an import never generates texts for projects nobody chose.
+   */
   app.post("/api/generate", async (c) => {
     const user = c.get("user")!;
     const store = c.get("store").forUser(user.id);
     if (!c.env.PROJECT_JOBS) return c.json({ error: "Background jobs are not configured on this server." }, 501);
-    const { key } = (await c.req.json().catch(() => ({}))) as { key?: unknown };
-    if (typeof key !== "string") return c.json({ error: 'Expected { "key": "<project key>" }' }, 400);
-    if (!(await store.getDocument("projects"))) return c.json({ error: "Import your projects first." }, 400);
+    const { keys } = (await c.req.json().catch(() => ({}))) as { keys?: unknown };
+    const valid = Array.isArray(keys) && keys.length > 0 && keys.every((k) => typeof k === "string");
+    if (!valid) return c.json({ error: 'Expected { "keys": ["<project key>", …] }' }, 400);
+    const unique = [...new Set(keys as string[])];
+    if (unique.length > MAX_GENERATE) return c.json({ error: `At most ${MAX_GENERATE} projects at once.` }, 400);
+
+    const projects = (await store.getDocument("projects")) as { projects: { key: string }[] } | null;
+    if (!projects) return c.json({ error: "Import your projects first." }, 400);
+    const known = new Set(projects.projects.map((p) => p.key));
+    const unknown = unique.filter((k) => !known.has(k));
+    if (unknown.length) return c.json({ error: `Unknown projects: ${unknown.join(", ")}` }, 400);
     const running = await store.latestJob();
     if (isActive(running)) return c.json({ job: running }, 409);
 
-    const jobId = await store.createJob("generate", 1, `Generating texts for ${key}…`);
-    await c.env.PROJECT_JOBS.create({ params: { userId: user.id, jobId, key } });
+    const jobId = await store.createJob("generate", unique.length, `Generating texts for ${unique.length} project(s)…`);
+    await c.env.PROJECT_JOBS.createBatch(unique.map((key) => ({ params: { userId: user.id, jobId, key } })));
     return c.json({ job: await store.getJob(jobId) }, 202);
   });
 

@@ -277,6 +277,15 @@ export class UserStore {
       .run();
   }
 
+  /** Keys only, without parsing bodies (cheap on CPU). */
+  async listProjectDocKeys(kind: ProjectDocKind): Promise<string[]> {
+    const { results } = await this.db
+      .prepare("SELECT project_key FROM project_docs WHERE user_id = ? AND kind = ?")
+      .bind(this.userId, kind)
+      .all<{ project_key: string }>();
+    return results.map((r) => r.project_key);
+  }
+
   /** All of one kind, for assembling facts.json / analysis.json shapes. */
   async listProjectDocs(kind: ProjectDocKind): Promise<{ key: string; body: unknown }[]> {
     const { results } = await this.db

@@ -22,9 +22,9 @@ export class SyncWorkflow extends WorkflowEntrypoint<Env, { userId: string; jobI
     const { userId, jobId } = event.payload;
     const user = () => new Store(this.env.DB).forUser(userId);
 
-    let keys: string[];
+    let found: { projects: number; refresh: string[] };
     try {
-      keys = await step.do("discover", RETRY, async () => {
+      found = await step.do("discover", RETRY, async () => {
         try {
           return await runDiscovery(user(), { env: this.env, fetch });
         } catch (err) {
@@ -38,8 +38,15 @@ export class SyncWorkflow extends WorkflowEntrypoint<Env, { userId: string; jobI
       return;
     }
 
+    const keys = found.refresh;
     await step.do("plan", async () => {
-      await user().planJob(jobId, keys.length, keys.length ? null : "No projects to show yet: pick some in the editor.");
+      await user().planJob(
+        jobId,
+        keys.length,
+        keys.length
+          ? `Found ${found.projects} projects; updating ${keys.length} in your portfolio…`
+          : `Found ${found.projects} projects. Pick the ones for your portfolio, then generate their texts.`,
+      );
     });
 
     // createBatch takes up to 100 instances at a time.

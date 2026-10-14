@@ -168,7 +168,7 @@ export function update(edit: (config: JapsConfigInput) => JapsConfigInput): void
  */
 export async function generate(key: string): Promise<void> {
   if (dirty.value && !(await save())) return;
-  if (isCloud.value) return startJob(() => backend.startGenerate(key));
+  if (isCloud.value) return startJob(() => backend.startGenerate([key]));
   status.generating = key;
   try {
     const summary = await backend.generate(key);
@@ -201,8 +201,8 @@ export const missingTexts = computed(() =>
 /** Generates texts for every project in `missingTexts`, one at a time, then reloads once. */
 export async function generateMissing(): Promise<void> {
   if (dirty.value && !(await save())) return;
-  // Hosted: an import regenerates what's missing or changed (facts are cached, texts too).
-  if (isCloud.value) return startImport();
+  // Hosted: one background job for exactly the projects the user picked.
+  if (isCloud.value) return startJob(() => backend.startGenerate(missingTexts.value.map((p) => p.key)));
   const keys = missingTexts.value.map((p) => p.key);
   status.batch = { done: 0, total: keys.length, failed: [], tokens: 0 };
   for (const key of keys) {

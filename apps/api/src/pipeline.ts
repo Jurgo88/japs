@@ -35,8 +35,19 @@ async function loadConfig(user: UserStore): Promise<JapsConfig> {
   return JapsConfig.parse((await user.getDocument("config")) ?? { version: 1 });
 }
 
-/** Discovery: Netlify sites + GitHub repos -> projects document. Returns the keys to process. */
-export async function runDiscovery(user: UserStore, deps: PipelineDeps): Promise<string[]> {
+export interface DiscoveryResult {
+  /** All projects found. */
+  projects: number;
+  /**
+   * Projects to refresh: shown in the portfolio and already with texts. New projects are not
+   * processed here — the user picks them first, so no facts or LLM calls go to projects they
+   * don't want (cost, quota, and private READMEs never leave unless chosen).
+   */
+  refresh: string[];
+}
+
+/** Discovery: Netlify sites + GitHub repos -> projects document. */
+export async function runDiscovery(user: UserStore, deps: PipelineDeps): Promise<DiscoveryResult> {
   const now = deps.now?.() ?? new Date();
   const config = await loadConfig(user);
   const file = await discover({
@@ -51,7 +62,11 @@ export async function runDiscovery(user: UserStore, deps: PipelineDeps): Promise
     projects: config.projects,
   });
   await user.putDocument("projects", file);
-  return file.projects.filter((p) => isPublished(p, config)).map((p) => p.key);
+  const analyzed = new Set(await user.listProjectDocKeys("analysis"));
+  return {
+    projects: file.projects.length,
+    refresh: file.projects.filter((p) => isPublished(p, config) && analyzed.has(p.key)).map((p) => p.key),
+  };
 }
 
 export interface ProjectRunResult {

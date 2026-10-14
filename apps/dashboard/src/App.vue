@@ -140,12 +140,17 @@ window.addEventListener("beforeunload", (e) => {
     </ul>
   </div>
   <div v-else-if="missingTexts.length && tab === 'projects' && !jobRunning" class="banner warn">
-    <span>
+    <span v-if="isCloud">
+      {{ missingTexts.length }} {{ missingTexts.length === 1 ? "project is" : "projects are" }} selected for your portfolio
+      without texts yet: {{ missingTexts.map((p) => p.title).join(", ") }}. Untick the ones you don't want, then generate
+      texts only for these.
+    </span>
+    <span v-else>
       {{ missingTexts.length }} shown {{ missingTexts.length === 1 ? "project has" : "projects have" }} no texts yet and
       will be left out of the build: {{ missingTexts.map((p) => p.title).join(", ") }}.
-      <template v-if="privateMissing">
-        For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
-      </template>
+    </span>
+    <span v-if="privateMissing" class="private-note">
+      For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
     </span>
     <button class="btn primary" :disabled="status.generating !== null || status.saving || jobRunning" @click="generateMissing()">
       Generate texts ({{ missingTexts.length }})
@@ -158,12 +163,12 @@ window.addEventListener("beforeunload", (e) => {
     <h2>{{ jobRunning ? "Importing your projects…" : "No projects yet" }}</h2>
     <p v-if="jobRunning" class="muted">{{ jobLabel }} This takes a minute or two.</p>
     <p v-else-if="!hasNetlify" class="muted">
-      Connect Netlify, then import: JAPS finds your sites, pairs them with their GitHub repositories and writes the
-      texts. Nothing is published until you say so.
+      Connect Netlify, then import: JAPS lists your sites and pairs them with their GitHub repositories. You pick what
+      goes into the portfolio, and only those get texts. Nothing is published until you say so.
     </p>
     <p v-else class="muted">
-      Import your sites from Netlify and repositories from GitHub. JAPS pairs them, reads what they are built with and
-      writes the texts — nothing is published until you say so.
+      Import lists your Netlify sites and GitHub repositories in a few seconds. Then you pick what goes into the
+      portfolio, and JAPS writes texts only for those. Nothing is published until you say so.
     </p>
     <p>
       <a v-if="!hasNetlify" class="btn primary" href="/auth/netlify/connect">Connect Netlify</a>
@@ -239,6 +244,8 @@ a.btn.primary { color: #fff; }
   justify-content: space-between;
 }
 .banner.warn .btn { flex-shrink: 0; }
+.banner.warn { flex-wrap: wrap; }
+.private-note { flex-basis: 100%; order: 3; font-size: 13px; }
 @media (prefers-color-scheme: dark) { .banner.error { background: #3a1513; } }
 .split {
   display: grid;

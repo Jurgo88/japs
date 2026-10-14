@@ -91,10 +91,12 @@ beforeEach(async () => {
 });
 
 describe("hosted pipeline", () => {
-  it("imports projects, then extracts facts and generates texts per project", async () => {
-    const { fetch } = fakeWorld();
-    const keys = await runDiscovery(user, { env, fetch, now: () => NOW });
-    expect(keys).toEqual(["repo:jane/shop"]);
+  it("imports projects without facts or LLM calls, then generates texts for a picked project", async () => {
+    const { fetch, calls } = fakeWorld();
+    const found = await runDiscovery(user, { env, fetch, now: () => NOW });
+    // A first import only lists: nothing is refreshed until the user picks projects.
+    expect(found).toEqual({ projects: 1, refresh: [] });
+    expect(calls.some((c) => c.includes("openai.com") || c.includes("/languages"))).toBe(false);
     expect(await user.getDocument("projects")).toMatchObject({ account: { github: "jane" }, projects: [{ key: "repo:jane/shop" }] });
 
     const result = await runProject(user, "repo:jane/shop", { env, fetch, now: () => NOW });
@@ -106,6 +108,17 @@ describe("hosted pipeline", () => {
     });
     expect(await user.getProjectDoc("repo:jane/shop", "analysis")).toMatchObject({ copy: { title: { en: "Shop" }, tags: ["TypeScript", "Netlify"] } });
     expect(await user.getUsage("2026-10")).toEqual({ generations: 1, inputTokens: 900, outputTokens: 300 });
+
+    // Once it has texts and is shown, a later import refreshes it.
+    expect(await runDiscovery(user, { env, fetch, now: () => NOW })).toEqual({ projects: 1, refresh: ["repo:jane/shop"] });
+  });
+
+  it("doesn't refresh a project the user has hidden since", async () => {
+    const { fetch } = fakeWorld();
+    await runDiscovery(user, { env, fetch, now: () => NOW });
+    await runProject(user, "repo:jane/shop", { env, fetch, now: () => NOW });
+    await user.putDocument("config", { version: 1, projects: { "repo:jane/shop": { hidden: true } } });
+    expect((await runDiscovery(user, { env, fetch, now: () => NOW })).refresh).toEqual([]);
   });
 
   it("doesn't call the LLM again when the facts are unchanged", async () => {
