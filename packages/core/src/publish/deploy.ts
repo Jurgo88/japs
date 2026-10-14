@@ -40,7 +40,7 @@ const RawDeploy = z.object({
 });
 
 export async function sha1Hex(data: Uint8Array<ArrayBuffer>): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-1", data);
+  const digest = await crypto.subtle.digest("SHA-1", data);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 

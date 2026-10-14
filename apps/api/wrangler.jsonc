@@ -23,8 +23,17 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Background jobs (#32): one import per user, then one instance per project, because the
+  // free plan allows 50 external subrequests per instance (ADR 0009).
+  "workflows": [
+    { "name": "japs-sync", "binding": "SYNC_JOBS", "class_name": "SyncWorkflow" },
+    { "name": "japs-project", "binding": "PROJECT_JOBS", "class_name": "ProjectWorkflow" }
+  ],
   "vars": {
     // Public URL of the app, used for OAuth redirect URIs.
-    "APP_URL": "http://localhost:8787"
+    "APP_URL": "http://localhost:8787",
+    // GitHub App URL slug (github.com/apps/<slug>), for "install on your repositories".
+    "GITHUB_APP_SLUG": "",
+    "JAPS_LLM_MODEL": "gpt-5-mini"
   }
 }

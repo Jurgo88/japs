@@ -96,3 +96,44 @@ describe("documents and usage", () => {
     expect(await a.getConnection("netlify")).toBeNull();
   });
 });
+
+describe("jobs and project documents", () => {
+  it("completes a job when every project has reported, keeping problems", async () => {
+    const a = store.forUser((await store.upsertGithubUser(jane)).id);
+    const id = await a.createJob("sync");
+    await a.planJob(id, 3, null);
+    await a.reportJobProject(id, { ok: true });
+    await a.reportJobProject(id, { ok: false, problem: "repo:x: GitHub 500" });
+    expect(await a.getJob(id)).toMatchObject({ status: "running", total: 3, done: 1, failed: 1 });
+    await a.reportJobProject(id, { ok: true });
+    expect(await a.getJob(id)).toMatchObject({ status: "complete", done: 2, failed: 1, problems: ["repo:x: GitHub 500"] });
+  });
+
+  it("completes an empty plan right away and keeps a failed job failed", async () => {
+    const a = store.forUser((await store.upsertGithubUser(jane)).id);
+    const empty = await a.createJob("sync");
+    await a.planJob(empty, 0, "Nothing to do");
+    expect((await a.getJob(empty))?.status).toBe("complete");
+
+    const failing = await a.createJob("sync");
+    await a.failJob(failing, "Import failed: Connect Netlify first.");
+    await a.reportJobProject(failing, { ok: true });
+    expect(await a.getJob(failing)).toMatchObject({ status: "failed", message: "Import failed: Connect Netlify first." });
+    expect((await a.latestJob())?.id).toBe(failing);
+  });
+
+  it("keeps jobs and project documents per user", async () => {
+    const a = store.forUser((await store.upsertGithubUser(jane)).id);
+    const b = store.forUser((await store.upsertGithubUser(john)).id);
+    const id = await a.createJob("sync", 1);
+    await a.putProjectDoc("repo:x/y", "facts", { n: 1 });
+
+    expect(await b.getJob(id)).toBeNull();
+    expect(await b.latestJob()).toBeNull();
+    await b.reportJobProject(id, { ok: true });
+    expect((await a.getJob(id))?.done).toBe(0);
+    expect(await b.getProjectDoc("repo:x/y", "facts")).toBeNull();
+    expect(await b.listProjectDocs("facts")).toEqual([]);
+    expect(await a.listProjectDocs("facts")).toEqual([{ key: "repo:x/y", body: { n: 1 } }]);
+  });
+});

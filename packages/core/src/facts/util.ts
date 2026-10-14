@@ -14,7 +14,7 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) =>
 
 /** SHA-256 hex via Web Crypto (Node 20+, Netlify and Supabase Edge Functions). */
 export async function sha256Hex(text: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 

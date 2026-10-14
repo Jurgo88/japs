@@ -10,6 +10,20 @@ export interface EditorState {
   analysis: AnalysisFile | null;
   screenshots: ScreenshotsManifest | null;
   built: boolean;
+  /** Hosted only: the latest import / generation job. */
+  job?: CloudJob | null;
+}
+
+/** A background job in the hosted version (#32). */
+export interface CloudJob {
+  id: string;
+  kind: "sync" | "generate";
+  status: "running" | "complete" | "failed";
+  total: number;
+  done: number;
+  failed: number;
+  message: string | null;
+  problems: string[];
 }
 
 export interface BuildSummary {
@@ -46,6 +60,11 @@ export interface EditorBackend {
   /** Hosted only: who is signed in. */
   account(): Promise<Account>;
   signOut(): Promise<void>;
+  /** Hosted only: import projects (+ facts and texts) in the background. */
+  startSync(): Promise<CloudJob>;
+  /** Hosted only: facts + texts for the picked projects, in the background. */
+  startGenerate(keys: string[]): Promise<CloudJob>;
+  latestJob(): Promise<CloudJob | null>;
 }
 
 export class BackendError extends Error {
@@ -106,5 +125,17 @@ export class HttpBackend implements EditorBackend {
 
   async signOut(): Promise<void> {
     await this.call("/auth/logout", { method: "POST" });
+  }
+
+  async startSync(): Promise<CloudJob> {
+    return (await this.call<{ job: CloudJob }>("/api/jobs/sync", { method: "POST" })).job;
+  }
+
+  async startGenerate(keys: string[]): Promise<CloudJob> {
+    return (await this.call<{ job: CloudJob }>("/api/generate", { method: "POST", body: JSON.stringify({ keys }) })).job;
+  }
+
+  async latestJob(): Promise<CloudJob | null> {
+    return (await this.call<{ job: CloudJob | null }>("/api/jobs/latest")).job;
   }
 }

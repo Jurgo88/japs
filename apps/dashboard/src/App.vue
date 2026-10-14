@@ -9,6 +9,7 @@ import {
   draftIssues,
   isCloud,
   generateMissing,
+  job,
   load,
   missingTexts,
   published,
@@ -16,6 +17,7 @@ import {
   saveAndBuild,
   signedOut,
   signOut,
+  startImport,
   state,
   status,
 } from "./store.ts";
@@ -31,6 +33,17 @@ const hasNetlify = computed(() => account.value?.connections.some((c) => c.provi
 const accountTitle = computed(
   () => account.value?.connections.map((c) => `${c.provider}: ${c.accountLogin ?? "connected"}`).join("\n") ?? "",
 );
+const jobRunning = computed(() => job.value?.status === "running");
+/** "Importing… 3/16" while it runs; the finished job's outcome afterwards. */
+const jobLabel = computed(() => {
+  const j = job.value;
+  if (!j) return "";
+  if (j.status === "running") {
+    return j.total ? `${j.kind === "sync" ? "Importing" : "Generating"}: ${j.done + j.failed} of ${j.total} projects done…` : (j.message ?? "Working…");
+  }
+  if (j.status === "failed") return j.message ?? "The last import failed.";
+  return j.total ? `Done: ${j.done} of ${j.total} projects${j.failed ? `, ${j.failed} with problems` : ""}.` : (j.message ?? "Done.");
+});
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
@@ -80,6 +93,9 @@ window.addEventListener("beforeunload", (e) => {
       <button v-if="!isCloud" class="btn primary" :disabled="status.building || status.saving" @click="saveAndBuild()">
         {{ status.building ? "Building…" : "Save & build" }}
       </button>
+      <button v-if="isCloud && hasNetlify && state?.projects" class="btn" :disabled="jobRunning" @click="startImport()">
+        {{ jobRunning ? "Importing…" : "Import again" }}
+      </button>
       <template v-if="account">
         <a v-if="!hasNetlify" class="btn" href="/auth/netlify/connect">Connect Netlify</a>
         <span class="who" :title="accountTitle">
@@ -105,6 +121,14 @@ window.addEventListener("beforeunload", (e) => {
     </ul>
   </div>
 
+  <div v-if="isCloud && job && (jobRunning || job.status === 'failed' || job.problems.length)" class="banner" :class="{ error: job.status === 'failed' }">
+    <strong>{{ jobLabel }}</strong>
+    <span v-if="jobRunning" class="muted"> Texts appear as projects finish; you can keep editing.</span>
+    <ul v-if="job.problems.length">
+      <li v-for="p in job.problems" :key="p">{{ p }}</li>
+    </ul>
+  </div>
+
   <div v-if="status.batch && status.generating" class="banner">
     Generating texts {{ status.batch.done + 1 }}/{{ status.batch.total }}: <code>{{ status.generating }}</code>…
   </div>
@@ -115,15 +139,20 @@ window.addEventListener("beforeunload", (e) => {
       <li v-for="f in status.batch.failed" :key="f">{{ f }}</li>
     </ul>
   </div>
-  <div v-else-if="missingTexts.length && tab === 'projects' && !isCloud" class="banner warn">
-    <span>
+  <div v-else-if="missingTexts.length && tab === 'projects' && !jobRunning" class="banner warn">
+    <span v-if="isCloud">
+      {{ missingTexts.length }} {{ missingTexts.length === 1 ? "project is" : "projects are" }} selected for your portfolio
+      without texts yet: {{ missingTexts.map((p) => p.title).join(", ") }}. Untick the ones you don't want, then generate
+      texts only for these.
+    </span>
+    <span v-else>
       {{ missingTexts.length }} shown {{ missingTexts.length === 1 ? "project has" : "projects have" }} no texts yet and
       will be left out of the build: {{ missingTexts.map((p) => p.title).join(", ") }}.
-      <template v-if="privateMissing">
-        For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
-      </template>
     </span>
-    <button class="btn primary" :disabled="status.generating !== null || status.saving" @click="generateMissing()">
+    <span v-if="privateMissing" class="private-note">
+      For private repositories, README excerpts are sent to the LLM — anonymize a project first if that's not OK.
+    </span>
+    <button class="btn primary" :disabled="status.generating !== null || status.saving || jobRunning" @click="generateMissing()">
       Generate texts ({{ missingTexts.length }})
     </button>
   </div>
@@ -131,14 +160,21 @@ window.addEventListener("beforeunload", (e) => {
   <main v-if="status.loading" class="empty muted">Loading…</main>
 
   <main v-else-if="tab === 'projects' && !state?.projects && isCloud" class="empty">
-    <h2>No projects yet</h2>
-    <p class="muted">
-      Importing your sites from Netlify and repositories from GitHub is coming to the hosted version next.
-      <template v-if="!hasNetlify">Connect Netlify now so it's ready.</template>
-      Meanwhile, set up your profile.
+    <h2>{{ jobRunning ? "Importing your projects…" : "No projects yet" }}</h2>
+    <p v-if="jobRunning" class="muted">{{ jobLabel }} This takes a minute or two.</p>
+    <p v-else-if="!hasNetlify" class="muted">
+      Connect Netlify, then import: JAPS lists your sites and pairs them with their GitHub repositories. You pick what
+      goes into the portfolio, and only those get texts. Nothing is published until you say so.
+    </p>
+    <p v-else class="muted">
+      Import lists your Netlify sites and GitHub repositories in a few seconds. Then you pick what goes into the
+      portfolio, and JAPS writes texts only for those. Nothing is published until you say so.
     </p>
     <p>
       <a v-if="!hasNetlify" class="btn primary" href="/auth/netlify/connect">Connect Netlify</a>
+      <button v-else class="btn primary" :disabled="jobRunning" @click="startImport()">
+        {{ jobRunning ? "Importing…" : "Import projects" }}
+      </button>
       <button class="btn" @click="tab = 'profile'">Edit profile</button>
     </p>
   </main>
@@ -208,6 +244,8 @@ a.btn.primary { color: #fff; }
   justify-content: space-between;
 }
 .banner.warn .btn { flex-shrink: 0; }
+.banner.warn { flex-wrap: wrap; }
+.private-note { flex-basis: 100%; order: 3; font-size: 13px; }
 @media (prefers-color-scheme: dark) { .banner.error { background: #3a1513; } }
 .split {
   display: grid;

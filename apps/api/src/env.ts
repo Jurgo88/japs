@@ -15,6 +15,27 @@ export interface Env {
   SESSION_SECRET: string;
   /** 32 random bytes, base64url: encrypts tokens and keys at rest. */
   ENCRYPTION_KEY: string;
+  /** Shared LLM key for the free quota (#35). Without it, texts aren't generated. */
+  OPENAI_API_KEY?: string;
+  /** Default gpt-5-mini. */
+  JAPS_LLM_MODEL?: string;
+  /** GitHub App URL slug, for the "install on your repositories" link. */
+  GITHUB_APP_SLUG?: string;
+  /** Workflows (#32): discovery per user, then one instance per project. */
+  SYNC_JOBS?: WorkflowBinding<{ userId: string; jobId: string }>;
+  PROJECT_JOBS?: WorkflowBinding<ProjectJobParams>;
+}
+
+export interface ProjectJobParams {
+  userId: string;
+  jobId: string;
+  key: string;
+}
+
+/** The part of Cloudflare's Workflow binding we use; tests pass a fake. */
+export interface WorkflowBinding<P> {
+  create(options: { id?: string; params: P }): Promise<{ id: string }>;
+  createBatch(batch: { id?: string; params: P }[]): Promise<{ id: string }[]>;
 }
 
 /** Secrets the app can't run without; checked on every request so misconfiguration is loud. */

@@ -5,6 +5,7 @@ import {
   type Account,
   BackendError,
   type BuildSummary,
+  type CloudJob,
   type EditorBackend,
   type EditorState,
   type GenerateSummary,
@@ -19,6 +20,8 @@ export const account = ref<Account | null>(null);
 /** Hosted version and nobody is signed in: show the sign-in screen. */
 export const signedOut = ref(false);
 export const isCloud = computed(() => state.value?.mode === "cloud");
+/** Hosted only: the latest background job, polled while it runs. */
+export const job = ref<CloudJob | null>(null);
 
 export const state = ref<EditorState | null>(null);
 export const draft = ref<JapsConfigInput>({ version: 1 });
@@ -95,6 +98,8 @@ export async function load(): Promise<void> {
     const loaded = await backend.load();
     if (loaded.mode === "cloud") account.value = await backend.account();
     state.value = loaded;
+    job.value = loaded.job ?? null;
+    if (job.value?.status === "running") void watchJob();
     draft.value = loaded.config;
     savedJson.value = loaded.configExists ? JSON.stringify(loaded.config) : "";
     status.error = authError;
@@ -163,6 +168,7 @@ export function update(edit: (config: JapsConfigInput) => JapsConfigInput): void
  */
 export async function generate(key: string): Promise<void> {
   if (dirty.value && !(await save())) return;
+  if (isCloud.value) return startJob(() => backend.startGenerate([key]));
   status.generating = key;
   try {
     const summary = await backend.generate(key);
@@ -195,6 +201,8 @@ export const missingTexts = computed(() =>
 /** Generates texts for every project in `missingTexts`, one at a time, then reloads once. */
 export async function generateMissing(): Promise<void> {
   if (dirty.value && !(await save())) return;
+  // Hosted: one background job for exactly the projects the user picked.
+  if (isCloud.value) return startJob(() => backend.startGenerate(missingTexts.value.map((p) => p.key)));
   const keys = missingTexts.value.map((p) => p.key);
   status.batch = { done: 0, total: keys.length, failed: [], tokens: 0 };
   for (const key of keys) {
@@ -214,4 +222,59 @@ export async function generateMissing(): Promise<void> {
     state.value.analysis = loaded.analysis;
     state.value.projects = loaded.projects;
   }
+}
+
+// --- Hosted background jobs (#32) ---
+
+/** Projects and texts again, without touching the draft (unsaved edits stay). */
+async function refreshData(): Promise<void> {
+  const loaded = await backend.load();
+  if (state.value) {
+    state.value.projects = loaded.projects;
+    state.value.analysis = loaded.analysis;
+    state.value.screenshots = loaded.screenshots;
+  }
+}
+
+let watching = false;
+/** Polls the running job; when it ends, reloads projects and texts. */
+async function watchJob(): Promise<void> {
+  if (watching) return;
+  watching = true;
+  try {
+    while (job.value?.status === "running") {
+      await new Promise((r) => setTimeout(r, 2000));
+      const latest = await backend.latestJob();
+      if (latest?.id !== job.value.id || latest.status !== "running") {
+        job.value = latest;
+        await refreshData();
+        break;
+      }
+      job.value = latest;
+      // Partial results are worth showing while a long import runs.
+      if (latest.done > 0) await refreshData();
+    }
+  } catch (err) {
+    fail(err);
+  } finally {
+    watching = false;
+  }
+}
+
+async function startJob(start: () => Promise<CloudJob>): Promise<void> {
+  if (dirty.value && !(await save())) return;
+  try {
+    job.value = await start();
+    status.error = null;
+  } catch (err) {
+    // 409: one is already running — follow that one instead.
+    if (err instanceof BackendError && err.status === 409) job.value = await backend.latestJob();
+    else return fail(err);
+  }
+  void watchJob();
+}
+
+/** Hosted: import sites and repositories, then facts and texts per project. */
+export function startImport(): Promise<void> {
+  return startJob(() => backend.startSync());
 }

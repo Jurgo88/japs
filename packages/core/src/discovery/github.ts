@@ -47,7 +47,9 @@ export class GitHubClient {
 
   constructor(options: GitHubClientOptions) {
     this.token = options.token;
-    this.fetchImpl = options.fetch ?? globalThis.fetch;
+    // Called as a plain function: Workers throw "Illegal invocation" when fetch runs as a method of another object.
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    this.fetchImpl = (input, init) => fetchFn(input, init);
   }
 
   /** Raw request for callers that need status codes or headers (Link pagination, 404 = missing). */
@@ -57,6 +59,8 @@ export class GitHubClient {
         Authorization: `Bearer ${this.token}`,
         Accept: accept,
         "X-GitHub-Api-Version": "2022-11-28",
+        // Required by GitHub (403 without it). Node adds one by itself; Workers do not.
+        "User-Agent": "JAPS (+https://github.com/Jurgo88/japs)",
       },
     });
   }

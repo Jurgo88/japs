@@ -10,9 +10,10 @@ import {
   OAuthError,
 } from "./auth/oauth.ts";
 import { encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
-import { Store, type User } from "./db.ts";
+import { type Job, Store, type User } from "./db.ts";
+import { wrapAnalysis } from "./pipeline.ts";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
-import { JapsConfig } from "@japs/schema";
+import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
 /**
  * Hosted JAPS API (ADR 0009): GitHub sign-in, Netlify connect, sessions.
@@ -224,14 +225,19 @@ export function createApp(deps: AppDeps = {}) {
     const user = c.get("user")!;
     const store = c.get("store").forUser(user.id);
     const config = await store.getDocument("config");
+    const analysis = await store.listProjectDocs("analysis");
     return c.json({
       mode: "cloud",
       configExists: config !== null,
       config: config ?? starterConfig(user),
       projects: await store.getDocument("projects"),
-      analysis: await store.getDocument("analysis"),
+      // Stored per project (#32); the dashboard reads the analysis.json shape.
+      analysis: analysis.length
+        ? wrapAnalysis(analysis.map((a) => a.body as ProjectAnalysis), (config as { locales?: string[] } | null)?.locales ?? ["en"], now())
+        : null,
       screenshots: await store.getDocument("screenshots"),
       built: false,
+      job: await store.latestJob(),
     });
   });
 
@@ -247,10 +253,61 @@ export function createApp(deps: AppDeps = {}) {
     return c.json({ ok: true });
   });
 
-  // Discovery, texts and publishing run as background jobs in the cloud (#32, #34).
-  for (const path of ["/api/build", "/api/generate"]) {
-    app.post(path, (c) => c.json({ error: "Not available in the hosted version yet — coming with background jobs." }, 501));
-  }
+  // --- Background jobs (#32): import + texts run in Workflows, the dashboard polls ---
+
+  /** A job counts as running only while it reports progress; a stuck one doesn't block forever. */
+  const isActive = (job: Job | null) =>
+    job !== null && job.status === "running" && now().getTime() - Date.parse(job.updatedAt) < 15 * 60_000;
+
+  app.post("/api/jobs/sync", async (c) => {
+    const user = c.get("user")!;
+    const store = c.get("store").forUser(user.id);
+    if (!c.env.SYNC_JOBS) return c.json({ error: "Background jobs are not configured on this server." }, 501);
+    if (!(await store.getConnection("netlify"))) return c.json({ error: "Connect Netlify first." }, 400);
+    const running = await store.latestJob();
+    if (isActive(running)) return c.json({ job: running }, 409);
+
+    const jobId = await store.createJob("sync", 0, "Importing sites and repositories…");
+    await c.env.SYNC_JOBS.create({ params: { userId: user.id, jobId } });
+    return c.json({ job: await store.getJob(jobId) }, 202);
+  });
+
+  /** Max projects per generation request (createBatch takes 100; also caps a single click's cost). */
+  const MAX_GENERATE = 100;
+
+  /**
+   * Facts + texts for the projects the user picked (the editor's "Generate texts"). Only these
+   * are processed; an import never generates texts for projects nobody chose.
+   */
+  app.post("/api/generate", async (c) => {
+    const user = c.get("user")!;
+    const store = c.get("store").forUser(user.id);
+    if (!c.env.PROJECT_JOBS) return c.json({ error: "Background jobs are not configured on this server." }, 501);
+    const { keys } = (await c.req.json().catch(() => ({}))) as { keys?: unknown };
+    const valid = Array.isArray(keys) && keys.length > 0 && keys.every((k) => typeof k === "string");
+    if (!valid) return c.json({ error: 'Expected { "keys": ["<project key>", …] }' }, 400);
+    const unique = [...new Set(keys as string[])];
+    if (unique.length > MAX_GENERATE) return c.json({ error: `At most ${MAX_GENERATE} projects at once.` }, 400);
+
+    const projects = (await store.getDocument("projects")) as { projects: { key: string }[] } | null;
+    if (!projects) return c.json({ error: "Import your projects first." }, 400);
+    const known = new Set(projects.projects.map((p) => p.key));
+    const unknown = unique.filter((k) => !known.has(k));
+    if (unknown.length) return c.json({ error: `Unknown projects: ${unknown.join(", ")}` }, 400);
+    const running = await store.latestJob();
+    if (isActive(running)) return c.json({ job: running }, 409);
+
+    const jobId = await store.createJob("generate", unique.length, `Generating texts for ${unique.length} project(s)…`);
+    await c.env.PROJECT_JOBS.createBatch(unique.map((key) => ({ params: { userId: user.id, jobId, key } })));
+    return c.json({ job: await store.getJob(jobId) }, 202);
+  });
+
+  app.get("/api/jobs/latest", async (c) => {
+    return c.json({ job: await c.get("store").forUser(c.get("user")!.id).latestJob() });
+  });
+
+  // Building and publishing come with #34.
+  app.post("/api/build", (c) => c.json({ error: "Publishing from the hosted version is coming next." }, 501));
 
   // Everything else is the dashboard (static assets, client-side routing); unknown API paths are 404.
   app.notFound(async (c) => {
