@@ -219,6 +219,10 @@ export function deriveTech(repos: RepoFacts[], sites: SiteFacts[]): TechFact[] {
   }
 
   for (const site of sites) {
+    if (site.provider === "cloudflare") {
+      add(t("Cloudflare Pages", "hosting"), `cloudflare:site:${site.domain}`);
+      continue;
+    }
     add(t("Netlify", "hosting"), `netlify:site:${site.domain}`);
     if (site.framework) add(NETLIFY_FRAMEWORK_TECH[site.framework.toLowerCase()], `netlify:framework:${site.framework}`);
     const handWritten = site.deploy?.functions.filter((f) => !f.generator) ?? [];
