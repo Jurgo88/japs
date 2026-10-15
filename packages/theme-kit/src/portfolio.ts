@@ -84,3 +84,12 @@ export function neighbours(project: PortfolioProject, portfolio: Portfolio) {
   const i = list.findIndex((p) => p.slug === project.slug);
   return { previous: list[i - 1] ?? null, next: i >= 0 ? (list[i + 1] ?? null) : null };
 }
+
+/** "2024", "2021 – 2024" or "2024 – present" (`present` is the theme's word for ongoing work). */
+export function projectYears(project: PortfolioProject, present: string): string {
+  const from = project.period.from?.slice(0, 4) ?? null;
+  const to = project.period.to?.slice(0, 4) ?? null;
+  if (!from) return to ?? present;
+  if (!to) return `${from} – ${present}`;
+  return from === to ? from : `${from} – ${to}`;
+}

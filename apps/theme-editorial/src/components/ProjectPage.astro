@@ -1,0 +1,278 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import {
+  formatMonth,
+  loadPortfolio,
+  localePrefix,
+  neighbours,
+  orderedProjects,
+  projectUrl,
+  renderMarkdown,
+  text,
+} from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const pad = (n: number) => String(n).padStart(2, "0");
+// The last chapter leads back to the first one.
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const home = `${localePrefix(locale, portfolio)}/`;
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <article>
+    <header class="head">
+      <p class="mono crumbs" data-intro>
+        <a href={`${home}#work`}>← {tt(locale, "back")}</a>
+        <span>({pad(index + 1)} / {pad(ordered.length)})</span>
+      </p>
+      <h1 data-split="chars" data-intro>{title}</h1>
+      <p class="summary" data-intro>{text(project.summary, locale)}</p>
+    </header>
+
+    <dl class="meta mono" data-stagger>
+      {
+        project.role && (
+          <div>
+            <dt>{tt(locale, "role")}</dt>
+            <dd>{text(project.role, locale)}</dd>
+          </div>
+        )
+      }
+      <div>
+        <dt>{tt(locale, "period")}</dt>
+        <dd>{period}</dd>
+      </div>
+      {
+        project.tags.length > 0 && (
+          <div>
+            <dt>{tt(locale, "stack")}</dt>
+            <dd>{project.tags.join(", ")}</dd>
+          </div>
+        )
+      }
+      {
+        (project.client.isClient || project.client.label) && (
+          <div>
+            <dt>{tt(locale, "clientWork")}</dt>
+            <dd>{project.client.label ? text(project.client.label, locale) : "✓"}</dd>
+          </div>
+        )
+      }
+      {
+        (project.links.live || project.links.repo) && (
+          <div class="actions">
+            {project.links.live && (
+              <a href={project.links.live} rel="noopener">
+                {tt(locale, "live")} ↗
+              </a>
+            )}
+            {project.links.repo && (
+              <a href={project.links.repo} rel="noopener">
+                {tt(locale, "source")} ↗
+              </a>
+            )}
+          </div>
+        )
+      }
+    </dl>
+
+    {
+      desktop && (
+        <figure class="shot" data-curtain>
+          <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+        </figure>
+      )
+    }
+
+    <div class:list={["body", { "with-phone": mobile }]}>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+      {
+        mobile && (
+          <figure class="phone">
+            <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" />
+          </figure>
+        )
+      }
+    </div>
+
+    {
+      next && (
+        <a class="next" href={projectUrl(next, locale, portfolio)}>
+          <span class="mono">{tt(locale, "nextChapter")} →</span>
+          <span class="next-title" data-split="words">
+            {text(next.title, locale)}
+          </span>
+        </a>
+      )
+    }
+  </article>
+</Base>
+
+<style>
+  .head {
+    padding: 120px var(--pad) 40px;
+  }
+  .crumbs {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 40px;
+    color: var(--muted);
+  }
+  .crumbs a {
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--accent);
+  }
+  h1 {
+    margin: 0 0 28px;
+    font-weight: 300;
+    font-size: clamp(56px, 13vw, 210px);
+    line-height: 0.9;
+    letter-spacing: -0.045em;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .summary {
+    margin: 0;
+    max-width: 32ch;
+    font-size: clamp(22px, 2.6vw, 34px);
+    line-height: 1.25;
+    font-style: italic;
+    font-variation-settings: "opsz" 48;
+  }
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: 20px 40px;
+    margin: 0;
+    padding: 28px var(--pad);
+    border-block: 1px solid var(--line);
+  }
+  dt {
+    color: var(--muted);
+  }
+  dd {
+    margin: 4px 0 0;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: 13px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    align-items: end;
+  }
+  .actions a {
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 2px;
+  }
+  .actions a:hover {
+    color: var(--accent);
+  }
+  .shot {
+    margin: 48px var(--pad) 0;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--paper-2);
+    aspect-ratio: 16 / 10;
+  }
+  .shot img {
+    width: 100%;
+    height: 110%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .body {
+    display: grid;
+    gap: 48px;
+    padding: 72px var(--pad);
+  }
+  .body.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    align-items: start;
+  }
+  .description {
+    max-width: 62ch;
+    font-size: 20px;
+    line-height: 1.6;
+  }
+  .description :global(p:first-child)::first-letter {
+    float: left;
+    font-size: 4.2em;
+    line-height: 0.8;
+    padding: 0.08em 0.1em 0 0;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144;
+  }
+  .description :global(a) {
+    color: var(--accent);
+  }
+  .phone {
+    position: sticky;
+    top: 80px;
+    margin: 0;
+    padding: 10px;
+    border-radius: 34px;
+    background: var(--ink);
+  }
+  .phone img {
+    width: 100%;
+    height: auto;
+    border-radius: 26px;
+  }
+  .next {
+    display: grid;
+    gap: 16px;
+    padding: 64px var(--pad) 80px;
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+  }
+  .next .mono {
+    color: var(--accent);
+  }
+  .next-title {
+    font-size: clamp(48px, 10vw, 170px);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    transition: color 0.3s;
+  }
+  .next:hover .next-title {
+    font-style: italic;
+    color: var(--accent);
+  }
+  @media (max-width: 760px) {
+    .body.with-phone {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .phone {
+      position: static;
+      max-width: 240px;
+    }
+  }
+</style>

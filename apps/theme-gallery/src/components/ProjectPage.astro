@@ -1,0 +1,267 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import {
+  coverShot,
+  formatMonth,
+  loadPortfolio,
+  localePrefix,
+  neighbours,
+  orderedProjects,
+  projectUrl,
+  renderMarkdown,
+  text,
+} from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const ordered = orderedProjects(portfolio);
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const nextShot = next ? coverShot(next) : undefined;
+const home = `${localePrefix(locale, portfolio)}/`;
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <article>
+    <header class="head">
+      <a class="back" href={`${home}#work`} data-intro>← {tt(locale, "back")}</a>
+      <h1 data-words data-intro>{title}</h1>
+      <p class="summary" data-intro>{text(project.summary, locale)}</p>
+      <ul class="chips" data-intro>
+        {project.client.isClient && <li class="client">{project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")}</li>}
+        {project.tags.map((tag) => <li>{tag}</li>)}
+      </ul>
+      <dl class="facts" data-intro>
+        {
+          project.role && (
+            <div>
+              <dt>{tt(locale, "role")}</dt>
+              <dd>{text(project.role, locale)}</dd>
+            </div>
+          )
+        }
+        <div>
+          <dt>{tt(locale, "period")}</dt>
+          <dd>{period}</dd>
+        </div>
+      </dl>
+      {
+        (project.links.live || project.links.repo) && (
+          <p class="actions" data-intro>
+            {project.links.live && (
+              <a class="pill" href={project.links.live} rel="noopener">
+                {tt(locale, "live")} ↗
+              </a>
+            )}
+            {project.links.repo && (
+              <a class="pill ghost" href={project.links.repo} rel="noopener">
+                {tt(locale, "source")} ↗
+              </a>
+            )}
+          </p>
+        )
+      }
+    </header>
+
+    {
+      desktop && (
+        <figure class="shot" data-tilt>
+          <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+        </figure>
+      )
+    }
+
+    <div class:list={["body", { "with-phone": mobile }]}>
+      <div class="description" data-reveal set:html={renderMarkdown(text(project.description, locale))} />
+      {
+        mobile && (
+          <figure class="phone" data-reveal>
+            <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" />
+          </figure>
+        )
+      }
+    </div>
+
+    {
+      next && (
+        <a class="next" href={projectUrl(next, locale, portfolio)} data-reveal>
+          <span class="next-text">
+            <span class="label">{tt(locale, "upNext")} →</span>
+            <span class="next-title">{text(next.title, locale)}</span>
+          </span>
+          {nextShot && <img src={`/${nextShot.src}`} alt="" loading="lazy" width="1440" height="900" />}
+        </a>
+      )
+    }
+  </article>
+</Base>
+
+<style>
+  .head {
+    display: grid;
+    justify-items: start;
+    gap: 20px;
+    padding: 120px var(--pad) 0;
+  }
+  .back {
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .back:hover {
+    color: var(--blue);
+  }
+  h1 {
+    margin: 0;
+    font-weight: 800;
+    font-size: clamp(48px, 9vw, 150px);
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    font-variation-settings: "opsz" 96;
+  }
+  .summary {
+    margin: 0;
+    max-width: 36ch;
+    font-size: clamp(20px, 2vw, 28px);
+    line-height: 1.3;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chips li {
+    padding: 4px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .chips .client {
+    background: var(--pink);
+    border-color: var(--pink);
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 48px;
+    margin: 8px 0 0;
+  }
+  dt {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  dd {
+    margin: 0;
+    font-weight: 600;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 8px 0 0;
+  }
+  .shot {
+    margin: 64px var(--pad) 0;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #ddd6c8;
+    box-shadow: 0 40px 80px -40px rgb(21 20 18 / 0.45);
+  }
+  .shot img {
+    width: 100%;
+    height: auto;
+  }
+  .body {
+    display: grid;
+    gap: 48px;
+    padding: 80px var(--pad) 0;
+  }
+  .body.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    align-items: start;
+  }
+  .description {
+    max-width: 60ch;
+    font-size: 19px;
+    line-height: 1.6;
+  }
+  .description :global(a) {
+    color: var(--blue);
+  }
+  .phone {
+    margin: 0;
+    padding: 10px;
+    border-radius: 38px;
+    background: var(--ink);
+    rotate: 3deg;
+  }
+  .phone img {
+    width: 100%;
+    height: auto;
+    border-radius: 29px;
+  }
+  .next {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    gap: 24px;
+    align-items: center;
+    margin: 96px var(--pad) 0;
+    padding: clamp(20px, 3vw, 36px);
+    border-radius: 28px;
+    background: var(--pink);
+    transition: transform 0.3s;
+  }
+  .next:hover {
+    transform: rotate(-1deg) scale(1.01);
+  }
+  .next-text {
+    display: grid;
+    gap: 8px;
+  }
+  .label {
+    font-weight: 600;
+  }
+  .next-title {
+    font-weight: 800;
+    font-size: clamp(36px, 6vw, 96px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+  }
+  .next img {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 16px;
+  }
+  @media (max-width: 760px) {
+    .body.with-phone,
+    .next {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .phone {
+      max-width: 240px;
+    }
+  }
+</style>

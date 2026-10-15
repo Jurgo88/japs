@@ -6,6 +6,7 @@ import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
+import ThemePicker from "./components/ThemePicker.vue";
 import {
   account,
   dirty,
@@ -30,7 +31,7 @@ import {
   unreadableRepos,
 } from "./store.ts";
 
-const tab = ref<"projects" | "profile">("projects");
+const tab = ref<"projects" | "profile" | "theme">("projects");
 const selectedKey = ref<string | null>(null);
 
 const projects = computed(() => state.value?.projects?.projects ?? []);
@@ -96,6 +97,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
         Projects <span class="muted">{{ shownCount }}/{{ projects.length }}</span>
       </button>
       <button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">Profile</button>
+      <button :class="{ active: tab === 'theme' }" @click="tab = 'theme'">Theme</button>
     </nav>
     <div class="actions">
       <span
@@ -143,7 +145,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
   </div>
   <div v-else-if="status.build" class="banner ok">
     Built {{ status.build.projects }} projects with {{ status.build.screenshots }} screenshots into
-    <code>out/</code>. Preview with <code>pnpm dev</code> → <a href="http://localhost:4321" target="_blank">localhost:4321</a>.
+    <code>out/</code>. Preview with <code>pnpm dev</code> (the theme from the Theme tab) → <a href="http://localhost:4321" target="_blank">localhost:4321</a>.
     <ul v-if="status.build.warnings.length" class="muted">
       <li v-for="w in status.build.warnings" :key="w">{{ w }}</li>
     </ul>
@@ -243,6 +245,10 @@ pnpm japs analyze</pre>
   <main v-else-if="tab === 'projects'" class="split">
     <ProjectList :projects="projects" :selected-key="selectedKey" @select="selectedKey = $event" />
     <ProjectDetail v-if="selected" :key="selected.key" :project="selected" />
+  </main>
+
+  <main v-else-if="tab === 'theme'" class="single">
+    <ThemePicker />
   </main>
 
   <main v-else class="single">

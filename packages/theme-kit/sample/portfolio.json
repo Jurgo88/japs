@@ -7,8 +7,8 @@
     "name": "Jane Example",
     "headline": { "en": "Web developer", "sk": "Webový vývojár" },
     "bio": {
-      "en": "Sample portfolio bundled with the default theme.",
-      "sk": "Ukážkové portfólio dodávané s predvolenou témou."
+      "en": "Sample portfolio bundled with the JAPS themes.",
+      "sk": "Ukážkové portfólio dodávané s témami JAPS."
     },
     "location": "Example City",
     "links": [{ "label": "GitHub", "url": "https://github.com/example" }]

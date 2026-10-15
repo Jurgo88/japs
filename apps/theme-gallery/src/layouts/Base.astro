@@ -1,0 +1,229 @@
+---
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  /** The same page in every locale, for the switcher and hreflang. */
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#ece7dc" />
+    {
+      site &&
+        alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)
+    }
+    <link
+      rel="icon"
+      href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='10' fill='%232448ff'/><text x='16' y='22.5' font-family='Arial,sans-serif' font-weight='800' font-size='18' fill='%23ffffff' text-anchor='middle'>${encodeURIComponent(profile.name.trim().charAt(0).toUpperCase())}</text></svg>`}
+    />
+    <!-- Animated elements start hidden only when motion is allowed and JS runs; a timer shows them if the script fails. -->
+    <script is:inline>
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.documentElement.classList.add("motion");
+        setTimeout(() => document.documentElement.classList.add("motion-ready"), 3000);
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="pill" href={homeHref}>{profile.name}</a>
+      <nav>
+        {
+          alternates.length > 1 &&
+            alternates.map((a) => (
+              <a class="lang" href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "true" : undefined} title={languageName(a.locale)}>
+                {a.locale.toUpperCase()}
+              </a>
+            ))
+        }
+        {
+          profile.email && (
+            <a class="pill ghost" href="#contact">
+              {tt(locale, "contact")}
+            </a>
+          )
+        }
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer" id="contact" data-rise>
+      {
+        profile.email && (
+          <p class="cta">
+            <a href={`mailto:${profile.email}`}>{tt(locale, "cta")} ↗</a>
+          </p>
+        )
+      }
+      <div class="bottom">
+        {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+        {
+          profile.links.map((link) => (
+            <a href={link.url} rel="me noopener">
+              {link.label} ↗
+            </a>
+          ))
+        }
+        <span class="copy">© {new Date().getFullYear()} {profile.name}</span>
+      </div>
+    </footer>
+    <script>
+      import "../lib/motion.ts";
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #ece7dc;
+    --ink: #151412;
+    --muted: #6b665c;
+    --blue: #2448ff;
+    --pink: #ff8fb8;
+    --night: #151412;
+    --sans: "Bricolage Grotesque Variable", system-ui, sans-serif;
+    --pad: clamp(16px, 3vw, 40px);
+    color-scheme: light;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.5 var(--sans);
+    overflow-x: clip;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--pink);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+  }
+  .motion:not(.motion-ready) [data-intro] {
+    visibility: hidden;
+  }
+
+  .site-header {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px var(--pad);
+    pointer-events: none;
+  }
+  .site-header > *,
+  .site-header nav > * {
+    pointer-events: auto;
+  }
+  .site-header nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: var(--bg);
+    font-weight: 600;
+    font-size: 14px;
+    /* Visible on the dark gallery too. */
+    box-shadow: 0 0 0 1.5px var(--bg);
+    transition: transform 0.25s;
+  }
+  .pill:hover {
+    transform: translateY(-2px) rotate(-2deg);
+  }
+  .pill.ghost {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+  }
+  .lang {
+    padding: 6px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+  }
+  .lang[aria-current="true"] {
+    color: var(--ink);
+  }
+
+  .site-footer {
+    margin-top: 12vh;
+    padding: 14vh var(--pad) 32px;
+    border-radius: 32px 32px 0 0;
+    background: var(--blue);
+    color: #fff;
+  }
+  .cta {
+    margin: 0 0 48px;
+    font-weight: 800;
+    font-size: clamp(44px, 9vw, 160px);
+    letter-spacing: -0.045em;
+    line-height: 0.92;
+  }
+  .cta a:hover {
+    color: var(--pink);
+  }
+  .bottom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    opacity: 0.85;
+  }
+  .bottom a:hover {
+    text-decoration: underline;
+  }
+  .copy {
+    margin-left: auto;
+  }
+  .split-mask {
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+  }
+</style>

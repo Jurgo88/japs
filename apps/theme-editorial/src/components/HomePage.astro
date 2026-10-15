@@ -1,0 +1,316 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, projectUrl, projectYears, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const [first, ...rest] = profile.name.trim().split(/\s+/);
+const num = (i: number) => String(i + 1).padStart(2, "0");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <h1 class="name" data-split="chars" data-intro>
+      {first}
+      {rest.length > 0 && <br />}
+      {rest.length > 0 && <em>{rest.join(" ")}</em>}
+    </h1>
+    <div class="hero-foot">
+      {text(profile.bio, locale) && <p class="bio" data-intro>{text(profile.bio, locale)}</p>}
+      <div class="hero-meta mono" data-intro>
+        <span>{text(profile.headline, locale)}</span>
+        {profile.location && <span>{profile.location}</span>}
+        {
+          profile.available !== null && (
+            <span class:list={["status", { on: profile.available }]}>
+              {tt(locale, profile.available ? "available" : "unavailable")}
+            </span>
+          )
+        }
+      </div>
+    </div>
+  </section>
+
+  <div class="index-title" id="work">
+    <h2>{tt(locale, "selectedWork")}</h2>
+    <span class="mono">{projects.length} {plural(locale, "projects", projects.length)}</span>
+  </div>
+
+  {
+    projects.map((project, i) => {
+      const shot = coverShot(project);
+      const url = projectUrl(project, locale, portfolio);
+      return (
+        <article class="chapter">
+          <div class="chapter-head">
+            <span class="num mono">({num(i)})</span>
+            <h3 data-split="words">
+              <a href={url}>{text(project.title, locale)}</a>
+            </h3>
+          </div>
+          <div class="chapter-body">
+            <a class="frame" href={url} tabindex="-1" aria-hidden="true" data-curtain>
+              {shot ? (
+                <img
+                  src={`/${shot.src}`}
+                  alt=""
+                  loading="lazy"
+                  width={shot.viewport === "mobile" ? 390 : 1440}
+                  height={shot.viewport === "mobile" ? 844 : 900}
+                />
+              ) : (
+                <span class="placeholder">{text(project.title, locale).charAt(0)}</span>
+              )}
+            </a>
+            <div class="aside" data-stagger>
+              <p class="summary">{text(project.summary, locale)}</p>
+              <dl class="mono">
+                {project.role && (
+                  <div>
+                    <dt>{tt(locale, "role")}</dt>
+                    <dd>{text(project.role, locale)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>{tt(locale, "years")}</dt>
+                  <dd>{projectYears(project, tt(locale, "present"))}</dd>
+                </div>
+                {project.tags.length > 0 && (
+                  <div>
+                    <dt>{tt(locale, "stack")}</dt>
+                    <dd>{project.tags.slice(0, 6).join(", ")}</dd>
+                  </div>
+                )}
+                {project.client.isClient && (
+                  <div>
+                    <dt>{tt(locale, "clientWork")}</dt>
+                    <dd>{project.client.label ? text(project.client.label, locale) : "—"}</dd>
+                  </div>
+                )}
+              </dl>
+              <p class="links mono">
+                <a href={url}>{tt(locale, "viewProject")} →</a>
+                {project.links.live && (
+                  <a href={project.links.live} rel="noopener">
+                    {tt(locale, "live")} ↗
+                  </a>
+                )}
+              </p>
+            </div>
+          </div>
+        </article>
+      );
+    })
+  }
+</Base>
+
+<style>
+  .hero {
+    min-height: 100svh;
+    padding: 120px var(--pad) 48px;
+    display: grid;
+    align-content: end;
+    gap: 40px;
+  }
+  .name {
+    margin: 0;
+    font-weight: 300;
+    font-size: clamp(64px, 17vw, 260px);
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .name em {
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .hero-foot {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 24px 48px;
+    align-items: end;
+    border-top: 1px solid var(--ink);
+    padding-top: 20px;
+  }
+  .bio {
+    margin: 0;
+    max-width: 30ch;
+    font-size: clamp(20px, 2.2vw, 28px);
+    line-height: 1.3;
+    font-variation-settings: "opsz" 36;
+  }
+  .hero-meta {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+  }
+  .status.on {
+    color: var(--ink);
+  }
+  .status.on::before {
+    border: 0;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+
+  .index-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 120px var(--pad) 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  .index-title h2 {
+    margin: 0;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(36px, 6vw, 88px);
+    letter-spacing: -0.03em;
+    font-variation-settings: "opsz" 144;
+  }
+
+  .chapter {
+    padding: 64px var(--pad) 96px;
+    border-bottom: 1px solid var(--line);
+  }
+  .chapter-head {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .num {
+    color: var(--accent);
+    padding-top: 1.4em;
+  }
+  h3 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(44px, 9vw, 150px);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+  }
+  h3 a {
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  h3 a:hover {
+    color: var(--accent);
+    font-style: italic;
+  }
+  .chapter-body {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr) minmax(0, 320px);
+    gap: 24px 40px;
+  }
+  .frame {
+    grid-column: 2;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--paper-2);
+  }
+  .frame img {
+    width: 100%;
+    height: 112%;
+    object-fit: cover;
+    object-position: top;
+    align-self: start;
+  }
+  .placeholder {
+    font-size: clamp(120px, 22vw, 320px);
+    font-style: italic;
+    font-weight: 300;
+    color: var(--line);
+  }
+  .aside {
+    display: grid;
+    gap: 24px;
+    align-content: start;
+  }
+  .summary {
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.35;
+    font-variation-settings: "opsz" 24;
+  }
+  dl {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+  }
+  dt {
+    color: var(--muted);
+  }
+  dd {
+    margin: 2px 0 0;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: 13px;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 0;
+  }
+  .links a {
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 2px;
+  }
+  .links a:hover {
+    color: var(--accent);
+  }
+
+  @media (max-width: 760px) {
+    .hero-foot,
+    .chapter-head,
+    .chapter-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .hero {
+      min-height: 0;
+      padding-top: 150px;
+    }
+    .name {
+      font-size: 26vw;
+    }
+    .num {
+      padding-top: 0;
+    }
+    .frame {
+      grid-column: auto;
+    }
+  }
+</style>
