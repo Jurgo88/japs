@@ -45,11 +45,16 @@ export {
   setTags,
 } from "./editor/config-edit.ts";
 export {
+  createDeploy,
   createSite,
   deploySite,
   findSite,
+  getDeployState,
   sha1Hex,
+  uploadDeployFile,
+  type CreatedDeploy,
   type DeployFile,
+  type DeployState,
   type DeployOptions,
   type DeployResult,
   type NetlifySite,

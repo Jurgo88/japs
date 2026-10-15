@@ -10,6 +10,7 @@ import {
   type EditorState,
   type GenerateSummary,
   HttpBackend,
+  type PublishStatus,
 } from "./backend.ts";
 
 /** One reactive store: the loaded snapshot, the config draft, and save/build status. */
@@ -274,6 +275,47 @@ async function followScreenshots(): Promise<void> {
     // Only a convenience; the next load shows them anyway.
   } finally {
     following = false;
+  }
+}
+
+/** The latest publish (#34); polled while the hosted build runs. */
+export const publishing = ref<PublishStatus | null>(null);
+export const publishRunning = computed(() => publishing.value?.status === "building" || publishing.value?.status === "deploying");
+
+export async function publish(draft = false): Promise<void> {
+  if (dirty.value && !(await save())) return;
+  status.error = null;
+  try {
+    publishing.value = await backend.publish(draft);
+    await followPublish();
+  } catch (err) {
+    fail(err);
+  }
+}
+
+let followingPublish = false;
+async function followPublish(): Promise<void> {
+  if (followingPublish) return;
+  followingPublish = true;
+  try {
+    while (publishRunning.value) {
+      await new Promise((r) => setTimeout(r, 3000));
+      publishing.value = await backend.latestPublish();
+    }
+  } catch (err) {
+    fail(err);
+  } finally {
+    followingPublish = false;
+  }
+}
+
+/** On load: show the last publish, and keep following one that is still running. */
+export async function loadPublish(): Promise<void> {
+  try {
+    publishing.value = await backend.latestPublish();
+    if (publishRunning.value) void followPublish();
+  } catch {
+    // Older servers without publishing: no status, no button state.
   }
 }
 

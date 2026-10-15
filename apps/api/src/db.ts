@@ -79,6 +79,59 @@ const toJob = (r: JobRow): Job => ({
   updatedAt: r.updated_at,
 });
 
+/** One publish (#34, ADR 0011). `files` and `required` are the Netlify file-digest exchange. */
+export type BuildStatus = "building" | "deploying" | "live" | "failed";
+export interface Build {
+  id: string;
+  status: BuildStatus;
+  theme: string;
+  draft: boolean;
+  siteId: string;
+  siteUrl: string;
+  runId: string | null;
+  deployId: string | null;
+  files: Record<string, string> | null;
+  required: string[] | null;
+  url: string | null;
+  message: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export type BuildUpdate = Partial<Pick<Build, "status" | "deployId" | "files" | "required" | "url" | "message">>;
+
+type BuildRow = {
+  id: string;
+  status: BuildStatus;
+  theme: string;
+  draft: number;
+  site_id: string;
+  site_url: string;
+  run_id: string | null;
+  deploy_id: string | null;
+  files: string | null;
+  required: string | null;
+  url: string | null;
+  message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+const toBuild = (r: BuildRow): Build => ({
+  id: r.id,
+  status: r.status,
+  theme: r.theme,
+  draft: r.draft === 1,
+  siteId: r.site_id,
+  siteUrl: r.site_url,
+  runId: r.run_id,
+  deployId: r.deploy_id,
+  files: r.files ? (JSON.parse(r.files) as Record<string, string>) : null,
+  required: r.required ? (JSON.parse(r.required) as string[]) : null,
+  url: r.url,
+  message: r.message,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
 /** What the browser may see about a connection: never a token. */
 export type PublicConnection = Pick<Connection, "provider" | "accountLogin"> & { updatedAt: string };
 
@@ -140,6 +193,12 @@ export class Store {
       .bind(tokenHash, this.iso())
       .first<UserRow>();
     return row ? toUser(row) : null;
+  }
+
+  /** Owner of a build, for the builder routes (OIDC, no session). Everything else goes through forUser. */
+  async buildOwner(buildId: string): Promise<string | null> {
+    const row = await this.db.prepare("SELECT user_id FROM builds WHERE id = ?").bind(buildId).first<{ user_id: string }>();
+    return row?.user_id ?? null;
   }
 
   async deleteSession(tokenHash: string): Promise<void> {
@@ -315,6 +374,72 @@ export class UserStore {
       )
       .bind(this.userId, shot.key, shot.viewport, shot.file, shot.url, shot.takenAt)
       .run();
+  }
+
+  // --- Builds (#34) ---
+
+  async createBuild(build: { theme: string; draft: boolean; siteId: string; siteUrl: string }): Promise<string> {
+    const id = crypto.randomUUID();
+    const at = this.iso();
+    await this.db
+      .prepare(
+        `INSERT INTO builds (id, user_id, status, theme, draft, site_id, site_url, created_at, updated_at)
+         VALUES (?, ?, 'building', ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(id, this.userId, build.theme, build.draft ? 1 : 0, build.siteId, build.siteUrl, at, at)
+      .run();
+    return id;
+  }
+
+  async getBuild(id: string): Promise<Build | null> {
+    const row = await this.db.prepare("SELECT * FROM builds WHERE user_id = ? AND id = ?").bind(this.userId, id).first<BuildRow>();
+    return row ? toBuild(row) : null;
+  }
+
+  async latestBuild(): Promise<Build | null> {
+    const row = await this.db
+      .prepare("SELECT * FROM builds WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+      .bind(this.userId)
+      .first<BuildRow>();
+    return row ? toBuild(row) : null;
+  }
+
+  async countBuildsSince(iso: string): Promise<number> {
+    const row = await this.db
+      .prepare("SELECT COUNT(*) AS n FROM builds WHERE user_id = ? AND created_at >= ?")
+      .bind(this.userId, iso)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
+  }
+
+  async updateBuild(id: string, patch: BuildUpdate): Promise<void> {
+    const columns: Record<keyof BuildUpdate, string> = {
+      status: "status",
+      deployId: "deploy_id",
+      files: "files",
+      required: "required",
+      url: "url",
+      message: "message",
+    };
+    const entries = (Object.keys(patch) as (keyof BuildUpdate)[]).filter((k) => patch[k] !== undefined);
+    if (!entries.length) return;
+    const value = (k: keyof BuildUpdate) => (k === "files" || k === "required" ? JSON.stringify(patch[k]) : patch[k]);
+    await this.db
+      .prepare(`UPDATE builds SET ${entries.map((k) => `${columns[k]} = ?`).join(", ")}, updated_at = ? WHERE user_id = ? AND id = ?`)
+      .bind(...entries.map(value), this.iso(), this.userId, id)
+      .run();
+  }
+
+  /**
+   * Binds the build to the GitHub Actions run that asks first; afterwards only that run may
+   * act on it. One statement, so two runs can't both win.
+   */
+  async claimBuildRun(id: string, runId: string): Promise<boolean> {
+    await this.db
+      .prepare("UPDATE builds SET run_id = ? WHERE user_id = ? AND id = ? AND run_id IS NULL")
+      .bind(runId, this.userId, id)
+      .run();
+    return (await this.getBuild(id))?.runId === runId;
   }
 
   // --- Jobs (#32) ---

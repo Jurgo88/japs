@@ -3,8 +3,9 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { basename, extname, join, normalize, sep } from "node:path";
-import { AnalysisFile, JapsConfig, ProjectsFile } from "@japs/schema";
+import { AnalysisFile, JapsConfig, ProjectsFile, PublishState } from "@japs/schema";
 import { starterConfig } from "./config.ts";
+import { publishWorkspace } from "./publish.ts";
 import { loadManifest } from "./screenshots.ts";
 import { analyzeWorkspace, buildWorkspace, factsWorkspace, readOptional, type Workspace, WorkspaceError } from "./workspace.ts";
 
@@ -102,6 +103,24 @@ export function createEditorServer(ws: Workspace, options: EditorServerOptions):
         const { portfolio, warnings } = await buildWorkspace(ws);
         const screenshots = portfolio.projects.reduce((n, p) => n + p.screenshots.length, 0);
         return send(res, 200, { projects: portfolio.projects.length, screenshots, warnings });
+      }
+
+      // Publish (#34): the same as `japs publish`, finished within the request.
+      if (path === "/api/publish" && req.method === "POST") {
+        const body = (await readBody(req)) as { draft?: unknown };
+        const draft = body.draft === true;
+        const { site, deploy } = await publishWorkspace(ws, { env: options.env ?? process.env, draft });
+        return send(res, 200, {
+          publish: { id: deploy.deployId, status: "live", draft, siteUrl: site.url, url: deploy.url || site.url, message: null, createdAt: new Date().toISOString() },
+        });
+      }
+
+      if (path === "/api/publish/latest" && req.method === "GET") {
+        const state = await readOptional(ws.publish, PublishState).catch(() => null);
+        const last = state?.lastDeploy;
+        return send(res, 200, {
+          publish: last && state ? { id: last.id, status: "live", draft: last.draft, siteUrl: state.url, url: last.url, message: null, createdAt: last.at } : null,
+        });
       }
 
       // Facts + LLM texts for one project. Costs a cent or two, so only on an explicit click.

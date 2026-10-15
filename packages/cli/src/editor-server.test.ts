@@ -81,6 +81,30 @@ describe("editor server", () => {
     expect((await res.json()).error).toContain("Run `japs discover` first");
   });
 
+  it("publishes only with the token, and reports the last publish from publish.json", async () => {
+    expect((await fetch(`${base}/api/publish`, { method: "POST", body: "{}" })).status).toBe(403);
+    expect(await (await fetch(`${base}/api/publish/latest`)).json()).toEqual({ publish: null });
+
+    const state = {
+      version: 1,
+      siteId: "site-1",
+      siteName: "jane-portfolio",
+      url: "https://jane-portfolio.netlify.app",
+      adminUrl: null,
+      lastDeploy: { id: "dep-1", url: "https://jane-portfolio.netlify.app", draft: false, at: "2026-10-16T10:00:00.000Z" },
+    };
+    await writeFile(resolveWorkspace(dir).publish, JSON.stringify(state));
+    expect((await (await fetch(`${base}/api/publish/latest`)).json()).publish).toEqual({
+      id: "dep-1",
+      status: "live",
+      draft: false,
+      siteUrl: "https://jane-portfolio.netlify.app",
+      url: "https://jane-portfolio.netlify.app",
+      message: null,
+      createdAt: "2026-10-16T10:00:00.000Z",
+    });
+  });
+
   it("refuses requests for another host name (DNS rebinding)", async () => {
     const status = await new Promise<number>((resolve, reject) => {
       const { port } = new URL(base);

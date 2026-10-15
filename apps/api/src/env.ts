@@ -30,6 +30,10 @@ export interface Env {
   BROWSER?: Fetcher;
   SHOTS?: Bucket;
   SHOT_JOBS?: WorkflowBinding<ShotJobParams>;
+  /** Publishing (#34, ADR 0011): fine-grained token allowed to dispatch the build workflow. */
+  GITHUB_BUILD_TOKEN?: string;
+  /** Repo with .github/workflows/publish.yml, e.g. "Jurgo88/japs". */
+  JAPS_BUILD_REPO?: string;
 }
 
 export interface ShotJobParams {

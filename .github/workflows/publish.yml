@@ -1,0 +1,41 @@
+# Builds a portfolio for the hosted version (ADR 0011). Started by the JAPS Worker through
+# workflow_dispatch; the input is only a build id. The run proves itself to the API with an
+# OIDC token, which only this workflow on main can get, and never sees the user's Netlify token.
+# Logs are public: the build prints counts, never portfolio content.
+name: Publish (hosted)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build id from the JAPS API
+        required: true
+      api:
+        description: JAPS API origin
+        required: true
+        default: https://japs.app
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-${{ inputs.build }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Inputs go through env, never into the script text.
+      - run: pnpm japs cloud-build --build "$BUILD" --api "$API"
+        env:
+          BUILD: ${{ inputs.build }}
+          API: ${{ inputs.api }}
