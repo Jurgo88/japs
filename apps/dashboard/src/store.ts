@@ -59,6 +59,16 @@ export const dirty = computed(() => JSON.stringify(draft.value) !== savedJson.va
 export const locales = computed(() => draft.value.locales ?? ["en"]);
 export const defaultLocale = computed(() => draft.value.defaultLocale ?? "en");
 
+/**
+ * The language being edited, shared by the profile and every project, so switching to SK once
+ * shows SK everywhere. Falls back to the default language when the chosen one is removed.
+ */
+const chosenLocale = ref<string | null>(null);
+export const editLocale = computed<string>({
+  get: () => (chosenLocale.value && locales.value.includes(chosenLocale.value) ? chosenLocale.value : defaultLocale.value),
+  set: (value) => (chosenLocale.value = value),
+});
+
 /** Problems that would stop Save, shown while editing instead of only after clicking. */
 export const draftIssues = computed(() => {
   const parsed = JapsConfig.safeParse(draft.value);

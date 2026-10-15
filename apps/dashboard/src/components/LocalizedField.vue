@@ -2,7 +2,9 @@
 import { setCopyText } from "@japs/core";
 import type { LocalizedText } from "@japs/schema";
 import { computed, reactive, watch } from "vue";
-import { draft, locales, update } from "../store.ts";
+import { draft, editLocale, locales, update } from "../store.ts";
+
+/** One project text in the language being edited (LocaleTabs); edits are stored as overrides. */
 
 type Field = "title" | "summary" | "description" | "role";
 
@@ -13,6 +15,7 @@ const props = defineProps<{
   generated: LocalizedText | undefined;
   multiline?: boolean;
   maxLength?: number;
+  hint?: string;
 }>();
 
 const override = computed(() => draft.value.projects?.[props.projectKey]?.copy?.[props.field] ?? {});
@@ -28,48 +31,56 @@ watch(
   { immediate: true },
 );
 
-function commit(locale: string): void {
-  update((c) => setCopyText(c, props.projectKey, props.field, locale, text[locale] ?? "", props.generated));
-}
+const l = computed(() => editLocale.value);
+const edited = computed(() => override.value[l.value] !== undefined);
+const length = computed(() => text[l.value]?.length ?? 0);
+const id = computed(() => `${props.projectKey}-${props.field}`);
 
-function reset(locale: string): void {
-  text[locale] = props.generated?.[locale] ?? "";
-  commit(locale);
+function commit(): void {
+  update((c) => setCopyText(c, props.projectKey, props.field, l.value, text[l.value] ?? "", props.generated));
+}
+function reset(): void {
+  text[l.value] = props.generated?.[l.value] ?? "";
+  commit();
 }
 </script>
 
 <template>
   <div class="field">
-    <div class="label">{{ label }}</div>
-    <div v-for="l in locales" :key="l" class="row">
-      <span class="locale">{{ l.toUpperCase() }}</span>
-      <textarea
-        v-if="multiline"
-        v-model="text[l]"
-        :rows="6"
-        :placeholder="generated?.[l] ? '' : 'No generated text — run japs analyze, or write your own'"
-        @change="commit(l)"
-      />
-      <input
-        v-else
-        v-model="text[l]"
-        type="text"
-        :placeholder="generated?.[l] ? '' : 'No generated text'"
-        @change="commit(l)"
-      />
-      <div class="side">
-        <span v-if="override[l] !== undefined" class="badge accent" title="Your text; analysis won't overwrite it">edited</span>
-        <button v-if="override[l] !== undefined && generated?.[l]" class="btn small" @click="reset(l)">Reset</button>
-        <span v-if="maxLength && (text[l]?.length ?? 0) > maxLength" class="badge warn">{{ text[l]?.length }}/{{ maxLength }}</span>
-      </div>
+    <div class="head">
+      <label :for="id">{{ props.label }}</label>
+      <span v-if="edited" class="badge accent" title="Your text; generating again won't overwrite it">edited</span>
+      <button v-if="edited && props.generated?.[l]" type="button" class="link" title="Back to the generated text" @click="reset()">Reset</button>
+      <span v-if="props.maxLength" class="count" :class="{ over: length > props.maxLength }">{{ length }}/{{ props.maxLength }}</span>
     </div>
+    <textarea
+      v-if="props.multiline"
+      :id="id"
+      v-model="text[l]"
+      rows="7"
+      :placeholder="props.generated?.[l] ? '' : 'Not written yet. Generate texts, or write your own.'"
+      @change="commit()"
+    />
+    <input
+      v-else
+      :id="id"
+      v-model="text[l]"
+      type="text"
+      :placeholder="props.generated?.[l] ? '' : 'Not written yet'"
+      @change="commit()"
+    />
+    <span v-if="props.hint" class="hint muted">{{ props.hint }}</span>
   </div>
 </template>
 
 <style scoped>
 .field { display: grid; gap: 6px; }
-.label { font-weight: 600; }
-.row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 90px; gap: 8px; align-items: start; }
-.locale { font-size: 11px; font-weight: 700; color: var(--muted); padding-top: 8px; }
-.side { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding-top: 4px; }
+.head { display: flex; align-items: center; gap: 8px; }
+.head label { font-weight: 600; }
+.link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 12px; cursor: pointer; }
+.link:hover { text-decoration: underline; }
+.count { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.count.over { color: var(--warn); font-weight: 700; }
+.hint { font-size: 12px; }
+textarea { line-height: 1.55; }
 </style>

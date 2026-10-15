@@ -304,8 +304,8 @@ pnpm japs analyze</pre>
   </main>
 
   <main v-else class="single">
-    <ProfileEditor />
     <LanguagesEditor />
+    <ProfileEditor />
   </main>
   </template>
   </template>
