@@ -34,14 +34,15 @@ import {
 
 const tab = ref<"projects" | "profile" | "design">("projects");
 
-/** Settings live at #/settings/<section> (hosted only), so reload and Back keep them. */
+/** Settings live at #/settings/<section>, so reload and Back keep them. Locally without Account. */
 const hash = ref(location.hash);
 window.addEventListener("hashchange", () => (hash.value = location.hash));
 const SECTIONS: SettingsSection[] = ["connections", "ai", "account"];
 const settingsSection = computed<SettingsSection | null>(() => {
   const match = /^#\/settings(?:\/(\w+))?$/.exec(hash.value);
-  if (!match || !isCloud.value) return null;
-  return SECTIONS.includes(match[1] as SettingsSection) ? (match[1] as SettingsSection) : "connections";
+  if (!match) return null;
+  const section = match[1] as SettingsSection;
+  return SECTIONS.includes(section) && (isCloud.value || section !== "account") ? section : "connections";
 });
 const openSettings = (section: SettingsSection = "connections") => (location.hash = `#/settings/${section}`);
 const closeSettings = () => {
@@ -156,6 +157,24 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
         {{ publishRunning ? "Publishing…" : "Publish" }}
       </button>
       <AccountMenu v-if="account" @settings="openSettings()" />
+      <button
+        v-else-if="!isCloud"
+        class="gear"
+        type="button"
+        title="Settings"
+        aria-label="Settings"
+        :aria-pressed="Boolean(settingsSection)"
+        @click="settingsSection ? closeSettings() : openSettings()"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2-1.2L14.5 3h-5l-.4 2.6a7.6 7.6 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 2 1.2l.4 2.6h5l.4-2.6a7.6 7.6 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2Z"
+          />
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -317,6 +336,18 @@ pnpm japs analyze</pre>
 .tabs button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .issues { color: var(--warn); font-size: 13px; cursor: help; }
+.gear {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.gear:hover, .gear[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .tabs .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tabs button.active .count { color: inherit; opacity: 0.8; }
 .signin { max-width: 520px; margin: 12vh auto 0; padding: 0 20px; text-align: center; }

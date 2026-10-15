@@ -105,6 +105,23 @@ describe("editor server", () => {
     });
   });
 
+  it("reports which tokens are set and the LLM, never their values", async () => {
+    const env = { GITHUB_TOKEN: "ghp_secret", NETLIFY_TOKEN: "", OPENAI_API_KEY: "sk-secret" };
+    const { server } = createEditorServer(resolveWorkspace(dir), { dashboardDir: join(dir, "dashboard"), token: TOKEN, env });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const res = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/environment`);
+      const text = await res.text();
+      expect(JSON.parse(text)).toEqual({
+        tokens: { github: true, netlify: false, cloudflare: false },
+        llm: { provider: "openai", model: "gpt-5-mini", ready: true, problem: null },
+      });
+      expect(text).not.toContain("secret");
+    } finally {
+      await new Promise((r) => server.close(() => r(null)));
+    }
+  });
+
   it("refuses requests for another host name (DNS rebinding)", async () => {
     const status = await new Promise<number>((resolve, reject) => {
       const { port } = new URL(base);

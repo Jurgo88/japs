@@ -1,22 +1,26 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { account } from "../store.ts";
+import { account, isCloud } from "../store.ts";
 import AiSettings from "./AiSettings.vue";
 import ConnectionsSettings from "./ConnectionsSettings.vue";
 import DeleteAccount from "./DeleteAccount.vue";
+import LocalSettings from "./LocalSettings.vue";
 
-/** Hosted settings, behind the avatar menu: account-level things, not portfolio content. */
+/**
+ * Settings, behind the avatar menu (hosted) or the gear (local): account-level things, not
+ * portfolio content. Locally there's no account; connections and AI come from .env.
+ */
 
 export type SettingsSection = "connections" | "ai" | "account";
 
 const props = defineProps<{ section: SettingsSection }>();
 const emit = defineEmits<{ navigate: [section: SettingsSection]; close: [] }>();
 
-const sections: { id: SettingsSection; label: string }[] = [
+const sections = computed<{ id: SettingsSection; label: string }[]>(() => [
   { id: "connections", label: "Connections" },
   { id: "ai", label: "AI texts" },
-  { id: "account", label: "Account" },
-];
+  ...(isCloud.value ? [{ id: "account" as const, label: "Account" }] : []),
+]);
 const user = computed(() => account.value?.user);
 </script>
 
@@ -40,7 +44,8 @@ const user = computed(() => account.value?.user);
     </aside>
 
     <div class="content">
-      <ConnectionsSettings v-if="props.section === 'connections'" />
+      <LocalSettings v-if="!isCloud && props.section !== 'account'" :section="props.section" />
+      <ConnectionsSettings v-else-if="props.section === 'connections'" />
       <AiSettings v-else-if="props.section === 'ai'" />
       <template v-else>
         <section v-if="user" class="card">

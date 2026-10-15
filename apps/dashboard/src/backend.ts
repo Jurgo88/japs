@@ -53,6 +53,12 @@ export interface GenerateSummary {
   model: string;
 }
 
+/** Local settings from .env (japs edit): only whether tokens are set, never their values. */
+export interface LocalEnvironment {
+  tokens: { github: boolean; netlify: boolean; cloudflare: boolean };
+  llm: { provider: string; model: string | null; ready: boolean; problem: string | null };
+}
+
 /** The signed-in user in the hosted version. */
 export interface Account {
   user: { login: string; name: string | null; avatarUrl: string | null };
@@ -92,6 +98,8 @@ export interface EditorBackend {
   latestPublish(): Promise<PublishStatus | null>;
   /** Hosted only: deletes the account and all its data; `confirm` is the GitHub login. */
   deleteAccount(confirm: string): Promise<void>;
+  /** Local only: which tokens .env provides and the LLM in use. */
+  environment(): Promise<LocalEnvironment>;
   /** Hosted only: removes a Netlify or Cloudflare connection (revoked where possible). */
   disconnect(provider: "netlify" | "cloudflare"): Promise<void>;
 }
@@ -174,6 +182,10 @@ export class HttpBackend implements EditorBackend {
 
   async latestPublish(): Promise<PublishStatus | null> {
     return (await this.call<{ publish: PublishStatus | null }>("/api/publish/latest")).publish;
+  }
+
+  environment(): Promise<LocalEnvironment> {
+    return this.call("/api/environment");
   }
 
   async disconnect(provider: "netlify" | "cloudflare"): Promise<void> {
