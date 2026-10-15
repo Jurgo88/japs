@@ -1,8 +1,8 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { sha1Hex } from "@japs/core";
-import { Portfolio, ThemeId } from "@japs/schema";
+import { pagesFileHash, sha1Hex } from "@japs/core";
+import { Portfolio, PublishTarget, ThemeId } from "@japs/schema";
 import { z } from "zod";
 import { writePortfolio } from "./build.ts";
 import { collectFiles } from "./publish.ts";
@@ -19,6 +19,8 @@ import { WorkspaceError } from "./workspace.ts";
 const BuildInput = z.object({
   version: z.literal(1),
   buildId: z.string(),
+  /** Builds from before Cloudflare Pages carried no target. */
+  target: PublishTarget.default("netlify"),
   theme: ThemeId,
   siteUrl: z.string().url(),
   portfolio: Portfolio,
@@ -87,7 +89,10 @@ export async function cloudBuild(options: CloudBuildOptions): Promise<void> {
     }
     const files = await collectFiles(dist);
     const digests: Record<string, string> = {};
-    for (const file of files) digests[file.path] = await sha1Hex(file.content);
+    // Netlify keys content by SHA-1, Cloudflare Pages by its own BLAKE3-based hash.
+    for (const file of files) {
+      digests[file.path] = input.target === "cloudflare" ? pagesFileHash(file.content, file.path) : await sha1Hex(file.content);
+    }
 
     token = await oidcToken(options.env, api, fetchImpl);
     const { required } = z
@@ -109,7 +114,7 @@ export async function cloudBuild(options: CloudBuildOptions): Promise<void> {
     );
 
     await call("/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) });
-    log("Done. Netlify is publishing the site.");
+    log(`Done. ${input.target === "cloudflare" ? "Cloudflare Pages" : "Netlify"} is publishing the site.`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await call("/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ok: false, message }) }).catch(() => {});

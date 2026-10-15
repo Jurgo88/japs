@@ -109,17 +109,21 @@ export function createEditorServer(ws: Workspace, options: EditorServerOptions):
       if (path === "/api/publish" && req.method === "POST") {
         const body = (await readBody(req)) as { draft?: unknown };
         const draft = body.draft === true;
-        const { site, deploy } = await publishWorkspace(ws, { env: options.env ?? process.env, draft });
+        const { target, site, deploy } = await publishWorkspace(ws, { env: options.env ?? process.env, draft });
         return send(res, 200, {
-          publish: { id: deploy.deployId, status: "live", draft, siteUrl: site.url, url: deploy.url || site.url, message: null, createdAt: new Date().toISOString() },
+          publish: { id: deploy.deployId, status: "live", target, draft, siteUrl: site.url, url: deploy.url || site.url, message: null, createdAt: new Date().toISOString() },
         });
       }
 
       if (path === "/api/publish/latest" && req.method === "GET") {
         const state = await readOptional(ws.publish, PublishState).catch(() => null);
-        const last = state?.lastDeploy;
+        // The most recent publish, whichever target it went to.
+        const latest = [state?.netlify, state?.cloudflare]
+          .filter((site) => site?.lastDeploy)
+          .sort((a, b) => b!.lastDeploy!.at.localeCompare(a!.lastDeploy!.at))[0];
+        const last = latest?.lastDeploy;
         return send(res, 200, {
-          publish: last && state ? { id: last.id, status: "live", draft: last.draft, siteUrl: state.url, url: last.url, message: null, createdAt: last.at } : null,
+          publish: latest && last ? { id: last.id, status: "live", draft: last.draft, siteUrl: latest.url, url: last.url, message: null, createdAt: last.at } : null,
         });
       }
 

@@ -30,6 +30,8 @@ export interface CloudJob {
 export interface PublishStatus {
   id: string;
   status: "building" | "deploying" | "live" | "failed";
+  /** Absent from older servers: Netlify. */
+  target?: "netlify" | "cloudflare";
   draft: boolean;
   siteUrl: string;
   url: string | null;

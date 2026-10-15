@@ -27,4 +27,7 @@ Vývojári nemajú weby len na Netlify; časť ich má na Cloudflare. JAPS doter
 - `Site.provider` je `"netlify" | "cloudflare"`, `SiteFacts.provider` je voliteľné a má iba hodnotu `"cloudflare"`.
 - `discover()` berie `netlifyToken` a/alebo `cloudflareToken`; CLI číta `NETLIFY_TOKEN` a/alebo `CLOUDFLARE_API_TOKEN`.
 - Cloud: pripojenie `cloudflare`, OAuth callback a import z oboch zdrojov (samostatný krok).
-- Publikovanie na Pages: nový cieľ v `japs publish` aj v cloude (samostatný krok).
+- Publikovanie na Pages: `japs publish --to cloudflare` (alebo `publish.target` v configu) a cieľ v editore. Nahráva sa rovnako ako cez wrangler: upload token projektu, `check-missing`, `upload`, `upsert-hashes` a deploy s manifestom. Hash je BLAKE3 (`@noble/hashes`, čistý JS, beží aj vo Workeri) a je overený voči wrangleru.
+- `publish.json` (a dokument `publish` v cloude) si pamätá stránku pre každý cieľ zvlášť (`netlify`, `cloudflare`). Starý tvar s jedinou Netlify stránkou sa načíta automaticky.
+- V cloude ostáva token používateľa vo Workeri aj pri Pages (ADR 0011). Hash súborov pre Pages však Worker neprepočítava: BLAKE3 nad base64 by na veľkých súboroch prekročil limit 10 ms CPU. Beh je overený cez OIDC a zlý súbor by pokazil len vlastný deploy používateľa.
+- Koncept (`--draft`) ide na Pages na vetvu `japs-draft` s vlastnou adresou náhľadu.

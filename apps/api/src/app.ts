@@ -586,7 +586,11 @@ export function createApp(deps: AppDeps = {}) {
     const auth = await builderAuth(c);
     if (!auth || !c.env.SHOTS) return denied(c);
     const body = (await c.req.json().catch(() => ({}))) as { ok?: unknown; message?: unknown };
-    await finishBuild(auth.user, auth.userId, auth.build, { ok: body.ok === true, message: typeof body.message === "string" ? body.message : undefined }, c.env.SHOTS);
+    try {
+      await finishBuild(auth.user, auth.userId, auth.build, { ok: body.ok === true, message: typeof body.message === "string" ? body.message : undefined }, publishDeps(c));
+    } catch (err) {
+      return publishError(c, err);
+    }
     return c.json({ ok: true });
   });
 

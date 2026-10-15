@@ -11,6 +11,7 @@ import {
   type Project,
   type ProjectsFile,
   ProjectsFile as ProjectsFileSchema,
+  PublishTarget,
 } from "@japs/schema";
 import { cloudBuild } from "./cloud-build.ts";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
@@ -49,7 +50,8 @@ Usage:
   japs build [--out out]                          assemble out/portfolio.json + screenshots
   japs theme [dev|build|preview] [--theme <id>]   run the configured theme on out/ (or the sample)
   japs edit [--port 4310]                         choose and edit projects in the browser
-  japs publish [--draft] [--site-name <name>]     build and deploy to your Netlify (new site on first run)
+  japs publish [--draft] [--site-name <name>] [--to netlify|cloudflare]
+                                                  build and deploy to your Netlify or Cloudflare Pages (new site on first run)
   japs cloud-build --build <id> --api <url>       hosted version only: build run by the publish workflow
 
 Options:
@@ -168,17 +170,6 @@ function requireSiteTokens(): { netlifyToken?: string; cloudflareToken?: string 
     loadedEnvFile
       ? `Neither NETLIFY_TOKEN nor CLOUDFLARE_API_TOKEN is set in ${loadedEnvFile}.`
       : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN or CLOUDFLARE_API_TOKEN.",
-  );
-  process.exit(1);
-}
-
-function requireNetlifyToken(): string {
-  const token = process.env.NETLIFY_TOKEN;
-  if (token) return token;
-  console.error(
-    loadedEnvFile
-      ? `NETLIFY_TOKEN is empty in ${loadedEnvFile}.`
-      : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN.",
   );
   process.exit(1);
 }
@@ -365,13 +356,16 @@ async function runPublish(args: string[]): Promise<void> {
     options: {
       "site-name": { type: "string" },
       draft: { type: "boolean", default: false },
+      to: { type: "string" },
       config: { type: "string" },
       out: { type: "string" },
     },
   });
-  requireNetlifyToken();
+  const target = values.to === undefined ? undefined : PublishTarget.safeParse(values.to).data;
+  if (values.to !== undefined && !target) throw new WorkspaceError(`--to must be netlify or cloudflare, got "${values.to}".`);
   const ws = resolveWorkspace(userCwd, { config: values.config, out: values.out });
-  const { site, created, deploy, projects, warnings } = await publishWorkspace(ws, {
+  const { target: used, site, created, deploy, projects, warnings } = await publishWorkspace(ws, {
+    target,
     env: process.env,
     siteName: values["site-name"],
     draft: values.draft,
@@ -385,7 +379,10 @@ async function runPublish(args: string[]): Promise<void> {
   } else {
     console.log(`Live: ${deploy.url || site.url}`);
   }
-  if (site.adminUrl) console.log(`Netlify: ${site.adminUrl} (custom domain under Domain management)`);
+  if (site.adminUrl) {
+    const where = used === "cloudflare" ? "Cloudflare Pages: " + site.adminUrl + " (custom domain under Custom domains)" : "Netlify: " + site.adminUrl + " (custom domain under Domain management)";
+    console.log(where);
+  }
 }
 
 async function runBuild(args: string[]): Promise<void> {
