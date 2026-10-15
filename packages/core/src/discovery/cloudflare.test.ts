@@ -154,10 +154,11 @@ describe("Cloudflare Workers as sites", () => {
       if (url.startsWith("/accounts/acc/pages/projects")) return ok([]);
       if (url === "/accounts/acc/workers/scripts") return ok([script("portfolio-app"), script("demo"), script("cron-job")]);
       if (url === "/accounts/acc/workers/domains") {
-        return ok([
+        // As the real API does: errors: null on success.
+        return new Response(JSON.stringify({ success: true, errors: null, result: [
           { hostname: "app.example.dev", service: "portfolio-app", enabled: true, environment: "production" },
           { hostname: "staging.example.dev", service: "demo", enabled: true, environment: "staging" },
-        ]);
+        ] }), { status: 200 });
       }
       if (url === "/accounts/acc/workers/subdomain") return ok({ subdomain: "dev-user" });
       if (url === "/accounts/acc/workers/scripts/demo/subdomain") return ok({ enabled: true });

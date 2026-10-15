@@ -15,7 +15,11 @@ export const CLOUDFLARE_SITE_PREFIX = "cf:";
 
 const Envelope = z.object({
   success: z.boolean(),
-  errors: z.array(z.object({ code: z.number().optional(), message: z.string() })).default([]),
+  // Some endpoints (e.g. /workers/domains) send errors: null on success.
+  errors: z
+    .array(z.object({ code: z.number().optional(), message: z.string() }))
+    .nullish()
+    .transform((e) => e ?? []),
   result: z.unknown(),
   result_info: z.object({ page: z.number().optional(), total_pages: z.number().optional() }).partial().nullish(),
 });
