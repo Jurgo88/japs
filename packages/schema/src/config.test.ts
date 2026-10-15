@@ -13,6 +13,7 @@ describe("JapsConfig", () => {
       locales: ["en"],
       defaultLocale: "en",
       theme: "default",
+      publish: { target: "netlify" },
       discovery: { staleAfterMonths: 24, includeOrgRepos: false },
       links: [],
       merge: [],

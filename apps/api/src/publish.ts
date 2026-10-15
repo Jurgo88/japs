@@ -1,11 +1,21 @@
 import {
   buildPortfolio,
+  CloudflareClient,
   createDeploy,
+  createPagesDeployment,
+  createPagesProject,
   createSite,
+  findPagesProject,
   findSite,
   getDeployState,
+  getPagesDeploymentState,
   NetlifyClient,
-  type NetlifySite,
+  PAGES_DRAFT_BRANCH,
+  pagesCheckMissing,
+  pagesContentType,
+  pagesUpload,
+  pagesUploadToken,
+  pagesUpsertHashes,
   sha1Hex,
   slugify,
   uploadDeployFile,
@@ -17,21 +27,23 @@ import {
   type ProjectFacts,
   type ProjectsFile,
   PublishState,
+  type PublishTarget,
   type ThemeId,
 } from "@japs/schema";
 import { randomToken } from "./crypto.ts";
 import type { Build, UserStore } from "./db.ts";
-import type { Bucket, Env } from "./env.ts";
+import type { Env } from "./env.ts";
 import { wrapAnalysis, wrapFacts } from "./pipeline.ts";
-import { netlifyToken } from "./tokens.ts";
+import { cloudflareToken, ConnectionError, netlifyToken } from "./tokens.ts";
 
 /**
- * Publishing from the hosted version (#34, ADR 0011). The Worker prepares portfolio.json and
- * the Netlify site, GitHub Actions builds the theme exactly like `japs publish`, and the Worker
- * forwards the built files to Netlify, so the user's token never leaves it.
+ * Publishing from the hosted version (#34, ADR 0011, 0012). The Worker prepares portfolio.json
+ * and the user's JAPS site (Netlify) or project (Cloudflare Pages), GitHub Actions builds the
+ * theme exactly like `japs publish`, and the Worker forwards the built files, so the user's
+ * tokens never leave it.
  */
 
-/** Netlify allows 3 deploys a minute and 100 a day per account. */
+/** Netlify allows 3 deploys a minute and 100 a day per account; Pages is similar. */
 export const BUILD_LIMITS = { perDay: 20, minGapMs: 30_000, staleAfterMs: 20 * 60_000 } as const;
 
 export class PublishError extends Error {
@@ -43,10 +55,12 @@ export class PublishError extends Error {
   }
 }
 
-/** What the workflow downloads: the portfolio and where its screenshots come from. */
+/** What the workflow downloads: the portfolio, where its screenshots come from, how to hash. */
 export interface BuildInput {
   version: 1;
   buildId: string;
+  /** Netlify wants SHA-1 digests, Cloudflare Pages its own BLAKE3-based hash. */
+  target: PublishTarget;
   theme: ThemeId;
   siteUrl: string;
   portfolio: Portfolio;
@@ -60,6 +74,7 @@ export const inputKey = (userId: string, buildId: string) => `${userId}/builds/$
 export interface PublishStatus {
   id: string;
   status: Build["status"];
+  target: PublishTarget;
   draft: boolean;
   siteUrl: string;
   url: string | null;
@@ -70,6 +85,7 @@ export interface PublishStatus {
 export const toStatus = (b: Build): PublishStatus => ({
   id: b.id,
   status: b.status,
+  target: b.target,
   draft: b.draft,
   siteUrl: b.siteUrl,
   url: b.url,
@@ -108,35 +124,65 @@ async function portfolioFor(user: UserStore, now: Date) {
   }
 }
 
-/** The site JAPS created for this user (publish document), or a new one. Never any other site. */
-async function siteFor(user: UserStore, netlify: NetlifyClient, name: string): Promise<NetlifySite> {
-  const stored = PublishState.safeParse(await user.getDocument("publish"));
-  if (stored.success) {
-    const site = await findSite(netlify, stored.data.siteId);
-    if (site) return site;
-    // Deleted on Netlify: start over with a new site rather than fail forever.
-  }
-  const base = `${slugify(name) || "my"}-portfolio`;
-  let site: NetlifySite;
-  try {
-    site = await createSite(netlify, base);
-  } catch (err) {
-    if (!/unique|taken|422/.test(err instanceof Error ? err.message : String(err))) throw err;
-    site = await createSite(netlify, `${base}-${randomToken(3).toLowerCase().replace(/[^a-z0-9]/g, "")}`);
-  }
-  // Remembered right away, so a failed first build doesn't create a second site.
-  await user.putDocument("publish", {
-    version: 1,
-    siteId: site.id,
-    siteName: site.name,
-    url: site.url,
-    adminUrl: site.adminUrl,
-    lastDeploy: null,
-  } satisfies PublishState);
-  return site;
+const loadState = async (user: UserStore): Promise<PublishState> =>
+  PublishState.safeParse(await user.getDocument("publish")).data ?? { version: 1, netlify: null, cloudflare: null };
+
+const taken = (err: unknown) => /unique|taken|already exists|422|409/i.test(err instanceof Error ? err.message : String(err));
+const withSuffix = (base: string) => `${base}-${randomToken(3).toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+
+/** Where a build goes: the user's JAPS site or project, created on first use. Never another one. */
+interface Destination {
+  siteId: string;
+  siteUrl: string;
+  accountId: string | null;
 }
 
-/** POST /api/publish: checks, portfolio, site, build input in R2, then the workflow run. */
+async function netlifyDestination(user: UserStore, deps: PublishDeps, base: string): Promise<Destination> {
+  const netlify = new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch });
+  const state = await loadState(user);
+  // Deleted on Netlify: start over with a new site rather than fail forever.
+  const existing = state.netlify ? await findSite(netlify, state.netlify.siteId) : null;
+  if (existing) return { siteId: existing.id, siteUrl: existing.url, accountId: null };
+  const site = await createSite(netlify, base).catch((err: unknown) => {
+    if (!taken(err)) throw err;
+    return createSite(netlify, withSuffix(base));
+  });
+  // Remembered right away, so a failed first build doesn't create a second site.
+  await user.putDocument("publish", {
+    ...state,
+    netlify: { siteId: site.id, siteName: site.name, url: site.url, adminUrl: site.adminUrl, lastDeploy: null },
+  } satisfies PublishState);
+  return { siteId: site.id, siteUrl: site.url, accountId: null };
+}
+
+async function cloudflareClient(user: UserStore, deps: PublishDeps): Promise<CloudflareClient> {
+  const token = await cloudflareToken(user, deps.env, deps.fetch, deps.now);
+  if (!token) throw new ConnectionError("Connect Cloudflare first.");
+  return new CloudflareClient({ token, fetch: deps.fetch });
+}
+
+async function cloudflareDestination(user: UserStore, deps: PublishDeps, base: string): Promise<Destination> {
+  const cf = await cloudflareClient(user, deps);
+  const state = await loadState(user);
+  if (state.cloudflare) {
+    const existing = await findPagesProject(cf, state.cloudflare.accountId, state.cloudflare.projectName);
+    if (existing) return { siteId: existing.name, siteUrl: existing.url, accountId: state.cloudflare.accountId };
+  }
+  // The first account the user granted; OAuth lets them pick which ones at consent.
+  const [account] = await cf.listAccounts();
+  if (!account) throw new PublishError("The Cloudflare connection can't see any account. Connect Cloudflare again and pick one.");
+  const project = await createPagesProject(cf, account.id, base).catch((err: unknown) => {
+    if (!taken(err)) throw err;
+    return createPagesProject(cf, account.id, withSuffix(base));
+  });
+  await user.putDocument("publish", {
+    ...state,
+    cloudflare: { accountId: account.id, projectId: project.id, projectName: project.name, url: project.url, lastDeploy: null },
+  } satisfies PublishState);
+  return { siteId: project.name, siteUrl: project.url, accountId: account.id };
+}
+
+/** POST /api/publish: checks, portfolio, destination, build input in R2, then the workflow run. */
 export async function startPublish(user: UserStore, userId: string, draft: boolean, deps: PublishDeps): Promise<Build> {
   const { env, now } = deps;
   if (!env.GITHUB_BUILD_TOKEN || !env.JAPS_BUILD_REPO || !env.SHOTS) {
@@ -154,16 +200,18 @@ export async function startPublish(user: UserStore, userId: string, draft: boole
   const { config, portfolio, screenshots } = await portfolioFor(user, now);
   if (!portfolio.projects.length) throw new PublishError("The portfolio has no projects to publish. Show some first.");
 
-  const netlify = new NetlifyClient({ token: await netlifyToken(user, env), fetch: deps.fetch });
-  const site = await siteFor(user, netlify, config.profile?.name ?? "my");
-  const buildId = await user.createBuild({ theme: config.theme, draft, siteId: site.id, siteUrl: site.url });
+  const target = config.publish.target;
+  const base = `${slugify(config.profile?.name ?? "my") || "my"}-portfolio`;
+  const destination = target === "cloudflare" ? await cloudflareDestination(user, deps, base) : await netlifyDestination(user, deps, base);
+  const buildId = await user.createBuild({ theme: config.theme, draft, target, ...destination });
 
   const builder = new URL("/builder/builds/", env.APP_URL);
   const input: BuildInput = {
     version: 1,
     buildId,
+    target,
     theme: config.theme,
-    siteUrl: site.url,
+    siteUrl: destination.siteUrl,
     portfolio,
     assets: screenshots.map(({ path, source }) => ({
       path,
@@ -193,9 +241,19 @@ export async function startPublish(user: UserStore, userId: string, draft: boole
   return (await user.getBuild(buildId))!;
 }
 
+/** Records a live deploy on the destination, so the editor and the next publish know it. */
+async function recordLive(user: UserStore, build: Build, url: string, deployId: string, now: Date): Promise<void> {
+  await user.updateBuild(build.id, { status: "live", url, message: null });
+  const state = await loadState(user);
+  const lastDeploy = { id: deployId, url, draft: build.draft, at: now.toISOString() };
+  if (build.target === "cloudflare" && state.cloudflare) state.cloudflare = { ...state.cloudflare, lastDeploy };
+  if (build.target === "netlify" && state.netlify) state.netlify = { ...state.netlify, lastDeploy };
+  await user.putDocument("publish", state satisfies PublishState);
+}
+
 /**
- * GET /api/publish/latest: while deploying, asks Netlify once whether the site is live, so the
- * browser's polling drives the state. A build that went quiet is reported as failed.
+ * GET /api/publish/latest: while deploying, asks Netlify or Pages once whether the site is live,
+ * so the browser's polling drives the state. A build that went quiet is reported as failed.
  */
 export async function refreshPublish(user: UserStore, deps: PublishDeps): Promise<Build | null> {
   const build = await user.latestBuild();
@@ -206,64 +264,95 @@ export async function refreshPublish(user: UserStore, deps: PublishDeps): Promis
   }
   if (build.status !== "deploying" || !build.deployId || !build.files) return build;
 
-  const netlify = new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch });
-  const state = await getDeployState(netlify, build.deployId, build.draft);
+  const state =
+    build.target === "cloudflare"
+      ? await getPagesDeploymentState(await cloudflareClient(user, deps), build.accountId!, build.siteId, build.deployId)
+      : await getDeployState(new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch }), build.deployId, build.draft);
   if (state.state === "pending") return build;
   if (state.state === "error") {
-    await user.updateBuild(build.id, { status: "failed", message: `Netlify deploy failed: ${state.error}` });
+    await user.updateBuild(build.id, { status: "failed", message: `Deploy failed: ${state.error}` });
   } else {
-    const url = state.url || build.siteUrl;
-    await user.updateBuild(build.id, { status: "live", url, message: null });
-    const stored = PublishState.safeParse(await user.getDocument("publish"));
-    if (stored.success) {
-      await user.putDocument("publish", {
-        ...stored.data,
-        lastDeploy: { id: build.deployId, url, draft: build.draft, at: deps.now.toISOString() },
-      } satisfies PublishState);
-    }
+    // Pages reports the deployment's own URL; production is the project URL.
+    const url = build.target === "cloudflare" && !build.draft ? build.siteUrl : state.url || build.siteUrl;
+    await recordLive(user, build, url, build.deployId, deps.now);
   }
   return user.getBuild(build.id);
 }
 
 // --- Builder side: called by the GitHub Actions run, authenticated with OIDC ---
 
-const SHA1 = /^[0-9a-f]{40}$/;
+const DIGEST = { netlify: /^[0-9a-f]{40}$/, cloudflare: /^[0-9a-f]{32}$/ } as const;
 const MAX_FILES = 5000;
 
-/** POST /builder/builds/:id/deploy: digests of the built site -> a Netlify deploy. */
+/** POST /builder/builds/:id/deploy: digests of the built site -> what still has to be uploaded. */
 export async function createBuildDeploy(user: UserStore, build: Build, files: unknown, deps: PublishDeps): Promise<string[]> {
   if (build.status !== "building") throw new PublishError("This build is not waiting for files.", 409);
+  const pattern = DIGEST[build.target];
   const valid =
     typeof files === "object" &&
     files !== null &&
     Object.keys(files).length > 0 &&
     Object.keys(files).length <= MAX_FILES &&
-    Object.entries(files).every(([path, sha]) => path.startsWith("/") && !path.includes("..") && typeof sha === "string" && SHA1.test(sha));
-  if (!valid) throw new PublishError("Expected { files: { \"/path\": \"<sha1>\" } }.");
-
+    Object.entries(files).every(([path, hash]) => path.startsWith("/") && !path.includes("..") && typeof hash === "string" && pattern.test(hash));
+  if (!valid) throw new PublishError('Expected { files: { "/path": "<hash>" } }.');
   const digests = files as Record<string, string>;
+
+  if (build.target === "cloudflare") {
+    // Pages: no deployment until every missing asset is in; it's created on finish.
+    const cf = await cloudflareClient(user, deps);
+    const jwt = await pagesUploadToken(cf, build.accountId!, build.siteId);
+    const required = await pagesCheckMissing(cf, jwt, [...new Set(Object.values(digests))]);
+    await user.updateBuild(build.id, { status: "deploying", files: digests, required });
+    return required;
+  }
+
   const netlify = new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch });
   const { deployId, required } = await createDeploy(netlify, build.siteId, digests, build.draft);
   await user.updateBuild(build.id, { status: "deploying", deployId, files: digests, required });
   return required;
 }
 
-/** PUT /builder/builds/:id/files/<path>: one required file, checked and forwarded to Netlify. */
+/** PUT /builder/builds/:id/files/<path>: one required file, forwarded with the user's token. */
 export async function forwardBuildFile(user: UserStore, build: Build, path: string, content: Uint8Array<ArrayBuffer>, deps: PublishDeps): Promise<void> {
-  if (build.status !== "deploying" || !build.deployId || !build.files || !build.required) {
-    throw new PublishError("This build is not uploading.", 409);
+  if (build.status !== "deploying" || !build.files || !build.required) throw new PublishError("This build is not uploading.", 409);
+  const hash = build.files[path];
+  if (!hash || !build.required.includes(hash)) throw new PublishError(`${path} isn't needed.`);
+
+  if (build.target === "cloudflare") {
+    // Pages' hash is BLAKE3 over base64, too costly to recompute per file within the free CPU
+    // limit; a wrong file could only spoil this user's own deployment, and the run is OIDC-verified.
+    const cf = await cloudflareClient(user, deps);
+    const jwt = await pagesUploadToken(cf, build.accountId!, build.siteId);
+    await pagesUpload(cf, jwt, [{ hash, content, contentType: pagesContentType(path) }]);
+    return;
   }
-  const sha = build.files[path];
-  if (!sha || !build.required.includes(sha)) throw new PublishError(`Netlify doesn't need ${path}.`);
-  if ((await sha1Hex(content)) !== sha) throw new PublishError(`Content of ${path} doesn't match its digest.`);
+  if (!build.deployId) throw new PublishError("This build is not uploading.", 409);
+  if ((await sha1Hex(content)) !== hash) throw new PublishError(`Content of ${path} doesn't match its digest.`);
   const netlify = new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch });
   await uploadDeployFile(netlify, build.deployId, path, content);
 }
 
-/** POST /builder/builds/:id/finish: the run is done (or failed). The input is no longer needed. */
-export async function finishBuild(user: UserStore, userId: string, build: Build, outcome: { ok: boolean; message?: string }, bucket: Bucket): Promise<void> {
-  await bucket.delete([inputKey(userId, build.id)]);
+/**
+ * POST /builder/builds/:id/finish: the run is done (or failed). For Pages, this is when the
+ * deployment is created from the manifest. The input in R2 is no longer needed either way.
+ */
+export async function finishBuild(
+  user: UserStore,
+  userId: string,
+  build: Build,
+  outcome: { ok: boolean; message?: string },
+  deps: PublishDeps,
+): Promise<void> {
+  await deps.env.SHOTS?.delete([inputKey(userId, build.id)]);
   if (!outcome.ok) {
     await user.updateBuild(build.id, { status: "failed", message: (outcome.message ?? "The build failed.").slice(0, 500) });
+    return;
+  }
+  if (build.target === "cloudflare" && build.status === "deploying" && build.files) {
+    const cf = await cloudflareClient(user, deps);
+    const jwt = await pagesUploadToken(cf, build.accountId!, build.siteId);
+    await pagesUpsertHashes(cf, jwt, [...new Set(Object.values(build.files))]);
+    const { id } = await createPagesDeployment(cf, build.accountId!, build.siteId, build.files, build.draft ? PAGES_DRAFT_BRANCH : "main");
+    await user.updateBuild(build.id, { deployId: id });
   }
 }

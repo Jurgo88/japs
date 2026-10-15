@@ -84,6 +84,9 @@ export type BuildStatus = "building" | "deploying" | "live" | "failed";
 export interface Build {
   id: string;
   status: BuildStatus;
+  /** Netlify site or Cloudflare Pages project (ADR 0012); for Pages, siteId is the project name. */
+  target: "netlify" | "cloudflare";
+  accountId: string | null;
   theme: string;
   draft: boolean;
   siteId: string;
@@ -102,6 +105,8 @@ export type BuildUpdate = Partial<Pick<Build, "status" | "deployId" | "files" | 
 type BuildRow = {
   id: string;
   status: BuildStatus;
+  target: "netlify" | "cloudflare";
+  account_id: string | null;
   theme: string;
   draft: number;
   site_id: string;
@@ -118,6 +123,8 @@ type BuildRow = {
 const toBuild = (r: BuildRow): Build => ({
   id: r.id,
   status: r.status,
+  target: r.target,
+  accountId: r.account_id,
   theme: r.theme,
   draft: r.draft === 1,
   siteId: r.site_id,
@@ -378,15 +385,22 @@ export class UserStore {
 
   // --- Builds (#34) ---
 
-  async createBuild(build: { theme: string; draft: boolean; siteId: string; siteUrl: string }): Promise<string> {
+  async createBuild(build: {
+    theme: string;
+    draft: boolean;
+    siteId: string;
+    siteUrl: string;
+    target?: Build["target"];
+    accountId?: string | null;
+  }): Promise<string> {
     const id = crypto.randomUUID();
     const at = this.iso();
     await this.db
       .prepare(
-        `INSERT INTO builds (id, user_id, status, theme, draft, site_id, site_url, created_at, updated_at)
-         VALUES (?, ?, 'building', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO builds (id, user_id, status, theme, draft, site_id, site_url, target, account_id, created_at, updated_at)
+         VALUES (?, ?, 'building', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(id, this.userId, build.theme, build.draft ? 1 : 0, build.siteId, build.siteUrl, at, at)
+      .bind(id, this.userId, build.theme, build.draft ? 1 : 0, build.siteId, build.siteUrl, build.target ?? "netlify", build.accountId ?? null, at, at)
       .run();
     return id;
   }

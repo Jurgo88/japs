@@ -101,9 +101,11 @@ export interface CloudflareClientOptions {
 export class CloudflareClient {
   private readonly token: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly fetchFn: typeof fetch;
 
   constructor(options: CloudflareClientOptions) {
     this.token = options.token;
+    this.fetchFn = options.fetch ?? globalThis.fetch;
     // Called as a plain function: Workers throw "Illegal invocation" when fetch runs as a method of another object.
     const fetchFn = options.fetch ?? globalThis.fetch;
     this.fetchImpl = (input, init) => fetchFn(input, init);
@@ -125,6 +127,11 @@ export class CloudflareClient {
       throw new Error(`Cloudflare ${method} ${path.split("?")[0]} failed: ${res.status} ${detail}`.trim());
     }
     return envelope.data;
+  }
+
+  /** The same client with another bearer token (Pages upload tokens). */
+  withToken(token: string): CloudflareClient {
+    return new CloudflareClient({ token, fetch: this.fetchFn });
   }
 
   async get(path: string): Promise<unknown> {

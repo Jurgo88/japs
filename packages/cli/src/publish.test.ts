@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { pagesFileHash } from "@japs/core";
 import { publishWorkspace } from "./publish.ts";
 import { resolveWorkspace, type Workspace } from "./workspace.ts";
 
@@ -115,7 +116,11 @@ describe("publishWorkspace", () => {
     expect(result).toMatchObject({ created: true, projects: 1, deploy: { uploaded: 2, total: 2 } });
 
     const state = JSON.parse(await readFile(ws.publish, "utf8"));
-    expect(state).toMatchObject({ siteId: "new-site", siteName: "jane-doe-portfolio", lastDeploy: { id: "dep1", draft: false } });
+    expect(state).toMatchObject({
+      version: 1,
+      netlify: { siteId: "new-site", siteName: "jane-doe-portfolio", lastDeploy: { id: "dep1", draft: false } },
+      cloudflare: null,
+    });
   });
 
   it("reuses the remembered site instead of creating another", async () => {
@@ -149,5 +154,88 @@ describe("publishWorkspace", () => {
     const { fetch, calls } = fakeNetlify();
     await expect(publishWorkspace(ws, { env, fetch, buildTheme: async () => dist })).rejects.toThrow("no projects to publish");
     expect(calls).toEqual([]);
+  });
+});
+
+/** Fake Cloudflare API: one account, Pages projects, Direct Upload with a project token. */
+function fakeCloudflare(options: { existing?: string[]; known?: string[] } = {}) {
+  const calls: Call[] = [];
+  const projects = new Set(options.existing ?? []);
+  const known = new Set(options.known ?? []);
+  const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    const path = url.replace("https://api.cloudflare.com/client/v4", "").split("?")[0]!;
+    const method = init?.method ?? "GET";
+    const auth = (init?.headers as Record<string, string>).Authorization;
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
+    calls.push({ method, path, body });
+    const ok = (result: unknown) => new Response(JSON.stringify({ success: true, errors: [], result, result_info: { total_pages: 1 } }), { status: 200 });
+    const project = (name: string) => ({ id: `id-${name}`, name, subdomain: `${name}.pages.dev` });
+
+    if (path === "/accounts") return ok([{ id: "acc", name: "Jane" }]);
+    if (path.startsWith("/pages/assets/")) {
+      // Only the project token may upload.
+      if (auth !== "Bearer upload-jwt") return new Response(JSON.stringify({ success: false, errors: [{ message: "unauthorized" }] }), { status: 401 });
+      if (path === "/pages/assets/check-missing") return ok((body as { hashes: string[] }).hashes.filter((h) => !known.has(h)));
+      return ok(null);
+    }
+    if (method === "POST" && path === "/accounts/acc/pages/projects") {
+      projects.add(body.name);
+      return ok(project(body.name));
+    }
+    const name = /^\/accounts\/acc\/pages\/projects\/([^/]+)/.exec(path)?.[1];
+    if (name && !projects.has(name)) return new Response(JSON.stringify({ success: false, errors: [{ message: "not found" }] }), { status: 404 });
+    if (name && path.endsWith("/upload-token")) return ok({ jwt: "upload-jwt" });
+    if (name && method === "POST" && path.endsWith("/deployments")) return ok({ id: "cfdep1" });
+    if (name && path.includes("/deployments/")) return ok({ id: "cfdep1", url: "https://abc.preview.pages.dev", latest_stage: { name: "deploy", status: "success" } });
+    if (name) return ok(project(name));
+    return new Response("{}", { status: 404 });
+  }) as typeof globalThis.fetch;
+  return { fetch, calls };
+}
+
+describe("publishWorkspace to Cloudflare Pages", () => {
+  const cfEnv = { CLOUDFLARE_API_TOKEN: "cf" };
+
+  it("creates a Pages project, uploads only missing content with the project token, deploys main", async () => {
+    const index = new TextEncoder().encode("<h1>Jane</h1>");
+    const { fetch, calls } = fakeCloudflare({ known: [pagesFileHash(index, "/index.html")] });
+    const result = await publishWorkspace(ws, { env: cfEnv, target: "cloudflare", fetch, buildTheme: async (_, siteUrl) => (expect(siteUrl).toBe("https://jane-doe-portfolio.pages.dev"), dist) });
+
+    expect(calls.find((c) => c.method === "POST" && c.path === "/accounts/acc/pages/projects")?.body).toEqual({ name: "jane-doe-portfolio", production_branch: "main" });
+    const upload = calls.find((c) => c.path === "/pages/assets/upload")!.body as { key: string; base64: boolean }[];
+    expect(upload).toHaveLength(1);
+    expect(upload[0]).toMatchObject({ base64: true, metadata: { contentType: "text/html" } });
+
+    const form = calls.find((c) => c.path.endsWith("/deployments") && c.method === "POST")!.body as FormData;
+    expect(form.get("branch")).toBe("main");
+    expect(Object.keys(JSON.parse(String(form.get("manifest")))).sort()).toEqual(["/index.html", "/projects/shop/index.html"]);
+    expect(result).toMatchObject({ target: "cloudflare", created: true, deploy: { uploaded: 1, total: 2, url: "https://jane-doe-portfolio.pages.dev" } });
+
+    const state = JSON.parse(await readFile(ws.publish, "utf8"));
+    expect(state).toMatchObject({ netlify: null, cloudflare: { accountId: "acc", projectName: "jane-doe-portfolio", lastDeploy: { id: "cfdep1" } } });
+  });
+
+  it("keeps the Netlify site when the portfolio also goes to Pages, and drafts go to a preview branch", async () => {
+    await json(ws.publish, { version: 1, siteId: "kept", siteName: "jane-doe-portfolio", url: "https://jane-doe-portfolio.netlify.app", adminUrl: null, lastDeploy: null });
+    await json(ws.config, { version: 1, publish: { target: "cloudflare" }, profile: { name: "Jane Doe", headline: t("Dev"), bio: t("Hi") } });
+    const { fetch, calls } = fakeCloudflare({ existing: ["jane-doe-portfolio"] });
+    await json(ws.publish, {
+      version: 1,
+      netlify: { siteId: "kept", siteName: "jane-doe-portfolio", url: "https://jane-doe-portfolio.netlify.app", adminUrl: null, lastDeploy: null },
+      cloudflare: { accountId: "acc", projectId: "id-jane-doe-portfolio", projectName: "jane-doe-portfolio", url: "https://jane-doe-portfolio.pages.dev", lastDeploy: null },
+    });
+    const result = await publishWorkspace(ws, { env: cfEnv, fetch, draft: true, buildTheme: async () => dist });
+
+    expect(calls.some((c) => c.path === "/accounts")).toBe(false);
+    expect((calls.find((c) => c.path.endsWith("/deployments") && c.method === "POST")!.body as FormData).get("branch")).toBe("japs-draft");
+    expect(result).toMatchObject({ created: false, deploy: { url: "https://abc.preview.pages.dev" } });
+    expect(JSON.parse(await readFile(ws.publish, "utf8")).netlify.siteId).toBe("kept");
+  });
+
+  it("needs a Cloudflare token for Pages", async () => {
+    await expect(publishWorkspace(ws, { env, target: "cloudflare", fetch: fakeCloudflare().fetch, buildTheme: async () => dist })).rejects.toThrow(
+      "CLOUDFLARE_API_TOKEN is not set",
+    );
   });
 });

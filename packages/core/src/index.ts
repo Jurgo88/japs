@@ -46,6 +46,23 @@ export {
   setTags,
 } from "./editor/config-edit.ts";
 export {
+  createPagesDeployment,
+  createPagesProject,
+  deployPagesSite,
+  findPagesProject,
+  getPagesDeploymentState,
+  PAGES_DRAFT_BRANCH,
+  type PagesAsset,
+  pagesBatches,
+  pagesCheckMissing,
+  pagesContentType,
+  pagesFileHash,
+  type PagesProject,
+  pagesUpload,
+  pagesUploadToken,
+  pagesUpsertHashes,
+} from "./publish/pages.ts";
+export {
   createDeploy,
   createSite,
   deploySite,

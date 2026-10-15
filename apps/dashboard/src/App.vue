@@ -6,10 +6,12 @@ import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
+import PublishTarget from "./components/PublishTarget.vue";
 import ThemePicker from "./components/ThemePicker.vue";
 import {
   account,
   dirty,
+  draft,
   draftIssues,
   isCloud,
   generateMissing,
@@ -43,6 +45,8 @@ const hasNetlify = computed(() => connected("netlify"));
 const hasCloudflare = computed(() => connected("cloudflare"));
 /** Sites come from Netlify, Cloudflare Pages or both (ADR 0012). */
 const hasHosting = computed(() => hasNetlify.value || hasCloudflare.value);
+/** Publish needs the chosen target connected (ADR 0012). */
+const canPublish = computed(() => ((draft.value.publish?.target ?? "netlify") === "cloudflare" ? hasCloudflare.value : hasNetlify.value));
 const offerCloudflare = computed(() => Boolean(account.value?.cloudflareAvailable) && !hasCloudflare.value);
 const accountTitle = computed(
   () => account.value?.connections.map((c) => `${c.provider}: ${c.accountLogin ?? "connected"}`).join("\n") ?? "",
@@ -123,10 +127,10 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
         {{ jobRunning ? "Importing…" : "Import again" }}
       </button>
       <button
-        v-if="!isCloud || hasNetlify"
+        v-if="!isCloud || canPublish"
         class="btn primary"
         :disabled="publishRunning || status.saving || draftIssues.length > 0"
-        title="Build the portfolio with your theme and put it on your Netlify"
+        :title="`Build the portfolio with your theme and put it on your ${(draft.publish?.target ?? 'netlify') === 'cloudflare' ? 'Cloudflare Pages' : 'Netlify'}`"
         @click="startPublish()"
       >
         {{ publishRunning ? "Publishing…" : "Publish" }}
@@ -161,7 +165,9 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
     <template v-if="publishing.status === 'building'">
       <strong>Building your site…</strong> <span class="muted">This takes a minute or two.</span>
     </template>
-    <template v-else-if="publishing.status === 'deploying'"><strong>Uploading to Netlify…</strong></template>
+    <template v-else-if="publishing.status === 'deploying'">
+      <strong>Uploading to {{ publishing.target === "cloudflare" ? "Cloudflare Pages" : "Netlify" }}…</strong>
+    </template>
     <template v-else-if="publishing.status === 'live' && publishing.draft">
       Draft preview: <a :href="publishing.url ?? publishing.siteUrl" target="_blank" rel="noopener">{{ publishing.url ?? publishing.siteUrl }}</a>
       <span class="muted"> (the live site is unchanged)</span>
@@ -260,6 +266,7 @@ pnpm japs analyze</pre>
 
   <main v-else-if="tab === 'theme'" class="single">
     <ThemePicker />
+    <PublishTarget />
   </main>
 
   <main v-else class="single">

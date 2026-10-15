@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Link, Locale, LocalizedText } from "./portfolio.ts";
 import { RepoId } from "./projects.ts";
+import { PublishTarget } from "./publish.ts";
 import { ThemeId } from "./themes.ts";
 
 /**
@@ -88,6 +89,11 @@ export const JapsConfig = z
     defaultLocale: Locale.default("en"),
     /** Theme the portfolio is built with (ADR 0010). */
     theme: ThemeId.default("default"),
+    /** Where `japs publish` and Publish in the editor put the site (ADR 0012). */
+    publish: z
+      .object({ target: PublishTarget.default("netlify") })
+      .strict()
+      .default({}),
     /** Required by `japs build`; discovery works without it. */
     profile: Profile.optional(),
     discovery: z

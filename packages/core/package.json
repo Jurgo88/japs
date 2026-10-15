@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@japs/schema": "workspace:*",
+    "@noble/hashes": "^2.4.0",
     "zod": "^3.24.0"
   }
 }

@@ -32,6 +32,18 @@ const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   if (url === "https://github.com/login/oauth/access_token") return json({ access_token: "gho_jane", expires_in: 28800 });
   if (url === "https://api.github.com/user") return json({ id: 1, login: "janedoe", name: "Jane Doe", avatar_url: null });
   if (url === "https://api.github.com/repos/jane/japs/actions/workflows/publish.yml/dispatches") return new Response(null, { status: 204 });
+  // Cloudflare Pages (ADR 0012).
+  const cf = (result: unknown) => json({ success: true, errors: [], result, result_info: { total_pages: 1 } });
+  const CF = "https://api.cloudflare.com/client/v4";
+  if (url.startsWith(`${CF}/accounts?`)) return cf([{ id: "acc", name: "Jane" }]);
+  if (url === `${CF}/accounts/acc/pages/projects` && method === "POST") return cf({ id: "pg1", name: body.name, subdomain: `${body.name}.pages.dev` });
+  if (url === `${CF}/accounts/acc/pages/projects/jane-doe-portfolio/upload-token`) return cf({ jwt: "upload-jwt" });
+  if (url === `${CF}/pages/assets/check-missing`) return cf(body.hashes.slice(0, 1));
+  if (url === `${CF}/pages/assets/upload` || url === `${CF}/pages/assets/upsert-hashes`) return cf(null);
+  if (url === `${CF}/accounts/acc/pages/projects/jane-doe-portfolio/deployments` && method === "POST") return cf({ id: "cfdep1" });
+  if (url === `${CF}/accounts/acc/pages/projects/jane-doe-portfolio/deployments/cfdep1`) {
+    return cf({ id: "cfdep1", url: "https://abc.jane-doe-portfolio.pages.dev", latest_stage: { name: "deploy", status: deployState === "ready" ? "success" : "active" } });
+  }
   if (url === "https://api.netlify.com/api/v1/sites" && method === "POST") {
     return json({ id: "site-1", name: body.name, url: `http://${body.name}.netlify.app`, ssl_url: `https://${body.name}.netlify.app`, admin_url: null });
   }
@@ -115,7 +127,7 @@ describe("publishing from the cloud", () => {
     expect(key).toMatch(new RegExp(`/builds/${status.id}\\.json$`));
     const input = JSON.parse(new TextDecoder().decode(objects.get(key!))) as BuildInput;
     expect(input.portfolio.projects.map((p) => p.slug)).toContain("acme-shop");
-    expect((await user.getDocument("publish")) as { siteId: string }).toMatchObject({ siteId: "site-1" });
+    expect(await user.getDocument("publish")).toMatchObject({ netlify: { siteId: "site-1" }, cloudflare: null });
 
     expect((await publish()).status).toBe(409);
   });
@@ -150,7 +162,7 @@ describe("publishing from the cloud", () => {
     deployState = "ready";
     const live = (await json(request("/api/publish/latest"))).publish;
     expect(live).toMatchObject({ status: "live", url: "https://jane-doe-portfolio.netlify.app" });
-    expect(((await user.getDocument("publish")) as { lastDeploy: { id: string } }).lastDeploy.id).toBe("dep-1");
+    expect(((await user.getDocument("publish")) as { netlify: { lastDeploy: { id: string } } }).netlify.lastDeploy.id).toBe("dep-1");
   });
 
   it("reports a failed build and paces publishes", async () => {
@@ -164,5 +176,49 @@ describe("publishing from the cloud", () => {
   it("is not available without the build token", async () => {
     env.GITHUB_BUILD_TOKEN = undefined;
     expect((await publish()).status).toBe(501);
+  });
+});
+
+describe("publishing to Cloudflare Pages from the cloud", () => {
+  beforeEach(async () => {
+    await user.setConnection({ provider: "cloudflare", accountLogin: "jane", accessToken: await encrypt("cf_token", env.ENCRYPTION_KEY), refreshToken: null, expiresAt: null, meta: null });
+    await user.putDocument("config", { version: 1, publish: { target: "cloudflare" }, profile: { name: "Jane Doe", headline: t("Developer"), bio: t("Hi.") } });
+  });
+
+  it("creates the user's Pages project, uploads what's missing with the user's token, and goes live", async () => {
+    const { publish: status } = await json(publish());
+    expect(status).toMatchObject({ target: "cloudflare", siteUrl: "https://jane-doe-portfolio.pages.dev" });
+    const input = JSON.parse(new TextDecoder().decode([...objects.values()][0]!)) as BuildInput;
+    expect(input.target).toBe("cloudflare");
+
+    const base = `/builder/builds/${status.id}`;
+    const files = { "/index.html": "a".repeat(32), "/about.html": "b".repeat(32) };
+    // Netlify-style SHA-1 digests are refused for Pages.
+    expect((await builder(`${base}/deploy`, { method: "POST", body: JSON.stringify({ files: { "/index.html": "c".repeat(40) } }) })).status).toBe(400);
+    const deploy = await builder(`${base}/deploy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }) });
+    expect(await json(deploy)).toEqual({ required: ["a".repeat(32)] });
+
+    expect((await builder(`${base}/files/about.html`, { method: "PUT", body: new Uint8Array([1]) })).status).toBe(400);
+    expect((await builder(`${base}/files/index.html`, { method: "PUT", body: new TextEncoder().encode("<h1>Jane</h1>") })).status).toBe(200);
+    const upload = calls.find((c) => c.url.endsWith("/pages/assets/upload"))!;
+    expect(upload.body).toEqual([{ key: "a".repeat(32), value: btoa("<h1>Jane</h1>"), metadata: { contentType: "text/html" }, base64: true }]);
+
+    expect((await builder(`${base}/finish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) })).status).toBe(200);
+    const created = calls.find((c) => c.url.endsWith("/jane-doe-portfolio/deployments") && c.method === "POST")!;
+    expect(JSON.parse(String((created.body as FormData).get("manifest")))).toEqual(files);
+    expect((created.body as FormData).get("branch")).toBe("main");
+    // The user's own token stays in the Worker: every Cloudflare call is ours.
+    expect(calls.filter((c) => c.url.includes("api.cloudflare.com")).length).toBeGreaterThan(0);
+
+    deployState = "ready";
+    expect((await json(request("/api/publish/latest"))).publish).toMatchObject({ status: "live", url: "https://jane-doe-portfolio.pages.dev" });
+    expect(await user.getDocument("publish")).toMatchObject({ cloudflare: { projectName: "jane-doe-portfolio", lastDeploy: { id: "cfdep1" } } });
+  });
+
+  it("needs a Cloudflare connection to publish there", async () => {
+    await user.deleteConnection("cloudflare");
+    const res = await publish();
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toBe("Connect Cloudflare first.");
   });
 });

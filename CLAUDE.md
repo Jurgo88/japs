@@ -44,7 +44,7 @@ pnpm japs screenshots  # Playwright desktop+mobile shots -> screenshots/ (once: 
 pnpm japs build      # -> out/portfolio.json + out/screenshots (needs profile in japs.config.json)
 pnpm dev             # configured theme on localhost:4321 (--theme <id> to try another; falls back to packages/theme-kit/sample)
 pnpm editor          # builds the dashboard and starts the local editor on localhost:4310 (ADR 0007)
-pnpm japs publish    # build + deploy to a dedicated Netlify site (--draft for a preview; ADR 0008)
+pnpm japs publish    # build + deploy to a dedicated Netlify site or Cloudflare Pages project (--to, --draft; ADR 0008, 0012)
 ```
 
 ## Files (local mode; the hosted mode keeps the same documents in D1, ADR 0009)
