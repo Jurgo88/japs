@@ -92,6 +92,8 @@ export interface EditorBackend {
   latestPublish(): Promise<PublishStatus | null>;
   /** Hosted only: deletes the account and all its data; `confirm` is the GitHub login. */
   deleteAccount(confirm: string): Promise<void>;
+  /** Hosted only: removes a Netlify or Cloudflare connection (revoked where possible). */
+  disconnect(provider: "netlify" | "cloudflare"): Promise<void>;
 }
 
 export class BackendError extends Error {
@@ -172,6 +174,10 @@ export class HttpBackend implements EditorBackend {
 
   async latestPublish(): Promise<PublishStatus | null> {
     return (await this.call<{ publish: PublishStatus | null }>("/api/publish/latest")).publish;
+  }
+
+  async disconnect(provider: "netlify" | "cloudflare"): Promise<void> {
+    await this.call(`/api/connections/${provider}`, { method: "DELETE" });
   }
 
   async deleteAccount(confirm: string): Promise<void> {

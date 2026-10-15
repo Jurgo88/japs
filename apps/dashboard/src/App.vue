@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import AiSettings from "./components/AiSettings.vue";
-import DeleteAccount from "./components/DeleteAccount.vue";
+import AccountMenu from "./components/AccountMenu.vue";
 import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
 import PublishTarget from "./components/PublishTarget.vue";
+import SettingsPage, { type SettingsSection } from "./components/SettingsPage.vue";
 import ThemePicker from "./components/ThemePicker.vue";
 import {
   account,
@@ -26,14 +26,32 @@ import {
   save,
   saveAndBuild,
   signedOut,
-  signOut,
   startImport,
   state,
   status,
   unreadableRepos,
 } from "./store.ts";
 
-const tab = ref<"projects" | "profile" | "theme">("projects");
+const tab = ref<"projects" | "profile" | "design">("projects");
+
+/** Settings live at #/settings/<section> (hosted only), so reload and Back keep them. */
+const hash = ref(location.hash);
+window.addEventListener("hashchange", () => (hash.value = location.hash));
+const SECTIONS: SettingsSection[] = ["connections", "ai", "account"];
+const settingsSection = computed<SettingsSection | null>(() => {
+  const match = /^#\/settings(?:\/(\w+))?$/.exec(hash.value);
+  if (!match || !isCloud.value) return null;
+  return SECTIONS.includes(match[1] as SettingsSection) ? (match[1] as SettingsSection) : "connections";
+});
+const openSettings = (section: SettingsSection = "connections") => (location.hash = `#/settings/${section}`);
+const closeSettings = () => {
+  history.pushState(null, "", location.pathname + location.search);
+  hash.value = "";
+};
+const showTab = (next: typeof tab.value) => {
+  tab.value = next;
+  if (settingsSection.value) closeSettings();
+};
 const selectedKey = ref<string | null>(null);
 
 const projects = computed(() => state.value?.projects?.projects ?? []);
@@ -47,10 +65,6 @@ const hasCloudflare = computed(() => connected("cloudflare"));
 const hasHosting = computed(() => hasNetlify.value || hasCloudflare.value);
 /** Publish needs the chosen target connected (ADR 0012). */
 const canPublish = computed(() => ((draft.value.publish?.target ?? "netlify") === "cloudflare" ? hasCloudflare.value : hasNetlify.value));
-const offerCloudflare = computed(() => Boolean(account.value?.cloudflareAvailable) && !hasCloudflare.value);
-const accountTitle = computed(
-  () => account.value?.connections.map((c) => `${c.provider}: ${c.accountLogin ?? "connected"}`).join("\n") ?? "",
-);
 const jobRunning = computed(() => job.value?.status === "running");
 /** "Importing… 3/16" while it runs; the finished job's outcome afterwards. */
 const jobLabel = computed(() => {
@@ -68,6 +82,12 @@ const startPublish = () => {
   publishedNow.value = true;
   void publish();
 };
+const targetName = computed(() => ((draft.value.publish?.target ?? "netlify") === "cloudflare" ? "Cloudflare Pages" : "Netlify"));
+const publishTitle = computed(() =>
+  isCloud.value && !canPublish.value
+    ? `Connect ${targetName.value === "Netlify" ? "Netlify" : "Cloudflare"} in Settings to publish there`
+    : `Build the portfolio with your theme and put it on ${targetName.value}`,
+);
 const showPublish = computed(() => publishing.value !== null && (publishRunning.value || publishedNow.value));
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
@@ -101,12 +121,12 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
   <template v-else>
   <header class="top">
     <div class="brand">JAPS <span class="muted">editor</span></div>
-    <nav class="tabs">
-      <button :class="{ active: tab === 'projects' }" @click="tab = 'projects'">
-        Projects <span class="muted">{{ shownCount }}/{{ projects.length }}</span>
+    <nav class="tabs" aria-label="Editor">
+      <button :class="{ active: !settingsSection && tab === 'projects' }" @click="showTab('projects')">
+        Projects <span class="count">{{ shownCount }}/{{ projects.length }}</span>
       </button>
-      <button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">Profile</button>
-      <button :class="{ active: tab === 'theme' }" @click="tab = 'theme'">Theme</button>
+      <button :class="{ active: !settingsSection && tab === 'profile' }" @click="showTab('profile')">Profile</button>
+      <button :class="{ active: !settingsSection && tab === 'design' }" @click="showTab('design')">Design</button>
     </nav>
     <div class="actions">
       <span
@@ -127,26 +147,21 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
         {{ jobRunning ? "Importing…" : "Import again" }}
       </button>
       <button
-        v-if="!isCloud || canPublish"
+        v-if="!isCloud || hasHosting"
         class="btn primary"
         :disabled="publishRunning || status.saving || draftIssues.length > 0"
-        :title="`Build the portfolio with your theme and put it on your ${(draft.publish?.target ?? 'netlify') === 'cloudflare' ? 'Cloudflare Pages' : 'Netlify'}`"
-        @click="startPublish()"
+        :title="publishTitle"
+        @click="isCloud && !canPublish ? openSettings('connections') : startPublish()"
       >
         {{ publishRunning ? "Publishing…" : "Publish" }}
       </button>
-      <template v-if="account">
-        <a v-if="!hasNetlify" class="btn" href="/auth/netlify/connect">Connect Netlify</a>
-        <a v-if="offerCloudflare" class="btn" href="/auth/cloudflare/connect">Connect Cloudflare</a>
-        <span class="who" :title="accountTitle">
-          <img v-if="account.user.avatarUrl" :src="account.user.avatarUrl" alt="" />
-          {{ account.user.login }}
-        </span>
-        <button class="btn" @click="signOut()">Sign out</button>
-      </template>
+      <AccountMenu v-if="account" @settings="openSettings()" />
     </div>
   </header>
 
+  <SettingsPage v-if="settingsSection" :section="settingsSection" @navigate="openSettings" @close="closeSettings" />
+
+  <template v-else>
   <div v-if="status.error" class="banner error">
     <strong>{{ status.error }}</strong>
     <ul v-if="status.issues.length">
@@ -155,7 +170,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
   </div>
   <div v-else-if="status.build" class="banner ok">
     Built {{ status.build.projects }} projects with {{ status.build.screenshots }} screenshots into
-    <code>out/</code>. Preview with <code>pnpm dev</code> (the theme from the Theme tab) → <a href="http://localhost:4321" target="_blank">localhost:4321</a>.
+    <code>out/</code>. Preview with <code>pnpm dev</code> (the theme from the Design tab) → <a href="http://localhost:4321" target="_blank">localhost:4321</a>.
     <ul v-if="status.build.warnings.length" class="muted">
       <li v-for="w in status.build.warnings" :key="w">{{ w }}</li>
     </ul>
@@ -247,7 +262,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       <button v-else class="btn primary" :disabled="jobRunning" @click="startImport()">
         {{ jobRunning ? "Importing…" : "Import projects" }}
       </button>
-      <button class="btn" @click="tab = 'profile'">Edit profile</button>
+      <button class="btn" @click="showTab('profile')">Edit profile</button>
     </p>
   </main>
 
@@ -264,7 +279,7 @@ pnpm japs analyze</pre>
     <ProjectDetail v-if="selected" :key="selected.key" :project="selected" />
   </main>
 
-  <main v-else-if="tab === 'theme'" class="single">
+  <main v-else-if="tab === 'design'" class="single">
     <ThemePicker />
     <PublishTarget />
   </main>
@@ -272,10 +287,8 @@ pnpm japs analyze</pre>
   <main v-else class="single">
     <ProfileEditor />
     <LanguagesEditor />
-    <AiSettings v-if="isCloud" />
-    <DeleteAccount v-if="isCloud" />
-    <p v-if="isCloud" class="muted legal"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
   </main>
+  </template>
   </template>
 </template>
 
@@ -304,15 +317,13 @@ pnpm japs analyze</pre>
 .tabs button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .issues { color: var(--warn); font-size: 13px; cursor: help; }
-.who { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.who img { width: 24px; height: 24px; border-radius: 50%; }
+.tabs .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tabs button.active .count { color: inherit; opacity: 0.8; }
 .signin { max-width: 520px; margin: 12vh auto 0; padding: 0 20px; text-align: center; }
 .signin h1 { font-size: 40px; margin: 0 0 8px; }
 .signin .lead { font-size: 18px; margin: 0 0 16px; }
 .signin .banner { margin: 16px 0; text-align: left; }
 .btn.big { display: inline-block; margin-top: 16px; padding: 10px 20px; font-size: 16px; text-decoration: none; }
-a.btn { text-decoration: none; color: inherit; }
-a.btn.primary { color: #fff; }
 .banner { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; }
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }

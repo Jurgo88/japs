@@ -22,15 +22,15 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <section v-if="account" class="card">
+  <section v-if="account" class="card danger">
     <h2>Delete account</h2>
     <p>
-      Deletes your account, connections, keys, imported projects and texts from JAPS, and revokes its GitHub access.
-      This can't be undone. A portfolio you published stays on your Netlify. See <a href="/privacy">Privacy</a> for
-      the apps to remove on GitHub and Netlify too.
+      Deletes your account, connections, keys, imported projects, texts and screenshots from JAPS, and revokes its
+      GitHub and Cloudflare access. This can't be undone. A portfolio you published stays where it is (Netlify or
+      Cloudflare Pages). See <a href="/privacy" target="_blank">Privacy</a> for the apps to remove there too.
     </p>
     <label>
-      Type <code>{{ account.user.login }}</code> to confirm
+      <span>Type <code>{{ account.user.login }}</code> to confirm</span>
       <input v-model="confirm" type="text" autocomplete="off" spellcheck="false" />
     </label>
     <p>
@@ -43,16 +43,6 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: grid;
-  gap: 12px;
-}
-h2 { margin: 0; font-size: 18px; }
-p { margin: 0; }
 label { display: grid; gap: 4px; font-weight: 600; max-width: 360px; }
 .btn.danger { border-color: var(--danger); color: var(--danger); }
 .btn.danger:not(:disabled):hover { background: var(--danger); color: #fff; }

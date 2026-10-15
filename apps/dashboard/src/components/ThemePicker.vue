@@ -16,8 +16,10 @@ function choose(id: ThemeId): void {
 
 <template>
   <section class="card">
-    <h2>Theme</h2>
-    <p class="muted">How the published portfolio looks. Texts, projects and languages stay the same in every theme.</p>
+    <header class="card-head">
+      <h2>Theme</h2>
+      <p class="muted">How the published portfolio looks. Texts, projects and languages stay the same in every theme.</p>
+    </header>
 
     <div class="grid" role="radiogroup" aria-label="Theme">
       <button
@@ -46,16 +48,6 @@ function choose(id: ThemeId): void {
 </template>
 
 <style scoped>
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: grid;
-  gap: 16px;
-}
-h2 { margin: 0; }
-p { margin: -8px 0 0; }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));

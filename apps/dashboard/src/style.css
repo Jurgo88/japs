@@ -6,6 +6,7 @@
   --border: #e3e6eb;
   --accent: #2563eb;
   --accent-soft: #e8efff;
+  --on-accent: #ffffff;
   --warn: #9a6700;
   --warn-soft: #fff6dd;
   --danger: #b42318;
@@ -22,6 +23,7 @@
     --border: #2a313c;
     --accent: #6ea8fe;
     --accent-soft: #1b2a44;
+    --on-accent: #0d1117;
     --warn: #e3b341;
     --warn-soft: #2b2411;
     --danger: #ff7b72;
@@ -53,7 +55,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
   cursor: pointer;
 }
 .btn:disabled { opacity: 0.5; cursor: default; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn:not(:disabled):hover { border-color: var(--accent); }
+.btn.primary:not(:disabled):hover { filter: brightness(1.08); }
+a { color: var(--accent); }
+a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+a.btn.primary { color: var(--on-accent); }
 .btn.small { padding: 2px 8px; font-size: 12px; }
 .badge {
   display: inline-block;
@@ -76,3 +83,19 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.8; }
   font-size: 13px;
 }
 label.check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+
+/* Cards: every settings and editor section (one look across Profile, Design, Settings). */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  display: grid;
+  gap: 14px;
+}
+.card > p, .card-head p { margin: 0; }
+.card h2 { margin: 0; font-size: 17px; }
+.card-head { display: grid; gap: 4px; }
+.card-head p { font-size: 13px; }
+.card.danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
