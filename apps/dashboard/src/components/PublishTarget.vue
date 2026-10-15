@@ -32,8 +32,10 @@ function choose(id: PublishTarget): void {
 
 <template>
   <section class="card">
-    <h2>Publish to</h2>
-    <p class="muted">JAPS creates its own site there on the first publish and only ever updates that one.</p>
+    <header class="card-head">
+      <h2>Publish to</h2>
+      <p class="muted">JAPS creates its own site there on the first publish and only ever updates that one.</p>
+    </header>
     <div class="options">
       <label v-for="o in options" :key="o.id" class="option" :class="{ active: target === o.id }">
         <input type="radio" name="publish-target" :checked="target === o.id" @change="choose(o.id)" />
@@ -56,16 +58,6 @@ function choose(id: PublishTarget): void {
 </template>
 
 <style scoped>
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: grid;
-  gap: 12px;
-}
-h2 { margin: 0; font-size: 18px; }
-p { margin: 0; }
 .options { display: grid; gap: 8px; }
 .option { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .option.active { border-color: var(--accent); }

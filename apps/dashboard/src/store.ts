@@ -116,6 +116,11 @@ export async function load(): Promise<void> {
   }
 }
 
+export async function disconnect(provider: "netlify" | "cloudflare"): Promise<void> {
+  await backend.disconnect(provider);
+  await refreshAccount();
+}
+
 export async function signOut(): Promise<void> {
   await backend.signOut();
   location.reload();

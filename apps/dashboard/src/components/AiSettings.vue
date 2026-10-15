@@ -51,7 +51,10 @@ async function remove(): Promise<void> {
 
 <template>
   <section v-if="quota" class="card">
-    <h2>AI texts</h2>
+    <header class="card-head">
+      <h2>AI texts</h2>
+      <p class="muted">JAPS writes project texts with an AI model. Free generations each month, or your own key without a limit.</p>
+    </header>
     <template v-if="quota.ownKey">
       <p>
         Texts are generated with <strong>your own key</strong> ({{ quota.ownKey.provider }} · {{ quota.ownKey.model }}), so
@@ -94,16 +97,6 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped>
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: grid;
-  gap: 12px;
-}
-h2 { margin: 0; font-size: 18px; }
-p { margin: 0; }
 .meter { height: 6px; border-radius: 999px; background: var(--bg); overflow: hidden; }
 .meter span { display: block; height: 100%; background: var(--accent); }
 summary { cursor: pointer; font-weight: 600; }

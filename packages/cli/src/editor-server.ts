@@ -5,6 +5,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { basename, extname, join, normalize, sep } from "node:path";
 import { AnalysisFile, JapsConfig, ProjectsFile, PublishState } from "@japs/schema";
 import { starterConfig } from "./config.ts";
+import { llmFromEnv } from "./llm.ts";
 import { publishWorkspace } from "./publish.ts";
 import { loadManifest } from "./screenshots.ts";
 import { analyzeWorkspace, buildWorkspace, factsWorkspace, readOptional, type Workspace, WorkspaceError } from "./workspace.ts";
@@ -84,6 +85,23 @@ export function createEditorServer(ws: Workspace, options: EditorServerOptions):
           analysis: await readOptional(ws.analysis, AnalysisFile).catch(() => null),
           screenshots: await loadManifest(ws.screenshots),
           built: existsSync(join(ws.out, "portfolio.json")),
+        });
+      }
+
+      // Local settings (the editor's Settings page): which tokens .env has and the LLM in use.
+      // Only yes/no and names, never a value: the page runs in a browser.
+      if (path === "/api/environment" && req.method === "GET") {
+        const env = options.env ?? process.env;
+        let llm: { provider: string; model: string | null; ready: boolean; problem: string | null };
+        try {
+          const client = llmFromEnv(env);
+          llm = { provider: client.provider, model: client.model, ready: true, problem: null };
+        } catch (err) {
+          llm = { provider: (env.JAPS_LLM_PROVIDER || "openai").toLowerCase(), model: env.JAPS_LLM_MODEL || null, ready: false, problem: err instanceof Error ? err.message : String(err) };
+        }
+        return send(res, 200, {
+          tokens: { github: Boolean(env.GITHUB_TOKEN), netlify: Boolean(env.NETLIFY_TOKEN), cloudflare: Boolean(env.CLOUDFLARE_API_TOKEN) },
+          llm,
         });
       }
 

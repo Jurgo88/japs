@@ -45,8 +45,10 @@ function setDefault(locale: string): void {
 
 <template>
   <section class="card">
-    <h2>Languages</h2>
-    <p class="muted">The portfolio is published in these languages; the default one is at the root of the site.</p>
+    <header class="card-head">
+      <h2>Languages</h2>
+      <p class="muted">The portfolio is published in these languages; the default one is at the root of the site.</p>
+    </header>
     <div class="langs">
       <div v-for="l in SUPPORTED" :key="l" class="lang">
         <label class="name">
@@ -69,16 +71,6 @@ function setDefault(locale: string): void {
 </template>
 
 <style scoped>
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: grid;
-  gap: 12px;
-}
-h2 { margin: 0; font-size: 18px; }
-p { margin: 0; }
 .langs { display: grid; gap: 8px; }
 .lang { display: flex; align-items: center; gap: 8px; }
 .name { display: flex; align-items: center; gap: 8px; }
