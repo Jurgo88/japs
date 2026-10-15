@@ -19,6 +19,8 @@ export interface DeployInput {
 
 export interface SiteInput {
   id: string;
+  /** Default "netlify". */
+  provider?: "netlify" | "cloudflare";
   name: string;
   url: string;
   customDomain: string | null;

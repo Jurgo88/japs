@@ -13,23 +13,24 @@ Z Netlify a GitHub účtu používateľa zostaviť zoznam **projektov**. Projekt
 |---|---|---|
 | Netlify | `GET /api/v1/sites` | `id`, `name`, `url`, `ssl_url`, `custom_domain`, `build_settings.repo_url`, `build_settings.repo_branch`, `published_deploy` |
 | Netlify | `GET /api/v1/deploys/{id}` | `committer`, `commit_url`, `review_url`, `framework`, `screenshot_url`, `context`, `published_at`, `committer`, `available_functions`, `function_schedules`, `lighthouse` |
+| Cloudflare | `GET /accounts`, `GET /accounts/{id}/pages/projects` | `id`, `name`, `subdomain`, `domains`, `source.config.owner` + `repo_name` (GitHub), `canonical_deployment` (`created_on`, `deployment_trigger.metadata.commit_hash`, `latest_stage.status`) |
 | GitHub | `GET /user` | `login` (vlastník účtu, pre signály klienta) |
 | GitHub | `GET /user/repos?affiliation=owner,collaborator` (+ `organization_member`, ak `discovery.includeOrgRepos`) | `full_name`, `owner.type`, `private`, `fork`, `archived`, `homepage`, `language`, `topics`, `pushed_at`, `description` |
 
-Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s read-only prístupom na metadata a contents).
+Autentifikácia: Personal Access Token (Netlify PAT, GitHub fine-grained PAT s read-only prístupom na metadata a contents, Cloudflare API token s Pages: Read). V hostovanej verzii OAuth (ADR 0009, 0012). Stačí Netlify alebo Cloudflare, prípadne oba.
 
 ## Algoritmus
 
-1. **Načítaj weby** cez `GET /sites` (stránkovanie).
+1. **Načítaj weby** cez `GET /sites` na Netlify a Pages projekty všetkých účtov na Cloudflare (stránkovanie). Cloudflare weby majú id s prefixom `cf:` (ADR 0012).
 2. **Urči repo pre každý web** (prvý úspešný zdroj vyhráva):
-   1. `build_settings.repo_url`
+   1. `build_settings.repo_url` (Netlify) alebo GitHub zdroj Pages projektu (`source.config`)
    2. aktuálny produkčný deploy → `commit_url` (`https://github.com/{owner}/{repo}/commit/{sha}`)
    3. aktuálny deploy → `review_url` (`https://github.com/{owner}/{repo}/pull/{n}`)
    4. inak web nemá repo (`matchSource: "none"`)
 3. **Načítaj repá** cez `GET /user/repos` (stránkovanie).
 4. **Aplikuj ručné väzby z configu** (`links` v `japs.config.json`): pripojenie alebo odpojenie webu má prednosť pred všetkým, `matchSource: "manual"`. Odpojený web sa už nepáruje cez `homepage`.
 5. **Doplň párovanie z opačnej strany:** repo, ktorého `homepage` sa zhoduje s doménou webu, ktorý ešte nemá repo → `matchSource: "homepage"`.
-6. **Zoskup do projektov:** jeden projekt na repo. Všetky weby s rovnakým repom patria do neho (1 repo : N webov). Web bez repa je samostatný projekt. Repo bez webu je samostatný projekt. Každý projekt dostane stabilný kľúč `repo:<owner>/<repo>` alebo `site:<netlify id>`.
+6. **Zoskup do projektov:** jeden projekt na repo. Všetky weby s rovnakým repom patria do neho (1 repo : N webov). Web bez repa je samostatný projekt. Repo bez webu je samostatný projekt. Každý projekt dostane stabilný kľúč `repo:<owner>/<repo>`, `site:<netlify id>` alebo `site:cf:<pages id>`. Jedno repo môže mať weby na Netlify aj na Cloudflare naraz.
 7. **Zlúč projekty** podľa `merge` z configu (napr. frontend + API repo). Prvé repo cieľového projektu ostáva primárne.
 8. **Aplikuj default filtre** (projekt sa nezmaže, len dostane `hidden: true` a dôvod):
    - repo je `fork` alebo `archived`

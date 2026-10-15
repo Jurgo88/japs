@@ -1,4 +1,5 @@
 export { discover, type DiscoverOptions } from "./discovery/discover.ts";
+export { CLOUDFLARE_SITE_PREFIX, CloudflareClient, type RawPagesProject, toPagesSiteInput } from "./discovery/cloudflare.ts";
 export { buildProjects, projectKey, resolveSiteRepo, toRepo, toSite } from "./discovery/pair.ts";
 export { NetlifyClient, toSiteInput, toDeployInput } from "./discovery/netlify.ts";
 export { GitHubClient, toRepoInput } from "./discovery/github.ts";

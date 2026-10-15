@@ -40,9 +40,13 @@ export const Repo = z.object({
 });
 export type Repo = z.infer<typeof Repo>;
 
+/** Where a site is hosted (ADR 0012). Cloudflare site ids carry a "cf:" prefix. */
+export const SiteProvider = z.enum(["netlify", "cloudflare"]);
+export type SiteProvider = z.infer<typeof SiteProvider>;
+
 export const Site = z.object({
   id: z.string(),
-  provider: z.literal("netlify"),
+  provider: SiteProvider,
   name: z.string(),
   /** Primary host without protocol, "www." or trailing slash. */
   domain: z.string(),
@@ -89,7 +93,7 @@ export const ClientSignal = z.enum([
 export type ClientSignal = z.infer<typeof ClientSignal>;
 
 export const Project = z.object({
-  /** Stable reference used by japs.config.json: "repo:<owner>/<repo>" or "site:<netlify id>". */
+  /** Stable reference used by japs.config.json: "repo:<owner>/<repo>", "site:<netlify id>" or "site:cf:<pages id>". */
   key: z.string(),
   slug: z.string(),
   title: z.string(),

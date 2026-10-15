@@ -75,12 +75,13 @@ export async function factsWorkspace(
 ): Promise<{ file: FactsFile; reusedRepos: number; githubMissing: boolean }> {
   const projectsFile = await readOptional(ws.projects, ProjectsFile);
   if (!projectsFile) throw new WorkspaceError(`${ws.projects} not found. Run \`japs discover\` first.`);
-  const netlifyToken = options.env.NETLIFY_TOKEN;
-  if (!netlifyToken) throw new WorkspaceError("NETLIFY_TOKEN is not set. Add it to .env (see .env.example).");
+  const netlifyToken = options.env.NETLIFY_TOKEN || undefined;
+  const usesNetlify = projectsFile.sites.some((s) => s.provider === "netlify");
+  if (usesNetlify && !netlifyToken) throw new WorkspaceError("NETLIFY_TOKEN is not set. Add it to .env (see .env.example).");
   const githubToken = options.env.GITHUB_TOKEN || undefined;
 
   const { file, reusedRepos } = await extractFacts(projectsFile, {
-    netlify: new NetlifyClient({ token: netlifyToken }),
+    netlify: netlifyToken ? new NetlifyClient({ token: netlifyToken }) : null,
     github: githubToken ? new GitHubClient({ token: githubToken }) : null,
     // A previous facts.json from an older schema is just a cold cache.
     previous: options.noCache ? null : await readLenient(ws.facts, FactsFile),

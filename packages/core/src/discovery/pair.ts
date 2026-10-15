@@ -54,7 +54,7 @@ export function toSite(input: SiteInput): Site {
   const domain = normalizeDomain(input.customDomain) ?? normalizeDomain(input.url) ?? input.name;
   return {
     id: input.id,
-    provider: "netlify",
+    provider: input.provider ?? "netlify",
     name: input.name,
     domain,
     url: input.customDomain ? `https://${domain}` : input.url,
@@ -80,7 +80,7 @@ export function projectKey(repoId: RepoId | null, siteId: string | undefined): P
 function applyManualLinks(sites: Site[], links: ManualLink[], warnings: string[]): Site[] {
   const linkBySite = new Map(links.map((l) => [l.site, l]));
   for (const id of linkBySite.keys()) {
-    if (!sites.some((s) => s.id === id)) warnings.push(`links: site "${id}" not found on Netlify`);
+    if (!sites.some((s) => s.id === id)) warnings.push(`links: site "${id}" not found on Netlify or Cloudflare`);
   }
   return sites.map((site) => {
     const link = linkBySite.get(site.id);
@@ -136,7 +136,7 @@ function hiddenReasonsFor(
     if (sites.every((s) => s.lastDeployAt === null)) reasons.push("no-deploy");
     else if (sites.every((s) => s.deployContext === "deploy-preview")) reasons.push("preview-only");
 
-    if (group.repoIds.length === 0 && sites.every((s) => isRandomNetlifyName(s.name) && !s.hasCustomDomain)) {
+    if (group.repoIds.length === 0 && sites.every((s) => s.provider === "netlify" && isRandomNetlifyName(s.name) && !s.hasCustomDomain)) {
       reasons.push("random-name");
     }
   }

@@ -1,6 +1,7 @@
 import { JapsConfig } from "@japs/schema";
 import { describe, expect, it } from "vitest";
 import { NOW, repos, sites } from "../__fixtures__/phase0.ts";
+import { toPagesSiteInput } from "../discovery/cloudflare.ts";
 import { GitHubClient } from "../discovery/github.ts";
 import { NetlifyClient } from "../discovery/netlify.ts";
 import { buildProjects } from "../discovery/pair.ts";
@@ -91,6 +92,27 @@ describe("extractFacts", () => {
     });
     expect(shop.tech.map((t) => t.name)).toEqual(["Nuxt", "Vue", "TypeScript", "Netlify"]);
     expect(shop.hash).toMatch(/^[0-9a-f]{64}$/);
+    // Netlify sites carry no provider field, so facts from before Cloudflare keep their hash.
+    expect("provider" in shop.sites[0]!).toBe(false);
+  });
+
+  it("takes Cloudflare Pages sites without Netlify: live-site facts, Pages as hosting", async () => {
+    const pages = toPagesSiteInput({
+      id: "p1",
+      name: "acme-shop",
+      subdomain: "acme-shop.pages.dev",
+      domains: ["acme-shop.pages.dev", "acme-shop.example"],
+      source: { type: "github", config: { owner: "DevUser", repo_name: "AcmeShop" } },
+      canonical_deployment: { id: "d1", created_on: "2026-10-01T10:00:00.000Z", latest_stage: { status: "success" } },
+    });
+    const file = buildProjects([pages], repos, { now: NOW });
+    const { options, calls } = clients([...githubRoutes, ...liveRoutes]);
+    const { file: facts } = await extractFacts(file, { ...options, netlify: null, keys: ["repo:devuser/acmeshop"] });
+
+    const shop = facts.projects[0]!;
+    expect(shop.sites[0]).toMatchObject({ id: "cf:p1", provider: "cloudflare", deploy: null, live: { title: "Acme" } });
+    expect(shop.tech.map((t) => t.name)).toContain("Cloudflare Pages");
+    expect(calls.some((u) => u.includes("netlify"))).toBe(false);
   });
 
   it("treats an empty repo as zero commits and records a live site's error status", async () => {

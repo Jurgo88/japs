@@ -10,7 +10,8 @@ import { deriveTech } from "./tech.ts";
 import { errorMessage, mapLimit, sha256Hex } from "./util.ts";
 
 export interface ExtractFactsOptions {
-  netlify: NetlifyClient;
+  /** Netlify deploy details; without it (Cloudflare only), sites get live-site facts only. */
+  netlify?: NetlifyClient | null;
   /** Without it, repo facts are limited to identity (Netlify and the live site still work). */
   github?: GitHubClient | null;
   /** Used for live sites. Default: global fetch. */
@@ -96,7 +97,7 @@ export async function extractFacts(projectsFile: ProjectsFile, options: ExtractF
     const site = siteById.get(id);
     if (!site) return null;
     const [deploy, live] = await Promise.all([
-      site.deployId
+      site.deployId && site.provider === "netlify" && options.netlify
         ? fetchDeployFacts(options.netlify, site.deployId).catch((err: unknown) => {
             warn(`${site.domain}: deploy: ${errorMessage(err)}`);
             return null;
@@ -111,6 +112,8 @@ export async function extractFacts(projectsFile: ProjectsFile, options: ExtractF
     ]);
     return {
       id: site.id,
+      // Only non-Netlify sites carry it, so existing facts keep their hash (no new texts).
+      ...(site.provider === "netlify" ? {} : { provider: site.provider }),
       domain: site.domain,
       url: site.url,
       framework: site.framework,

@@ -100,6 +100,8 @@ export type LiveSiteFacts = z.infer<typeof LiveSiteFacts>;
 
 export const SiteFacts = z.object({
   id: z.string(),
+  /** Absent for Netlify (the original provider), so older facts keep their hash. */
+  provider: z.enum(["cloudflare"]).optional(),
   domain: z.string(),
   url: z.string().url(),
   framework: z.string().nullable(),

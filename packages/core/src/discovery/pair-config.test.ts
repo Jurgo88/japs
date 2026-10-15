@@ -35,7 +35,7 @@ describe("manual links", () => {
 
   it("warns about an unknown site", () => {
     const { file } = run({ links: [{ site: "s-gone", repo: "devuser/tiny-lib" }] });
-    expect(file.warnings).toEqual(['links: site "s-gone" not found on Netlify']);
+    expect(file.warnings).toEqual(['links: site "s-gone" not found on Netlify or Cloudflare']);
   });
 });
 

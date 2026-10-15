@@ -56,8 +56,9 @@ Options:
   --config <path>   config file (default ${CONFIG_FILE})
 
 Environment:
-  NETLIFY_TOKEN   required
-  GITHUB_TOKEN    optional (without it, repos are inferred from Netlify deploys only)
+  NETLIFY_TOKEN         Netlify sites; needed by japs publish to Netlify
+  CLOUDFLARE_API_TOKEN  Cloudflare Pages projects (read); one of the two is required for discovery
+  GITHUB_TOKEN          optional (without it, repos are inferred from site deploys only)
   JAPS_LLM_PROVIDER  openai (default) | gemini | groq | openrouter | ollama
   JAPS_LLM_MODEL     model name (openai default: gpt-5-mini)
   OPENAI_API_KEY     or GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY / JAPS_LLM_API_KEY
@@ -137,12 +138,13 @@ async function runDiscover(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const netlifyToken = requireNetlifyToken();
+  const { netlifyToken, cloudflareToken } = requireSiteTokens();
   const githubToken = process.env.GITHUB_TOKEN || undefined;
   if (!githubToken) console.warn("GITHUB_TOKEN not set — repos without a Netlify site will be missing.\n");
 
   const file = await discover({
     netlifyToken,
+    cloudflareToken,
     githubToken,
     staleAfterMonths,
     includeOrgRepos: config?.discovery.includeOrgRepos,
@@ -155,6 +157,19 @@ async function runDiscover(args: string[]): Promise<void> {
   await writeFile(outPath, `${JSON.stringify(file, null, 2)}\n`, "utf8");
   printSummary(file, config);
   console.log(`\nWritten to ${outPath}`);
+}
+
+/** Discovery and facts need at least one hosting provider (ADR 0012). */
+function requireSiteTokens(): { netlifyToken?: string; cloudflareToken?: string } {
+  const netlifyToken = process.env.NETLIFY_TOKEN || undefined;
+  const cloudflareToken = process.env.CLOUDFLARE_API_TOKEN || undefined;
+  if (netlifyToken || cloudflareToken) return { netlifyToken, cloudflareToken };
+  console.error(
+    loadedEnvFile
+      ? `Neither NETLIFY_TOKEN nor CLOUDFLARE_API_TOKEN is set in ${loadedEnvFile}.`
+      : "No .env found. Copy .env.example to .env in the repo root and fill in NETLIFY_TOKEN or CLOUDFLARE_API_TOKEN.",
+  );
+  process.exit(1);
 }
 
 function requireNetlifyToken(): string {
@@ -189,7 +204,7 @@ async function runFacts(args: string[]): Promise<void> {
     },
   });
 
-  requireNetlifyToken();
+  requireSiteTokens();
   const ws = resolveWorkspace(userCwd, { projects: values.in, facts: values.out, config: values.config });
   const { file, reusedRepos, githubMissing } = await factsWorkspace(ws, {
     env: process.env,
