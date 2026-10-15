@@ -18,7 +18,7 @@ import {
 import type { UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
 import { llmFor, monthOf, quotaFor } from "./llm.ts";
-import { githubToken, netlifyToken } from "./tokens.ts";
+import { cloudflareToken, ConnectionError, githubToken, optionalNetlifyToken } from "./tokens.ts";
 
 export const QUOTA_REACHED = (limit: number) =>
   `Free monthly limit of ${limit} AI generations reached. Add your own AI key in your profile, or wait for next month.`;
@@ -54,8 +54,12 @@ export interface DiscoveryResult {
 export async function runDiscovery(user: UserStore, deps: PipelineDeps): Promise<DiscoveryResult> {
   const now = deps.now?.() ?? new Date();
   const config = await loadConfig(user);
+  const netlify = await optionalNetlifyToken(user, deps.env);
+  const cloudflare = await cloudflareToken(user, deps.env, deps.fetch, now);
+  if (!netlify && !cloudflare) throw new ConnectionError("Connect Netlify or Cloudflare first.");
   const file = await discover({
-    netlifyToken: await netlifyToken(user, deps.env),
+    netlifyToken: netlify ?? undefined,
+    cloudflareToken: cloudflare ?? undefined,
     githubToken: await githubToken(user, deps.env, deps.fetch, now),
     fetch: deps.fetch,
     now,
@@ -91,7 +95,7 @@ export async function runProject(user: UserStore, key: string, deps: PipelineDep
 
   const previousFacts = (await user.getProjectDoc(key, "facts")) as ProjectFacts | null;
   const { file: factsFile } = await extractFacts(projectsFile, {
-    netlify: new NetlifyClient({ token: await netlifyToken(user, deps.env), fetch: deps.fetch }),
+    netlify: await optionalNetlifyToken(user, deps.env).then((token) => (token ? new NetlifyClient({ token, fetch: deps.fetch }) : null)),
     github: new GitHubClient({ token: await githubToken(user, deps.env, deps.fetch, now), fetch: deps.fetch }),
     fetch: deps.fetch,
     previous: previousFacts ? wrapFacts([previousFacts], now) : null,

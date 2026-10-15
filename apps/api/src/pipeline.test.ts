@@ -63,6 +63,25 @@ function fakeWorld() {
     if (url === "https://shop.netlify.app") {
       return new Response("<html lang=en><head><title>Shop</title></head></html>", { headers: { "content-type": "text/html" } });
     }
+    // Cloudflare (ADR 0012): one account, one Pages project built from the same repo.
+    if (url === "https://dash.cloudflare.com/oauth2/token") return json({ access_token: "cf_fresh", refresh_token: "cf_refresh2", expires_in: 3600 });
+    if (url.startsWith("https://api.cloudflare.com/client/v4/accounts?")) return json({ success: true, result: [{ id: "acc", name: "Jane" }], result_info: { total_pages: 1 } });
+    if (url.startsWith("https://api.cloudflare.com/client/v4/accounts/acc/pages/projects?")) {
+      return json({
+        success: true,
+        result: [
+          {
+            id: "pg1",
+            name: "shop",
+            subdomain: "shop.pages.dev",
+            domains: ["shop.pages.dev"],
+            source: { type: "github", config: { owner: "jane", repo_name: "shop" } },
+            canonical_deployment: { id: "cd1", created_on: "2026-10-02T00:00:00Z", latest_stage: { status: "success" } },
+          },
+        ],
+        result_info: { total_pages: 1 },
+      });
+    }
     if (url === "https://api.openai.com/v1/chat/completions") {
       return json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(copy) } }], usage: { prompt_tokens: 900, completion_tokens: 300 } });
     }
@@ -91,6 +110,29 @@ beforeEach(async () => {
 });
 
 describe("hosted pipeline", () => {
+  it("imports from Cloudflare Pages alone, refreshing its expiring token", async () => {
+    await user.deleteConnection("netlify");
+    const token = (t: string) => encrypt(t, env.ENCRYPTION_KEY);
+    env.CLOUDFLARE_CLIENT_ID = "cf";
+    env.CLOUDFLARE_CLIENT_SECRET = "cf-secret";
+    await user.setConnection({ provider: "cloudflare", accountLogin: "jane@example.com", accessToken: await token("cf_old"), refreshToken: await token("cf_refresh"), expiresAt: "2026-10-15T10:01:00Z", meta: null });
+
+    const { fetch, calls } = fakeWorld();
+    expect(await runDiscovery(user, { env, fetch, now: () => NOW })).toEqual({ projects: 1, refresh: [] });
+    expect(calls).toContain("POST https://dash.cloudflare.com/oauth2/token");
+    expect(calls.some((c) => c.includes("api.netlify.com"))).toBe(false);
+    expect(await decrypt((await user.getConnection("cloudflare"))!.accessToken, env.ENCRYPTION_KEY)).toBe("cf_fresh");
+    expect(await user.getDocument("projects")).toMatchObject({
+      projects: [{ key: "repo:jane/shop", siteIds: ["cf:pg1"] }],
+      sites: [{ id: "cf:pg1", provider: "cloudflare", repoId: "jane/shop", matchSource: "repo_url" }],
+    });
+  });
+
+  it("refuses to import with neither Netlify nor Cloudflare connected", async () => {
+    await user.deleteConnection("netlify");
+    await expect(runDiscovery(user, { env, fetch: fakeWorld().fetch, now: () => NOW })).rejects.toThrow("Connect Netlify or Cloudflare first.");
+  });
+
   it("imports projects without facts or LLM calls, then generates texts for a picked project", async () => {
     const { fetch, calls } = fakeWorld();
     const found = await runDiscovery(user, { env, fetch, now: () => NOW });
