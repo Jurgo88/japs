@@ -146,3 +146,90 @@ export async function revokeGithubGrant(
   });
   return res.status === 204;
 }
+
+// --- Cloudflare (ADR 0012): standard OAuth 2.0, tokens expire and come with a refresh token ---
+
+export const CLOUDFLARE_AUTHORIZE = "https://dash.cloudflare.com/oauth2/auth";
+const CLOUDFLARE_TOKEN = "https://dash.cloudflare.com/oauth2/token";
+const CLOUDFLARE_REVOKE = "https://dash.cloudflare.com/oauth2/revoke";
+
+/** Pages read for discovery, Pages write to publish there, account and user for names. */
+export const CLOUDFLARE_SCOPES = ["page.read", "page.write", "account-settings.read", "user-details.read", "offline_access"];
+
+export interface OAuthTokens {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: string | null;
+}
+
+const CloudflareToken = z.object({
+  access_token: z.string().optional(),
+  refresh_token: z.string().optional(),
+  expires_in: z.number().optional(),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+async function cloudflareTokenRequest(fetchImpl: typeof fetch, form: Record<string, string>, now: Date): Promise<OAuthTokens> {
+  const res = await fetchImpl(CLOUDFLARE_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams(form).toString(),
+  });
+  const body = CloudflareToken.parse(await res.json().catch(() => ({})));
+  if (!res.ok || !body.access_token) {
+    throw new OAuthError(`Cloudflare: ${body.error_description ?? body.error ?? `token request failed (${res.status})`}`);
+  }
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token ?? null,
+    expiresAt: body.expires_in ? new Date(now.getTime() + body.expires_in * 1000).toISOString() : null,
+  };
+}
+
+export function exchangeCloudflareCode(
+  fetchImpl: typeof fetch,
+  params: { clientId: string; clientSecret: string; code: string; redirectUri: string },
+  now = new Date(),
+): Promise<OAuthTokens> {
+  return cloudflareTokenRequest(
+    fetchImpl,
+    { grant_type: "authorization_code", code: params.code, redirect_uri: params.redirectUri, client_id: params.clientId, client_secret: params.clientSecret },
+    now,
+  );
+}
+
+export function refreshCloudflareToken(
+  fetchImpl: typeof fetch,
+  params: { clientId: string; clientSecret: string; refreshToken: string },
+  now = new Date(),
+): Promise<OAuthTokens> {
+  return cloudflareTokenRequest(
+    fetchImpl,
+    { grant_type: "refresh_token", refresh_token: params.refreshToken, client_id: params.clientId, client_secret: params.clientSecret },
+    now,
+  );
+}
+
+/** A name for the connection in the header: the account email. */
+export async function fetchCloudflareUser(fetchImpl: typeof fetch, accessToken: string): Promise<{ login: string }> {
+  const res = await fetchImpl("https://api.cloudflare.com/client/v4/user", {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+  });
+  if (!res.ok) throw new OAuthError(`Cloudflare /user failed: ${res.status}`);
+  const body = z.object({ result: z.object({ email: z.string().nullish() }).nullish() }).parse(await res.json());
+  return { login: body.result?.email ?? "Cloudflare account" };
+}
+
+/** Revokes a token JAPS holds (disconnect, account deletion). Best effort. */
+export async function revokeCloudflareToken(
+  fetchImpl: typeof fetch,
+  params: { clientId: string; clientSecret: string; token: string },
+): Promise<boolean> {
+  const res = await fetchImpl(CLOUDFLARE_REVOKE, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: params.token, client_id: params.clientId, client_secret: params.clientSecret }).toString(),
+  });
+  return res.ok;
+}

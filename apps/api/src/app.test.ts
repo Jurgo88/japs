@@ -46,6 +46,14 @@ function fakeProviders(users: Record<string, { id: number; login: string }> = { 
       return json({ id: user.id, login: user.login, name: login, avatar_url: null });
     }
     if (url === "https://api.github.com/applications/gh-client/grant") return new Response(null, { status: 204 });
+    if (url === "https://dash.cloudflare.com/oauth2/token") {
+      const form = new URLSearchParams(String(init?.body));
+      return form.get("code") === "cf-code" && form.get("client_secret") === "cf-secret"
+        ? json({ access_token: "cf_access", refresh_token: "cf_refresh", expires_in: 3600 })
+        : json({ error: "invalid_grant" }, 400);
+    }
+    if (url === "https://api.cloudflare.com/client/v4/user") return json({ success: true, result: { email: "jane@example.com" } });
+    if (url === "https://dash.cloudflare.com/oauth2/revoke") return json({});
     if (url === "https://api.netlify.com/oauth/token") return json({ access_token: "nf_token" });
     if (url === "https://api.netlify.com/api/v1/user") return json({ email: "jane@example.com" });
     return json({ message: "not found" }, 404);
@@ -280,13 +288,13 @@ describe("jobs API", () => {
     return browser;
   }
 
-  it("refuses to import before Netlify is connected", async () => {
+  it("refuses to import before Netlify or Cloudflare is connected", async () => {
     fakeWorkflows();
     const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
     await browser.signIn();
     const res = await post(browser, "/api/jobs/sync");
     expect(res.status).toBe(400);
-    expect((await body(res)).error).toBe("Connect Netlify first.");
+    expect((await body(res)).error).toBe("Connect Netlify or Cloudflare first.");
   });
 
   it("starts one import workflow per user and refuses a second while it runs", async () => {
@@ -483,5 +491,68 @@ describe("screenshots API", () => {
     const res = await browser.request("/api/generate", { method: "POST", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ keys: ["site:s1"] }) });
     expect(res.status).toBe(202);
     expect(shots).toEqual([{ userId: expect.any(String), keys: ["site:s1"] }]);
+  });
+});
+
+describe("Cloudflare connect (ADR 0012)", () => {
+  const enable = () => {
+    env.CLOUDFLARE_CLIENT_ID = "cf-client";
+    env.CLOUDFLARE_CLIENT_SECRET = "cf-secret";
+  };
+
+  it("is not offered without an OAuth client on the server", async () => {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    expect((await body(browser.request("/api/me"))).cloudflareAvailable).toBe(false);
+    expect((await browser.request("/auth/cloudflare/connect")).headers.get("Location")).toMatch(/auth_error/);
+  });
+
+  it("asks for Pages access, stores the tokens encrypted, and lets a Cloudflare-only user import", async () => {
+    enable();
+    const started: unknown[] = [];
+    env.SYNC_JOBS = { create: async (o: { params: unknown }) => (started.push(o.params), { id: "w" }), createBatch: async () => [] } as Env["SYNC_JOBS"];
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+
+    const start = await browser.request("/auth/cloudflare/connect");
+    const location = new URL(start.headers.get("Location")!);
+    expect(location.origin + location.pathname).toBe("https://dash.cloudflare.com/oauth2/auth");
+    expect(location.searchParams.get("redirect_uri")).toBe(`${APP_URL}/auth/cloudflare/callback`);
+    expect(location.searchParams.get("scope")?.split(" ")).toEqual(expect.arrayContaining(["page.read", "page.write", "offline_access"]));
+
+    // A state from another provider can't be replayed here.
+    const nf = new URL((await browser.request("/auth/netlify/connect")).headers.get("Location")!).searchParams.get("state")!;
+    expect((await browser.request(`/auth/cloudflare/callback?code=cf-code&state=${nf}`)).headers.get("Location")).toMatch(/auth_error/);
+
+    const again = new URL((await browser.request("/auth/cloudflare/connect")).headers.get("Location")!).searchParams.get("state")!;
+    expect((await browser.request(`/auth/cloudflare/callback?code=cf-code&state=${again}`)).headers.get("Location")).toBe("/");
+
+    const me = await body(browser.request("/api/me"));
+    expect(me.connections).toContainEqual(expect.objectContaining({ provider: "cloudflare", accountLogin: "jane@example.com" }));
+    expect(JSON.stringify(me)).not.toContain("cf_access");
+    const store = new Store(env.DB);
+    const jane = store.forUser((await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null })).id);
+    const stored = await jane.getConnection("cloudflare");
+    expect(await decrypt(stored!.accessToken, env.ENCRYPTION_KEY)).toBe("cf_access");
+    expect(await decrypt(stored!.refreshToken!, env.ENCRYPTION_KEY)).toBe("cf_refresh");
+
+    // Netlify isn't needed any more to import.
+    const sync = await browser.request("/api/jobs/sync", { method: "POST", headers: { Origin: APP_URL } });
+    expect(sync.status).toBe(202);
+    expect(started).toHaveLength(1);
+  });
+
+  it("revokes the token on disconnect", async () => {
+    enable();
+    const { fetch, calls } = fakeProviders();
+    const browser = new Browser(createApp({ fetch }));
+    await browser.signIn();
+    const state = new URL((await browser.request("/auth/cloudflare/connect")).headers.get("Location")!).searchParams.get("state")!;
+    await browser.request(`/auth/cloudflare/callback?code=cf-code&state=${state}`);
+
+    const res = await browser.request("/api/connections/cloudflare", { method: "DELETE", headers: { Origin: APP_URL } });
+    expect(res.status).toBe(200);
+    expect(calls).toContain("POST https://dash.cloudflare.com/oauth2/revoke");
+    expect((await body(browser.request("/api/me"))).connections.map((c: { provider: string }) => c.provider)).not.toContain("cloudflare");
   });
 });

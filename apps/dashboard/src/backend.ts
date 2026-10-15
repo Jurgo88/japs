@@ -54,7 +54,9 @@ export interface GenerateSummary {
 /** The signed-in user in the hosted version. */
 export interface Account {
   user: { login: string; name: string | null; avatarUrl: string | null };
-  connections: { provider: "github" | "netlify" | "llm"; accountLogin: string | null }[];
+  connections: { provider: "github" | "netlify" | "cloudflare" | "llm"; accountLogin: string | null }[];
+  /** The server offers "Connect Cloudflare" (ADR 0012). */
+  cloudflareAvailable?: boolean;
   /** AI generations on the shared key this month (#35). */
   quota: { used: number; limit: number; remaining: number; ownKey: { provider: string; model: string } | null; shared: boolean };
   /** Install the GitHub App on repositories, so private ones become readable. */

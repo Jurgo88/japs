@@ -17,7 +17,7 @@ export interface Statement {
   run(): Promise<unknown>;
 }
 
-export type Provider = "github" | "netlify" | "llm";
+export type Provider = "github" | "netlify" | "cloudflare" | "llm";
 export type DocumentKind = "config" | "projects" | "facts" | "analysis" | "screenshots" | "publish";
 
 export interface User {

@@ -22,11 +22,11 @@
 <ul>
   <li><strong>Your GitHub profile:</strong> user id, username, name and avatar URL, from signing in.</li>
   <li>
-    <strong>Access tokens</strong> for GitHub and Netlify, and an AI key if you add your own. They are encrypted
+    <strong>Access tokens</strong> for GitHub, Netlify and Cloudflare (if you connect them), and an AI key if you add your own. They are encrypted
     (AES-GCM) before they are stored, used only on the server, and never sent back to your browser.
   </li>
   <li>
-    <strong>What JAPS finds in your accounts:</strong> the list of your Netlify sites and GitHub repositories, and
+    <strong>What JAPS finds in your accounts:</strong> the list of your Netlify sites, Cloudflare Pages projects and GitHub repositories, and
     for the projects you pick, facts such as languages, frameworks, dates, commit counts and README excerpts.
   </li>
   <li><strong>Your portfolio:</strong> the profile texts, settings and generated project texts you edit in JAPS.</li>
@@ -53,7 +53,7 @@
     behalf.
   </li>
   <li>
-    <strong>GitHub and Netlify</strong> receive the requests JAPS makes with your tokens, as they would from any app
+    <strong>GitHub, Netlify and Cloudflare</strong> receive the requests JAPS makes with your tokens, as they would from any app
     you authorize.
   </li>
   <li>
@@ -73,9 +73,9 @@
 <h2>How long, and how to delete it</h2>
 <p>
   Data is kept while you have an account. <strong>Profile → Delete account</strong> deletes your account and
-  everything listed above at once and revokes JAPS's GitHub authorization. To be thorough, also remove the app on
+  everything listed above at once and revokes JAPS's GitHub and Cloudflare authorizations. To be thorough, also remove the app on
   <a href="https://github.com/settings/installations">GitHub → Applications</a> and in Netlify under
-  <em>User settings → Applications</em>. A portfolio you already published stays on your Netlify until you delete
+  <em>User settings → Applications</em>, and on Cloudflare under <em>Profile → Access management → OAuth authorizations</em>. A portfolio you already published stays on your Netlify until you delete
   that site there.
 </p>
 

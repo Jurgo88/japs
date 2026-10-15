@@ -38,7 +38,12 @@ const projects = computed(() => state.value?.projects?.projects ?? []);
 const selected = computed(() => projects.value.find((p) => p.key === selectedKey.value) ?? null);
 const shownCount = computed(() => projects.value.filter(published).length);
 const privateMissing = computed(() => missingTexts.value.filter((p) => p.private).length);
-const hasNetlify = computed(() => account.value?.connections.some((c) => c.provider === "netlify") ?? false);
+const connected = (provider: string) => account.value?.connections.some((c) => c.provider === provider) ?? false;
+const hasNetlify = computed(() => connected("netlify"));
+const hasCloudflare = computed(() => connected("cloudflare"));
+/** Sites come from Netlify, Cloudflare Pages or both (ADR 0012). */
+const hasHosting = computed(() => hasNetlify.value || hasCloudflare.value);
+const offerCloudflare = computed(() => Boolean(account.value?.cloudflareAvailable) && !hasCloudflare.value);
 const accountTitle = computed(
   () => account.value?.connections.map((c) => `${c.provider}: ${c.accountLogin ?? "connected"}`).join("\n") ?? "",
 );
@@ -114,7 +119,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       <button v-if="!isCloud" class="btn" :disabled="status.building || status.saving" @click="saveAndBuild()">
         {{ status.building ? "Building…" : "Save & build" }}
       </button>
-      <button v-if="isCloud && hasNetlify && state?.projects" class="btn" :disabled="jobRunning" @click="startImport()">
+      <button v-if="isCloud && hasHosting && state?.projects" class="btn" :disabled="jobRunning" @click="startImport()">
         {{ jobRunning ? "Importing…" : "Import again" }}
       </button>
       <button
@@ -128,6 +133,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       </button>
       <template v-if="account">
         <a v-if="!hasNetlify" class="btn" href="/auth/netlify/connect">Connect Netlify</a>
+        <a v-if="offerCloudflare" class="btn" href="/auth/cloudflare/connect">Connect Cloudflare</a>
         <span class="who" :title="accountTitle">
           <img v-if="account.user.avatarUrl" :src="account.user.avatarUrl" alt="" />
           {{ account.user.login }}
@@ -217,16 +223,21 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
   <main v-else-if="tab === 'projects' && !state?.projects && isCloud" class="empty">
     <h2>{{ jobRunning ? "Importing your projects…" : "No projects yet" }}</h2>
     <p v-if="jobRunning" class="muted">{{ jobLabel }} This takes a minute or two.</p>
-    <p v-else-if="!hasNetlify" class="muted">
-      Connect Netlify, then import: JAPS lists your sites and pairs them with their GitHub repositories. You pick what
-      goes into the portfolio, and only those get texts. Nothing is published until you say so.
+    <p v-else-if="!hasHosting" class="muted">
+      Connect Netlify{{ account?.cloudflareAvailable ? " or Cloudflare (Pages)" : "" }}, then import: JAPS lists your
+      sites and pairs them with their GitHub repositories. You pick what goes into the portfolio, and only those get
+      texts. Nothing is published until you say so.
     </p>
     <p v-else class="muted">
-      Import lists your Netlify sites and GitHub repositories in a few seconds. Then you pick what goes into the
+      Import lists your {{ hasNetlify && hasCloudflare ? "Netlify and Cloudflare Pages" : hasNetlify ? "Netlify" : "Cloudflare Pages" }}
+      sites and GitHub repositories in a few seconds. Then you pick what goes into the
       portfolio, and JAPS writes texts only for those. Nothing is published until you say so.
     </p>
     <p>
-      <a v-if="!hasNetlify" class="btn primary" href="/auth/netlify/connect">Connect Netlify</a>
+      <template v-if="!hasHosting">
+        <a class="btn primary" href="/auth/netlify/connect">Connect Netlify</a>
+        <a v-if="account?.cloudflareAvailable" class="btn primary" href="/auth/cloudflare/connect">Connect Cloudflare</a>
+      </template>
       <button v-else class="btn primary" :disabled="jobRunning" @click="startImport()">
         {{ jobRunning ? "Importing…" : "Import projects" }}
       </button>

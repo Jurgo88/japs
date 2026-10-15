@@ -1,4 +1,4 @@
-import { refreshGithubToken } from "./auth/oauth.ts";
+import { refreshCloudflareToken, refreshGithubToken } from "./auth/oauth.ts";
 import { decrypt, encrypt } from "./crypto.ts";
 import type { UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
@@ -38,6 +38,41 @@ export async function githubToken(user: UserStore, env: Env, fetchImpl: typeof f
     expiresAt: tokens.expiresAt,
   });
   return tokens.accessToken;
+}
+
+/** The user's Cloudflare OAuth token (ADR 0012), refreshed like GitHub's; null when not connected. */
+export async function cloudflareToken(user: UserStore, env: Env, fetchImpl: typeof fetch, now = new Date()): Promise<string | null> {
+  const connection = await user.getConnection("cloudflare");
+  if (!connection) return null;
+  const fresh = !connection.expiresAt || Date.parse(connection.expiresAt) - now.getTime() > REFRESH_MARGIN_MS;
+  if (fresh) return decrypt(connection.accessToken, env.ENCRYPTION_KEY);
+  if (!connection.refreshToken || !env.CLOUDFLARE_CLIENT_ID || !env.CLOUDFLARE_CLIENT_SECRET) {
+    throw new ConnectionError("Cloudflare access expired. Connect Cloudflare again.");
+  }
+  const tokens = await refreshCloudflareToken(
+    fetchImpl,
+    {
+      clientId: env.CLOUDFLARE_CLIENT_ID,
+      clientSecret: env.CLOUDFLARE_CLIENT_SECRET,
+      refreshToken: await decrypt(connection.refreshToken, env.ENCRYPTION_KEY),
+    },
+    now,
+  ).catch((err: unknown) => {
+    throw new ConnectionError(`Cloudflare access expired. Connect Cloudflare again. (${err instanceof Error ? err.message : String(err)})`);
+  });
+  await user.setConnection({
+    ...connection,
+    accessToken: await encrypt(tokens.accessToken, env.ENCRYPTION_KEY),
+    refreshToken: tokens.refreshToken ? await encrypt(tokens.refreshToken, env.ENCRYPTION_KEY) : connection.refreshToken,
+    expiresAt: tokens.expiresAt,
+  });
+  return tokens.accessToken;
+}
+
+/** Netlify's token when connected, else null (Cloudflare-only users). */
+export async function optionalNetlifyToken(user: UserStore, env: Env): Promise<string | null> {
+  const connection = await user.getConnection("netlify");
+  return connection ? decrypt(connection.accessToken, env.ENCRYPTION_KEY) : null;
 }
 
 export async function netlifyToken(user: UserStore, env: Env): Promise<string> {

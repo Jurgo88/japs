@@ -1,16 +1,21 @@
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
+  CLOUDFLARE_AUTHORIZE,
+  CLOUDFLARE_SCOPES,
+  exchangeCloudflareCode,
   exchangeGithubCode,
   exchangeNetlifyCode,
+  fetchCloudflareUser,
   fetchGithubUser,
   fetchNetlifyUser,
   GITHUB_AUTHORIZE,
   NETLIFY_AUTHORIZE,
   OAuthError,
+  revokeCloudflareToken,
   revokeGithubGrant,
 } from "./auth/oauth.ts";
-import { encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
+import { decrypt, encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
 import { type Job, Store, type User } from "./db.ts";
 import { wrapAnalysis } from "./pipeline.ts";
 import { OWN_KEY_PROVIDERS, quotaFor } from "./llm.ts";
@@ -41,6 +46,7 @@ const STATE_COOKIE = "japs_oauth_state";
 const SESSION_DAYS = 30;
 
 type Vars = { user: User | null; store: Store };
+type OAuthProvider = "github" | "netlify" | "cloudflare";
 type AppContext = Context<{ Bindings: Env; Variables: Vars }>;
 
 export interface AppDeps {
@@ -76,11 +82,11 @@ export function createApp(deps: AppDeps = {}) {
     await next();
   });
 
-  const redirectUri = (c: AppContext, provider: "github" | "netlify") =>
+  const redirectUri = (c: AppContext, provider: OAuthProvider) =>
     new URL(`/auth/${provider}/callback`, c.env.APP_URL).toString();
 
   /** Random state in a signed, short-lived cookie; the callback must bring the same value back. */
-  async function startOAuth(c: AppContext, provider: "github" | "netlify"): Promise<string> {
+  async function startOAuth(c: AppContext, provider: OAuthProvider): Promise<string> {
     const state = randomToken(16);
     setCookie(c, STATE_COOKIE, await sign(`${provider}:${state}`, c.env.SESSION_SECRET), {
       httpOnly: true,
@@ -92,7 +98,7 @@ export function createApp(deps: AppDeps = {}) {
     return state;
   }
 
-  async function checkState(c: AppContext, provider: "github" | "netlify"): Promise<boolean> {
+  async function checkState(c: AppContext, provider: OAuthProvider): Promise<boolean> {
     const cookie = getCookie(c, STATE_COOKIE);
     deleteCookie(c, STATE_COOKIE, { path: "/auth" });
     const expected = cookie ? await unsign(cookie, c.env.SESSION_SECRET) : null;
@@ -199,6 +205,66 @@ export function createApp(deps: AppDeps = {}) {
     }
   });
 
+  // Cloudflare (ADR 0012): offered only when the server has an OAuth client.
+  const cloudflareEnabled = (env: Env) => Boolean(env.CLOUDFLARE_CLIENT_ID && env.CLOUDFLARE_CLIENT_SECRET);
+
+  app.get("/auth/cloudflare/connect", async (c) => {
+    if (!c.get("user")) return c.redirect("/auth/github/login");
+    if (!cloudflareEnabled(c.env)) return fail(c, "Cloudflare is not available on this server.");
+    const url = new URL(CLOUDFLARE_AUTHORIZE);
+    url.searchParams.set("client_id", c.env.CLOUDFLARE_CLIENT_ID!);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("redirect_uri", redirectUri(c, "cloudflare"));
+    url.searchParams.set("scope", CLOUDFLARE_SCOPES.join(" "));
+    url.searchParams.set("state", await startOAuth(c, "cloudflare"));
+    return c.redirect(url.toString());
+  });
+
+  app.get("/auth/cloudflare/callback", async (c) => {
+    const user = c.get("user");
+    if (!user) return fail(c, "Sign in first, then connect Cloudflare.");
+    if (!cloudflareEnabled(c.env)) return fail(c, "Cloudflare is not available on this server.");
+    if (!(await checkState(c, "cloudflare"))) return fail(c, "Cloudflare connection expired or was tampered with. Please try again.");
+    const code = c.req.query("code");
+    if (!code) return fail(c, c.req.query("error_description") ?? "Cloudflare connection was cancelled.");
+    try {
+      const tokens = await exchangeCloudflareCode(fetchImpl, {
+        clientId: c.env.CLOUDFLARE_CLIENT_ID!,
+        clientSecret: c.env.CLOUDFLARE_CLIENT_SECRET!,
+        code,
+        redirectUri: redirectUri(c, "cloudflare"),
+      }, now());
+      const account = await fetchCloudflareUser(fetchImpl, tokens.accessToken);
+      await c.get("store").forUser(user.id).setConnection({
+        provider: "cloudflare",
+        accountLogin: account.login,
+        accessToken: await encrypt(tokens.accessToken, c.env.ENCRYPTION_KEY),
+        refreshToken: tokens.refreshToken ? await encrypt(tokens.refreshToken, c.env.ENCRYPTION_KEY) : null,
+        expiresAt: tokens.expiresAt,
+        meta: null,
+      });
+      return c.redirect("/");
+    } catch (err) {
+      if (err instanceof OAuthError) return fail(c, err.message);
+      throw err;
+    }
+  });
+
+  /** Best effort: a token JAPS no longer keeps should stop working on Cloudflare too. */
+  async function revokeCloudflare(c: AppContext, userId: string): Promise<void> {
+    const connection = await c.get("store").forUser(userId).getConnection("cloudflare");
+    if (!connection || !cloudflareEnabled(c.env)) return;
+    try {
+      await revokeCloudflareToken(fetchImpl, {
+        clientId: c.env.CLOUDFLARE_CLIENT_ID!,
+        clientSecret: c.env.CLOUDFLARE_CLIENT_SECRET!,
+        token: await decrypt(connection.refreshToken ?? connection.accessToken, c.env.ENCRYPTION_KEY),
+      });
+    } catch {
+      // Already revoked or expired: nothing to undo.
+    }
+  }
+
   // --- API (signed-in users only) ---
 
   app.use("/api/*", async (c, next) => {
@@ -213,6 +279,7 @@ export function createApp(deps: AppDeps = {}) {
       user: { login: user.githubLogin, name: user.name, avatarUrl: user.avatarUrl },
       connections: await store.listConnections(),
       quota: await quotaFor(store, c.env, now()),
+      cloudflareAvailable: cloudflareEnabled(c.env),
       // Private repositories are visible only where the GitHub App is installed (ADR 0009).
       githubAppInstallUrl: c.env.GITHUB_APP_SLUG
         ? `https://github.com/apps/${encodeURIComponent(c.env.GITHUB_APP_SLUG)}/installations/new`
@@ -246,7 +313,8 @@ export function createApp(deps: AppDeps = {}) {
   // GitHub is the sign-in itself; only Netlify and an own LLM key can be disconnected.
   app.delete("/api/connections/:provider", async (c) => {
     const provider = c.req.param("provider");
-    if (provider !== "netlify" && provider !== "llm") return c.json({ error: "Cannot disconnect this provider" }, 400);
+    if (provider !== "netlify" && provider !== "cloudflare" && provider !== "llm") return c.json({ error: "Cannot disconnect this provider" }, 400);
+    if (provider === "cloudflare") await revokeCloudflare(c, c.get("user")!.id);
     await c.get("store").forUser(c.get("user")!.id).deleteConnection(provider);
     return c.json({ ok: true });
   });
@@ -273,6 +341,7 @@ export function createApp(deps: AppDeps = {}) {
     } catch {
       // An expired or already revoked token: nothing left to revoke.
     }
+    await revokeCloudflare(c, user.id);
     if (c.env.SHOTS) await deleteUserImages(c.env.SHOTS, user.id);
     await store.deleteAccount();
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
@@ -338,7 +407,9 @@ export function createApp(deps: AppDeps = {}) {
     const user = c.get("user")!;
     const store = c.get("store").forUser(user.id);
     if (!c.env.SYNC_JOBS) return c.json({ error: "Background jobs are not configured on this server." }, 501);
-    if (!(await store.getConnection("netlify"))) return c.json({ error: "Connect Netlify first." }, 400);
+    if (!(await store.getConnection("netlify")) && !(await store.getConnection("cloudflare"))) {
+      return c.json({ error: "Connect Netlify or Cloudflare first." }, 400);
+    }
     const running = await store.latestJob();
     if (isActive(running)) return c.json({ job: running }, 409);
 

@@ -30,6 +30,9 @@ export interface Env {
   BROWSER?: Fetcher;
   SHOTS?: Bucket;
   SHOT_JOBS?: WorkflowBinding<ShotJobParams>;
+  /** Cloudflare OAuth client (ADR 0012); without it, "Connect Cloudflare" isn't offered. */
+  CLOUDFLARE_CLIENT_ID?: string;
+  CLOUDFLARE_CLIENT_SECRET?: string;
   /** Publishing (#34, ADR 0011): fine-grained token allowed to dispatch the build workflow. */
   GITHUB_BUILD_TOKEN?: string;
   /** Repo with .github/workflows/publish.yml, e.g. "Jurgo88/japs". */
