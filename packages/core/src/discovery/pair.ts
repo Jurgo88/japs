@@ -216,7 +216,15 @@ export function buildProjects(
 
   const repos = repoInputs.map(toRepo);
   const repoById = new Map(repos.map((r) => [r.id, r]));
-  const sites = matchByHomepage(applyManualLinks(siteInputs.map(toSite), opts.links ?? [], warnings), repos);
+  const own = new Set(opts.portfolioSiteIds ?? []);
+  const sites = matchByHomepage(
+    applyManualLinks(
+      siteInputs.filter((s) => !own.has(s.id)).map(toSite),
+      opts.links ?? [],
+      warnings,
+    ),
+    repos,
+  );
 
   // Group sites by repo, preserving first-seen order for stable output.
   const groups = new Map<ProjectKey, Group>();

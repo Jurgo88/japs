@@ -220,7 +220,9 @@ export function deriveTech(repos: RepoFacts[], sites: SiteFacts[]): TechFact[] {
 
   for (const site of sites) {
     if (site.provider === "cloudflare") {
-      add(t("Cloudflare Pages", "hosting"), `cloudflare:site:${site.domain}`);
+      // Worker sites have ids "cf:worker:<name>" (ADR 0012); the rest are Pages projects.
+      const product = site.id.startsWith("cf:worker:") ? "Cloudflare Workers" : "Cloudflare Pages";
+      add(t(product, "hosting"), `cloudflare:site:${site.domain}`);
       continue;
     }
     add(t("Netlify", "hosting"), `netlify:site:${site.domain}`);

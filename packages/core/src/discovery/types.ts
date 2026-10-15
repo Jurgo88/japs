@@ -53,6 +53,11 @@ export interface PairingOptions {
   now?: Date;
   /** GitHub login of the account owner; enables committer/owner client signals. */
   accountLogin?: string | null;
+  /**
+   * Sites JAPS itself publishes the portfolio to (publish.json): never a project of their own,
+   * or the portfolio would list itself.
+   */
+  portfolioSiteIds?: string[];
   /** User decisions from japs.config.json (ADR 0004). Core never reads the file itself. */
   links?: ManualLink[];
   merge?: ProjectMerge[];

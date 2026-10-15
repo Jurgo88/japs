@@ -69,7 +69,7 @@ export async function findPagesProject(cf: CloudflareClient, accountId: string, 
   try {
     return toProject(RawProject.parse(await cf.get(`/accounts/${accountId}/pages/projects/${encodeURIComponent(name)}`)));
   } catch (err) {
-    if (err instanceof Error && / 404 /.test(err.message)) return null;
+    if (err instanceof Error && /failed: 404\b/.test(err.message)) return null;
     throw err;
   }
 }

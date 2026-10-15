@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudflareClient, type RawPagesProject, toPagesSiteInput } from "./cloudflare.ts";
+import { CloudflareClient, portfolioSiteIds, type RawPagesProject, toPagesSiteInput, toWorkerSiteInput } from "./cloudflare.ts";
 import { buildProjects } from "./pair.ts";
 import type { RepoInput, SiteInput } from "./types.ts";
 
@@ -109,6 +109,8 @@ describe("CloudflareClient", () => {
       if (url.includes("/accounts/acc-1/pages/projects?page=1")) return ok([project()], { total_pages: 2 });
       if (url.includes("/accounts/acc-1/pages/projects?page=2")) return ok([project({ id: "p2", name: "blog", domains: [] })], { total_pages: 2 });
       if (url.includes("/accounts/acc-2/pages/projects")) return ok([], { total_pages: 0 });
+      // A Pages-only token can't read Workers: none, not an error.
+      if (url.includes("/workers/")) return new Response(JSON.stringify({ success: false, errors: [{ message: "forbidden" }] }), { status: 403 });
       return new Response(JSON.stringify({ success: false, errors: [{ message: "nope" }] }), { status: 404 });
     }) as typeof globalThis.fetch;
 
@@ -121,5 +123,71 @@ describe("CloudflareClient", () => {
     const fetch = (async () =>
       new Response(JSON.stringify({ success: false, errors: [{ code: 10000, message: "Authentication error" }] }), { status: 403 })) as typeof globalThis.fetch;
     await expect(new CloudflareClient({ token: "bad", fetch }).listAccounts()).rejects.toThrow("Cloudflare GET /accounts failed: 403 Authentication error");
+  });
+});
+
+describe("Cloudflare Workers as sites", () => {
+  const script = (id: string, extra = {}) => ({ id, modified_on: "2026-10-10T08:00:00Z", deployment_id: `dep-${id}`, routes: null, ...extra });
+
+  it("takes a Worker with a custom domain, a zone route or workers.dev, and skips backends", () => {
+    expect(toWorkerSiteInput(script("app"), ["app.example.dev"], null)).toMatchObject({
+      id: "cf:worker:app",
+      provider: "cloudflare",
+      url: "https://app.example.dev",
+      customDomain: "app.example.dev",
+      repoUrl: null,
+      deploy: { id: "dep-app", context: "production", publishedAt: "2026-10-10T08:00:00Z" },
+    });
+    expect(toWorkerSiteInput(script("blog", { routes: [{ pattern: "blog.example.dev/*" }] }), [], null)?.url).toBe("https://blog.example.dev");
+    expect(toWorkerSiteInput(script("api", { routes: [{ pattern: "*.example.dev/*" }] }), [], null)).toBeNull();
+    expect(toWorkerSiteInput(script("demo"), [], "demo.dev-user.workers.dev")).toMatchObject({ url: "https://demo.dev-user.workers.dev", customDomain: null });
+    expect(toWorkerSiteInput(script("queue-consumer"), [], null)).toBeNull();
+  });
+
+  it("lists public Workers next to Pages, and pairs them by the repo's homepage", async () => {
+    const ok = (result: unknown) => new Response(JSON.stringify({ success: true, errors: [], result, result_info: { total_pages: 1 } }), { status: 200 });
+    const calls: string[] = [];
+    const fetch = (async (input: string | URL | Request) => {
+      const url = String(input).replace("https://api.cloudflare.com/client/v4", "");
+      calls.push(url);
+      if (url.startsWith("/accounts?")) return ok([{ id: "acc", name: "Dev" }]);
+      if (url.startsWith("/accounts/acc/pages/projects")) return ok([]);
+      if (url === "/accounts/acc/workers/scripts") return ok([script("portfolio-app"), script("demo"), script("cron-job")]);
+      if (url === "/accounts/acc/workers/domains") {
+        // As the real API does: errors: null on success.
+        return new Response(JSON.stringify({ success: true, errors: null, result: [
+          { hostname: "app.example.dev", service: "portfolio-app", enabled: true, environment: "production" },
+          { hostname: "staging.example.dev", service: "demo", enabled: true, environment: "staging" },
+        ] }), { status: 200 });
+      }
+      if (url === "/accounts/acc/workers/subdomain") return ok({ subdomain: "dev-user" });
+      if (url === "/accounts/acc/workers/scripts/demo/subdomain") return ok({ enabled: true });
+      if (url === "/accounts/acc/workers/scripts/cron-job/subdomain") return ok({ enabled: false });
+      return new Response("{}", { status: 404 });
+    }) as typeof globalThis.fetch;
+
+    const sites = await new CloudflareClient({ token: "t", fetch }).listSiteInputs();
+    expect(sites.map((s) => [s.id, s.url])).toEqual([
+      ["cf:worker:portfolio-app", "https://app.example.dev"],
+      ["cf:worker:demo", "https://demo.dev-user.workers.dev"],
+    ]);
+    // A Worker with a custom domain needs no workers.dev check.
+    expect(calls).not.toContain("/accounts/acc/workers/scripts/portfolio-app/subdomain");
+
+    const file = buildProjects(sites, [repo("DevUser/PortfolioApp", { homepage: "https://app.example.dev" })], { now: NOW });
+    expect(file.projects.find((p) => p.key === "repo:devuser/portfolioapp")?.siteIds).toEqual(["cf:worker:portfolio-app"]);
+    expect(file.sites.find((s) => s.id === "cf:worker:portfolio-app")?.matchSource).toBe("homepage");
+  });
+});
+
+describe("the portfolio's own sites", () => {
+  it("are left out of discovery, on Netlify and on Pages", () => {
+    const pages = toPagesSiteInput(project({ id: "pf", name: "jane-portfolio", domains: [], source: null }));
+    const netlify: SiteInput = { id: "nf-pf", name: "jane-portfolio", url: "https://jane-portfolio.netlify.app", customDomain: null, repoUrl: null, deploy: null };
+    const ids = portfolioSiteIds({ netlify: { siteId: "nf-pf" }, cloudflare: { projectId: "pf" } });
+    expect(ids).toEqual(["nf-pf", "cf:pf"]);
+    const file = buildProjects([pages, netlify, toPagesSiteInput(project())], [], { now: NOW, portfolioSiteIds: ids });
+    expect(file.sites.map((s) => s.id)).toEqual(["cf:0b1c2d3e"]);
+    expect(portfolioSiteIds(null)).toEqual([]);
   });
 });
