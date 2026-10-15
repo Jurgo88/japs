@@ -78,6 +78,47 @@ export interface DeployOptions {
 
 const encodePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
 
+/**
+ * The deploy API in single calls, for the hosted version (ADR 0011), where every call is its own
+ * request: create with digests, upload what's required, then check the state.
+ */
+export interface CreatedDeploy {
+  deployId: string;
+  /** SHA-1s Netlify doesn't have yet; each must be uploaded once. */
+  required: string[];
+}
+
+export async function createDeploy(
+  netlify: NetlifyClient,
+  siteId: string,
+  digests: Record<string, string>,
+  draft = false,
+): Promise<CreatedDeploy> {
+  const deploy = RawDeploy.parse(await netlify.send("POST", `/sites/${siteId}/deploys`, { files: digests, draft }));
+  return { deployId: deploy.id, required: [...new Set(deploy.required ?? [])] };
+}
+
+export async function uploadDeployFile(netlify: NetlifyClient, deployId: string, path: string, content: Uint8Array<ArrayBuffer>): Promise<void> {
+  await netlify.send("PUT", `/deploys/${deployId}/files${encodePath(path)}`, content);
+}
+
+export interface DeployState {
+  state: "ready" | "error" | "pending";
+  /** Live URL; for a draft, the unique preview URL. */
+  url: string;
+  error: string | null;
+}
+
+export async function getDeployState(netlify: NetlifyClient, deployId: string, draft = false): Promise<DeployState> {
+  return toState(RawDeploy.parse(await netlify.get(`/deploys/${deployId}`)), draft);
+}
+
+function toState(deploy: z.infer<typeof RawDeploy>, draft: boolean): DeployState {
+  const url = (draft ? deploy.deploy_ssl_url || deploy.deploy_url : deploy.ssl_url) ?? deploy.deploy_ssl_url ?? "";
+  const state = deploy.state === "ready" ? "ready" : deploy.state === "error" ? "error" : "pending";
+  return { state, url, error: deploy.state === "error" ? (deploy.error_message ?? "unknown error") : null };
+}
+
 export async function deploySite(
   netlify: NetlifyClient,
   siteId: string,

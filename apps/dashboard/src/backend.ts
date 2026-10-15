@@ -26,6 +26,17 @@ export interface CloudJob {
   problems: string[];
 }
 
+/** A publish to the user's Netlify (#34). Local publishes finish in one request. */
+export interface PublishStatus {
+  id: string;
+  status: "building" | "deploying" | "live" | "failed";
+  draft: boolean;
+  siteUrl: string;
+  url: string | null;
+  message: string | null;
+  createdAt: string;
+}
+
 export interface BuildSummary {
   projects: number;
   screenshots: number;
@@ -72,6 +83,9 @@ export interface EditorBackend {
   /** Hosted only: the user's own AI key (stored encrypted on the server). */
   saveAiKey(provider: string, model: string, apiKey: string): Promise<void>;
   removeAiKey(): Promise<void>;
+  /** Builds the portfolio with the chosen theme and deploys it to the user's own Netlify site. */
+  publish(draft: boolean): Promise<PublishStatus>;
+  latestPublish(): Promise<PublishStatus | null>;
   /** Hosted only: deletes the account and all its data; `confirm` is the GitHub login. */
   deleteAccount(confirm: string): Promise<void>;
 }
@@ -146,6 +160,14 @@ export class HttpBackend implements EditorBackend {
 
   async latestJob(): Promise<CloudJob | null> {
     return (await this.call<{ job: CloudJob | null }>("/api/jobs/latest")).job;
+  }
+
+  async publish(draft: boolean): Promise<PublishStatus> {
+    return (await this.call<{ publish: PublishStatus }>("/api/publish", { method: "POST", body: JSON.stringify({ draft }) })).publish;
+  }
+
+  async latestPublish(): Promise<PublishStatus | null> {
+    return (await this.call<{ publish: PublishStatus | null }>("/api/publish/latest")).publish;
   }
 
   async deleteAccount(confirm: string): Promise<void> {

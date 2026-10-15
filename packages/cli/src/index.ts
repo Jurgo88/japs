@@ -12,6 +12,7 @@ import {
   type ProjectsFile,
   ProjectsFile as ProjectsFileSchema,
 } from "@japs/schema";
+import { cloudBuild } from "./cloud-build.ts";
 import { CONFIG_FILE, loadConfig, writeStarterConfig } from "./config.ts";
 import { createEditorServer } from "./editor-server.ts";
 import { publishWorkspace } from "./publish.ts";
@@ -49,6 +50,7 @@ Usage:
   japs theme [dev|build|preview] [--theme <id>]   run the configured theme on out/ (or the sample)
   japs edit [--port 4310]                         choose and edit projects in the browser
   japs publish [--draft] [--site-name <name>]     build and deploy to your Netlify (new site on first run)
+  japs cloud-build --build <id> --api <url>       hosted version only: build run by the publish workflow
 
 Options:
   --config <path>   config file (default ${CONFIG_FILE})
@@ -335,6 +337,13 @@ async function runEdit(args: string[]): Promise<void> {
   console.log(`JAPS editor: http://localhost:${port}\nChanges are saved to japs.config.json only when you press Save. Ctrl+C to stop.`);
 }
 
+/** Only for .github/workflows/publish.yml (ADR 0011); prints counts, never portfolio content. */
+async function runCloudBuild(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { build: { type: "string" }, api: { type: "string" } } });
+  if (!values.build || !values.api) throw new WorkspaceError("Usage: japs cloud-build --build <id> --api <url>");
+  await cloudBuild({ buildId: values.build, api: values.api, env: process.env });
+}
+
 async function runPublish(args: string[]): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -437,6 +446,8 @@ async function main(): Promise<void> {
       return runEdit(rest);
     case "publish":
       return runPublish(rest);
+    case "cloud-build":
+      return runCloudBuild(rest);
     case "build":
       return runBuild(rest);
     case "theme":

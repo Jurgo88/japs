@@ -14,8 +14,12 @@ import {
   generateMissing,
   job,
   load,
+  loadPublish,
   missingTexts,
+  publish,
   published,
+  publishing,
+  publishRunning,
   save,
   saveAndBuild,
   signedOut,
@@ -48,10 +52,18 @@ const jobLabel = computed(() => {
   if (j.status === "failed") return j.message ?? "The last import failed.";
   return j.total ? `Done: ${j.done} of ${j.total} projects${j.failed ? `, ${j.failed} with problems` : ""}.` : (j.message ?? "Done.");
 });
+/** Shown while a publish runs, and its outcome when it was started in this session. */
+const publishedNow = ref(false);
+const startPublish = () => {
+  publishedNow.value = true;
+  void publish();
+};
+const showPublish = computed(() => publishing.value !== null && (publishRunning.value || publishedNow.value));
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
 onMounted(async () => {
   await load();
+  if (!signedOut.value) void loadPublish();
   selectedKey.value = projects.value.find(published)?.key ?? projects.value[0]?.key ?? null;
 });
 
@@ -97,11 +109,20 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       <button class="btn" :disabled="!dirty || status.saving" @click="save()">
         {{ status.saving ? "Saving…" : "Save" }}
       </button>
-      <button v-if="!isCloud" class="btn primary" :disabled="status.building || status.saving" @click="saveAndBuild()">
+      <button v-if="!isCloud" class="btn" :disabled="status.building || status.saving" @click="saveAndBuild()">
         {{ status.building ? "Building…" : "Save & build" }}
       </button>
       <button v-if="isCloud && hasNetlify && state?.projects" class="btn" :disabled="jobRunning" @click="startImport()">
         {{ jobRunning ? "Importing…" : "Import again" }}
+      </button>
+      <button
+        v-if="!isCloud || hasNetlify"
+        class="btn primary"
+        :disabled="publishRunning || status.saving || draftIssues.length > 0"
+        title="Build the portfolio with your theme and put it on your Netlify"
+        @click="startPublish()"
+      >
+        {{ publishRunning ? "Publishing…" : "Publish" }}
       </button>
       <template v-if="account">
         <a v-if="!hasNetlify" class="btn" href="/auth/netlify/connect">Connect Netlify</a>
@@ -126,6 +147,23 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
     <ul v-if="status.build.warnings.length" class="muted">
       <li v-for="w in status.build.warnings" :key="w">{{ w }}</li>
     </ul>
+  </div>
+
+  <div v-if="showPublish && publishing" class="banner" :class="{ ok: publishing.status === 'live', error: publishing.status === 'failed' }">
+    <template v-if="publishing.status === 'building'">
+      <strong>Building your site…</strong> <span class="muted">This takes a minute or two.</span>
+    </template>
+    <template v-else-if="publishing.status === 'deploying'"><strong>Uploading to Netlify…</strong></template>
+    <template v-else-if="publishing.status === 'live' && publishing.draft">
+      Draft preview: <a :href="publishing.url ?? publishing.siteUrl" target="_blank" rel="noopener">{{ publishing.url ?? publishing.siteUrl }}</a>
+      <span class="muted"> (the live site is unchanged)</span>
+    </template>
+    <template v-else-if="publishing.status === 'live'">
+      Your portfolio is live: <a :href="publishing.url ?? publishing.siteUrl" target="_blank" rel="noopener">{{ publishing.url ?? publishing.siteUrl }}</a>
+    </template>
+    <template v-else>
+      <strong>Publishing failed.</strong> {{ publishing.message }}
+    </template>
   </div>
 
   <div v-if="isCloud && job && (jobRunning || job.status === 'failed' || job.problems.length)" class="banner" :class="{ error: job.status === 'failed' }">

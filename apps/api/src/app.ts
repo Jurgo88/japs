@@ -16,8 +16,19 @@ import { wrapAnalysis } from "./pipeline.ts";
 import { OWN_KEY_PROVIDERS, quotaFor } from "./llm.ts";
 import { LLM_PRESETS } from "@japs/core";
 import { type Env, REQUIRED_SECRETS } from "./env.ts";
+import { OidcError, verifyActionsToken } from "./oidc.ts";
+import {
+  createBuildDeploy,
+  finishBuild,
+  forwardBuildFile,
+  inputKey,
+  PublishError,
+  refreshPublish,
+  startPublish,
+  toStatus,
+} from "./publish.ts";
 import { deleteUserImages, objectKey } from "./screenshots.ts";
-import { githubToken } from "./tokens.ts";
+import { ConnectionError, githubToken } from "./tokens.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
 /**
@@ -56,8 +67,9 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   // CSRF: state-changing requests must come from our own origin (cookies are SameSite=Lax too).
+  // The builder routes use a bearer token, not cookies, so CSRF doesn't apply to them.
   app.use("*", async (c, next) => {
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
+    if (c.req.method !== "GET" && c.req.method !== "HEAD" && !c.req.path.startsWith("/builder/")) {
       const origin = c.req.header("Origin");
       if (origin !== new URL(c.env.APP_URL).origin) return c.json({ error: "Cross-origin request refused" }, 403);
     }
@@ -398,8 +410,117 @@ export function createApp(deps: AppDeps = {}) {
     });
   });
 
-  // Building and publishing come with #34.
-  app.post("/api/build", (c) => c.json({ error: "Publishing from the hosted version is coming next." }, 501));
+  // --- Publishing (#34, ADR 0011) ---
+
+  const publishDeps = (c: AppContext) => ({ env: c.env, fetch: fetchImpl, now: now() });
+  const publishError = (c: AppContext, err: unknown) => {
+    if (err instanceof PublishError) return c.json({ error: err.message }, err.status);
+    if (err instanceof ConnectionError) return c.json({ error: err.message }, 400);
+    throw err;
+  };
+
+  app.post("/api/publish", async (c) => {
+    const user = c.get("user")!;
+    const { draft } = (await c.req.json().catch(() => ({}))) as { draft?: unknown };
+    try {
+      const build = await startPublish(c.get("store").forUser(user.id), user.id, draft === true, publishDeps(c));
+      return c.json({ publish: toStatus(build) }, 202);
+    } catch (err) {
+      return publishError(c, err);
+    }
+  });
+
+  app.get("/api/publish/latest", async (c) => {
+    const user = c.get("user")!;
+    try {
+      const build = await refreshPublish(c.get("store").forUser(user.id), publishDeps(c));
+      return c.json({ publish: build ? toStatus(build) : null });
+    } catch (err) {
+      return publishError(c, err);
+    }
+  });
+
+  /**
+   * The GitHub Actions run of a build (ADR 0011): an OIDC token from the publish workflow on
+   * main, and the run that claimed the build first. Returns the build's owner and the build.
+   */
+  async function builderAuth(c: AppContext) {
+    const token = c.req.header("Authorization")?.match(/^Bearer (.+)$/)?.[1];
+    if (!token || !c.env.JAPS_BUILD_REPO) return null;
+    let runId: string;
+    try {
+      ({ runId } = await verifyActionsToken(token, {
+        audience: new URL(c.env.APP_URL).origin,
+        repository: c.env.JAPS_BUILD_REPO,
+        fetch: fetchImpl,
+        now: now(),
+      }));
+    } catch (err) {
+      if (err instanceof OidcError) return null;
+      throw err;
+    }
+    const buildId = c.req.param("id") ?? "";
+    const userId = await c.get("store").buildOwner(buildId);
+    if (!userId) return null;
+    const user = c.get("store").forUser(userId);
+    if (!(await user.claimBuildRun(buildId, runId))) return null;
+    const build = await user.getBuild(buildId);
+    return build ? { userId, user, build } : null;
+  }
+  const denied = (c: AppContext) => c.json({ error: "Not allowed" }, 403);
+
+  app.get("/builder/builds/:id/input", async (c) => {
+    const auth = await builderAuth(c);
+    if (!auth || !c.env.SHOTS) return denied(c);
+    const object = await c.env.SHOTS.get(inputKey(auth.userId, auth.build.id));
+    if (!object) return c.json({ error: "This build has no input any more." }, 410);
+    return new Response(object.body, { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+  });
+
+  app.get("/builder/builds/:id/screenshots/:file", async (c) => {
+    const auth = await builderAuth(c);
+    const file = c.req.param("file");
+    if (!auth || !c.env.SHOTS) return denied(c);
+    const object = /^[\w.-]+\.jpg$/.test(file) ? await c.env.SHOTS.get(objectKey(auth.userId, file)) : null;
+    if (!object) return c.json({ error: "Not found" }, 404);
+    return new Response(object.body, { headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" } });
+  });
+
+  app.post("/builder/builds/:id/deploy", async (c) => {
+    const auth = await builderAuth(c);
+    if (!auth) return denied(c);
+    const { files } = (await c.req.json().catch(() => ({}))) as { files?: unknown };
+    try {
+      return c.json({ required: await createBuildDeploy(auth.user, auth.build, files, publishDeps(c)) });
+    } catch (err) {
+      return publishError(c, err);
+    }
+  });
+
+  app.put("/builder/builds/:id/files/*", async (c) => {
+    const auth = await builderAuth(c);
+    if (!auth) return denied(c);
+    const prefix = `/builder/builds/${auth.build.id}/files`;
+    const path = decodeURIComponent(c.req.path.slice(prefix.length));
+    const content = new Uint8Array(await c.req.arrayBuffer());
+    try {
+      await forwardBuildFile(auth.user, auth.build, path, content, publishDeps(c));
+      return c.json({ ok: true });
+    } catch (err) {
+      return publishError(c, err);
+    }
+  });
+
+  app.post("/builder/builds/:id/finish", async (c) => {
+    const auth = await builderAuth(c);
+    if (!auth || !c.env.SHOTS) return denied(c);
+    const body = (await c.req.json().catch(() => ({}))) as { ok?: unknown; message?: unknown };
+    await finishBuild(auth.user, auth.userId, auth.build, { ok: body.ok === true, message: typeof body.message === "string" ? body.message : undefined }, c.env.SHOTS);
+    return c.json({ ok: true });
+  });
+
+  // The local editor's build endpoint; in the cloud, Publish replaces it.
+  app.post("/api/build", (c) => c.json({ error: "Use Publish in the hosted version." }, 501));
 
   // Everything else is the dashboard (static assets, client-side routing); unknown API paths are 404.
   app.notFound(async (c) => {

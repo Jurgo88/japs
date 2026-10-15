@@ -246,6 +246,9 @@ importers:
       playwright:
         specifier: ^1.64.0
         version: 1.64.0
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       tsx:
         specifier: ^4.19.0

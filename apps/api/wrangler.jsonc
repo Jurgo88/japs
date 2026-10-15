@@ -12,7 +12,7 @@
     "directory": "../dashboard/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/auth/*"]
+    "run_worker_first": ["/api/*", "/auth/*", "/builder/*"]
   },
   // japs.app is in the same Cloudflare account; wrangler creates the DNS record and certificate.
   "routes": [{ "pattern": "japs.app", "custom_domain": true }],
@@ -44,6 +44,8 @@
     "GITHUB_APP_SLUG": "japs-portfolio",
     "JAPS_LLM_MODEL": "gpt-5-mini",
     // AI generations per user and month on the shared key; then the user adds an own key.
-    "JAPS_FREE_GENERATIONS": "50"
+    "JAPS_FREE_GENERATIONS": "50",
+    // Where the publish workflow lives (ADR 0011); its token is the secret GITHUB_BUILD_TOKEN.
+    "JAPS_BUILD_REPO": "Jurgo88/japs"
   }
 }
