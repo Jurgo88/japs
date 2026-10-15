@@ -153,8 +153,8 @@ export const CLOUDFLARE_AUTHORIZE = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_TOKEN = "https://dash.cloudflare.com/oauth2/token";
 const CLOUDFLARE_REVOKE = "https://dash.cloudflare.com/oauth2/revoke";
 
-/** Pages read for discovery, Pages write to publish there, account and user for names. */
-export const CLOUDFLARE_SCOPES = ["page.read", "page.write", "account-settings.read", "user-details.read", "offline_access"];
+/** Pages and Workers read for discovery, Pages write to publish there, account and user for names. */
+export const CLOUDFLARE_SCOPES = ["page.read", "page.write", "workers-scripts.read", "account-settings.read", "user-details.read", "offline_access"];
 
 export interface OAuthTokens {
   accessToken: string;

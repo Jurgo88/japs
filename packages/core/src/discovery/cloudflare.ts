@@ -93,6 +93,66 @@ export function toPagesSiteInput(raw: RawPagesProject): SiteInput {
   };
 }
 
+// --- Workers with a public address (ADR 0012): custom domains, zone routes, workers.dev ---
+
+/** Worker site ids: "cf:worker:<script name>", apart from Pages ids. */
+export const WORKER_SITE_PREFIX = `${CLOUDFLARE_SITE_PREFIX}worker:`;
+
+const RawWorkerScript = z.object({
+  id: z.string(),
+  modified_on: z.string().nullish(),
+  deployment_id: z.string().nullish(),
+  routes: z.array(z.object({ pattern: z.string() }).passthrough()).nullish(),
+});
+export type RawWorkerScript = z.infer<typeof RawWorkerScript>;
+
+const RawWorkerDomain = z.object({
+  hostname: z.string(),
+  service: z.string(),
+  enabled: z.boolean().nullish(),
+  environment: z.string().nullish(),
+});
+export type RawWorkerDomain = z.infer<typeof RawWorkerDomain>;
+
+/** "shop.example.com/*" -> "shop.example.com"; wildcard hosts aren't one address. */
+function routeHost(pattern: string): string | null {
+  const host = pattern.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+  return host && !host.includes("*") ? host : null;
+}
+
+/**
+ * A Worker as a site, when it has an address people can open: a custom domain, a zone route
+ * or workers.dev. Without one it's a backend, not a project to show. Workers name no repo
+ * here (Workers Builds isn't read yet), so they pair by the repo's homepage or a manual link.
+ */
+export function toWorkerSiteInput(script: RawWorkerScript, customHosts: string[], workersDev: string | null): SiteInput | null {
+  const hosts = [...customHosts, ...(script.routes ?? []).flatMap((r) => routeHost(r.pattern) ?? [])];
+  const customDomain = hosts[0] ?? null;
+  const url = customDomain ? `https://${customDomain}` : workersDev ? `https://${workersDev}` : null;
+  if (!url) return null;
+  return {
+    id: `${WORKER_SITE_PREFIX}${script.id}`,
+    provider: "cloudflare",
+    name: script.id,
+    url,
+    customDomain,
+    repoUrl: null,
+    deploy: {
+      id: script.deployment_id ?? script.id,
+      commitUrl: null,
+      reviewUrl: null,
+      framework: null,
+      screenshotUrl: null,
+      context: "production",
+      publishedAt: script.modified_on ?? null,
+      committer: null,
+    },
+  };
+}
+
+/** At most this many per-script workers.dev checks, to stay within the cloud's request budget. */
+const MAX_WORKERS_DEV_CHECKS = 20;
+
 export interface CloudflareClientOptions {
   token: string;
   fetch?: typeof fetch;
@@ -160,10 +220,48 @@ export class CloudflareClient {
     return z.array(RawPagesProject).parse(await this.list(`/accounts/${accountId}/pages/projects`, 10));
   }
 
-  /** Pages projects of every account, as sites. */
+  /**
+   * Workers with a public address. Without Workers permission (a Pages-only token, or an older
+   * OAuth grant) there are simply none, not an error.
+   */
+  async listWorkerSiteInputs(accountId: string): Promise<SiteInput[]> {
+    let scripts: RawWorkerScript[];
+    try {
+      scripts = z.array(RawWorkerScript).parse(await this.get(`/accounts/${accountId}/workers/scripts`));
+    } catch (err) {
+      if (err instanceof Error && /failed: (401|403|404)\b/.test(err.message)) return [];
+      throw err;
+    }
+    if (!scripts.length) return [];
+    const domains = z
+      .array(RawWorkerDomain)
+      .parse((await this.get(`/accounts/${accountId}/workers/domains`).catch(() => [])) ?? [])
+      .filter((d) => d.enabled !== false && (d.environment ?? "production") === "production");
+    const subdomain = await this.get(`/accounts/${accountId}/workers/subdomain`)
+      .then((r) => z.object({ subdomain: z.string() }).parse(r).subdomain)
+      .catch(() => null);
+
+    const hostsOf = (name: string) => domains.filter((d) => d.service === name).map((d) => d.hostname);
+    // workers.dev only matters for Workers without a custom address; it's one request each.
+    const devChecks = subdomain ? scripts.filter((s) => !hostsOf(s.id).length && !s.routes?.length).slice(0, MAX_WORKERS_DEV_CHECKS) : [];
+    const onWorkersDev = new Set<string>();
+    await Promise.all(
+      devChecks.map(async (s) => {
+        const result = await this.get(`/accounts/${accountId}/workers/scripts/${encodeURIComponent(s.id)}/subdomain`).catch(() => null);
+        if (z.object({ enabled: z.boolean() }).safeParse(result).data?.enabled) onWorkersDev.add(s.id);
+      }),
+    );
+    return scripts.flatMap(
+      (s) => toWorkerSiteInput(s, hostsOf(s.id), onWorkersDev.has(s.id) ? `${s.id}.${subdomain}.workers.dev` : null) ?? [],
+    );
+  }
+
+  /** Pages projects and public Workers of every account, as sites. */
   async listSiteInputs(): Promise<SiteInput[]> {
     const accounts = await this.listAccounts();
-    const projects = await Promise.all(accounts.map((a) => this.listPagesProjects(a.id)));
-    return projects.flat().map(toPagesSiteInput);
+    const perAccount = await Promise.all(
+      accounts.map(async (a) => [...(await this.listPagesProjects(a.id)).map(toPagesSiteInput), ...(await this.listWorkerSiteInputs(a.id))]),
+    );
+    return perAccount.flat();
   }
 }
