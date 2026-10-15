@@ -6,6 +6,7 @@ import {
   isPublished,
   NetlifyClient,
   type LlmClient,
+  portfolioSiteIds,
 } from "@japs/core";
 import {
   type AnalysisFile,
@@ -14,6 +15,7 @@ import {
   type ProjectAnalysis,
   type ProjectFacts,
   type ProjectsFile,
+  PublishState,
 } from "@japs/schema";
 import type { UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
@@ -57,7 +59,9 @@ export async function runDiscovery(user: UserStore, deps: PipelineDeps): Promise
   const netlify = await optionalNetlifyToken(user, deps.env);
   const cloudflare = await cloudflareToken(user, deps.env, deps.fetch, now);
   if (!netlify && !cloudflare) throw new ConnectionError("Connect Netlify or Cloudflare first.");
+  const published = PublishState.safeParse(await user.getDocument("publish")).data ?? null;
   const file = await discover({
+    portfolioSiteIds: portfolioSiteIds(published),
     netlifyToken: netlify ?? undefined,
     cloudflareToken: cloudflare ?? undefined,
     githubToken: await githubToken(user, deps.env, deps.fetch, now),

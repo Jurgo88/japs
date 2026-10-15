@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudflareClient, type RawPagesProject, toPagesSiteInput, toWorkerSiteInput } from "./cloudflare.ts";
+import { CloudflareClient, portfolioSiteIds, type RawPagesProject, toPagesSiteInput, toWorkerSiteInput } from "./cloudflare.ts";
 import { buildProjects } from "./pair.ts";
 import type { RepoInput, SiteInput } from "./types.ts";
 
@@ -177,5 +177,17 @@ describe("Cloudflare Workers as sites", () => {
     const file = buildProjects(sites, [repo("DevUser/PortfolioApp", { homepage: "https://app.example.dev" })], { now: NOW });
     expect(file.projects.find((p) => p.key === "repo:devuser/portfolioapp")?.siteIds).toEqual(["cf:worker:portfolio-app"]);
     expect(file.sites.find((s) => s.id === "cf:worker:portfolio-app")?.matchSource).toBe("homepage");
+  });
+});
+
+describe("the portfolio's own sites", () => {
+  it("are left out of discovery, on Netlify and on Pages", () => {
+    const pages = toPagesSiteInput(project({ id: "pf", name: "jane-portfolio", domains: [], source: null }));
+    const netlify: SiteInput = { id: "nf-pf", name: "jane-portfolio", url: "https://jane-portfolio.netlify.app", customDomain: null, repoUrl: null, deploy: null };
+    const ids = portfolioSiteIds({ netlify: { siteId: "nf-pf" }, cloudflare: { projectId: "pf" } });
+    expect(ids).toEqual(["nf-pf", "cf:pf"]);
+    const file = buildProjects([pages, netlify, toPagesSiteInput(project())], [], { now: NOW, portfolioSiteIds: ids });
+    expect(file.sites.map((s) => s.id)).toEqual(["cf:0b1c2d3e"]);
+    expect(portfolioSiteIds(null)).toEqual([]);
   });
 });

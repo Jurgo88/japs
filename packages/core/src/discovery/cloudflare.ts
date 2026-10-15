@@ -13,6 +13,13 @@ const API = "https://api.cloudflare.com/client/v4";
 /** Site ids get a prefix, so project keys ("site:cf:<id>") never collide with Netlify ids. */
 export const CLOUDFLARE_SITE_PREFIX = "cf:";
 
+/** Discovery ids of the sites JAPS publishes the portfolio to, from publish.json. */
+export function portfolioSiteIds(state: { netlify?: { siteId: string } | null; cloudflare?: { projectId: string } | null } | null): string[] {
+  return [state?.netlify?.siteId, state?.cloudflare ? `${CLOUDFLARE_SITE_PREFIX}${state.cloudflare.projectId}` : undefined].filter(
+    (id): id is string => Boolean(id),
+  );
+}
+
 const Envelope = z.object({
   success: z.boolean(),
   // Some endpoints (e.g. /workers/domains) send errors: null on success.

@@ -2,6 +2,7 @@ export { discover, type DiscoverOptions } from "./discovery/discover.ts";
 export {
   CLOUDFLARE_SITE_PREFIX,
   CloudflareClient,
+  portfolioSiteIds,
   type RawPagesProject,
   type RawWorkerDomain,
   type RawWorkerScript,

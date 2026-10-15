@@ -4,13 +4,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { discover, screenshotTargets } from "@japs/core";
+import { discover, portfolioSiteIds, screenshotTargets } from "@japs/core";
 import {
   type JapsConfig,
   Locale,
   type Project,
   type ProjectsFile,
   ProjectsFile as ProjectsFileSchema,
+  PublishState,
   PublishTarget,
 } from "@japs/schema";
 import { cloudBuild } from "./cloud-build.ts";
@@ -19,7 +20,7 @@ import { createEditorServer } from "./editor-server.ts";
 import { publishWorkspace } from "./publish.ts";
 import { captureScreenshots, PlaywrightMissingError, SCREENSHOTS_DIR } from "./screenshots.ts";
 import { parseThemeId, runThemeScript, themeDir } from "./theme.ts";
-import { analyzeWorkspace, buildWorkspace, factsWorkspace, resolveWorkspace, WorkspaceError } from "./workspace.ts";
+import { analyzeWorkspace, buildWorkspace, factsWorkspace, readOptional, resolveWorkspace, WorkspaceError } from "./workspace.ts";
 
 /**
  * Directory the user ran the command from. `pnpm --filter … start` switches cwd to
@@ -144,10 +145,14 @@ async function runDiscover(args: string[]): Promise<void> {
   const githubToken = process.env.GITHUB_TOKEN || undefined;
   if (!githubToken) console.warn("GITHUB_TOKEN not set — repos without a Netlify site will be missing.\n");
 
+  // The portfolio's own site (japs publish) is not a project.
+  const ws = resolveWorkspace(userCwd, { config: values.config });
+  const published = await readOptional(ws.publish, PublishState).catch(() => null);
   const file = await discover({
     netlifyToken,
     cloudflareToken,
     githubToken,
+    portfolioSiteIds: portfolioSiteIds(published),
     staleAfterMonths,
     includeOrgRepos: config?.discovery.includeOrgRepos,
     links: config?.links,
