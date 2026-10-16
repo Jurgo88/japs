@@ -9,6 +9,9 @@ export const THEMES = [
   { id: "editorial", label: "Editorial", description: "Magazine feel: serif type on paper, projects as chapters." },
   { id: "studio", label: "Studio", description: "Dark and bold: wide type, project index with a cursor preview." },
   { id: "gallery", label: "Gallery", description: "Playful and colourful: big statement, projects in a sideways-scrolling gallery." },
+  { id: "fieldnotes", label: "Fieldnotes", description: "A considered project journal: archival details, warm paper and vivid field marks." },
+  { id: "riot", label: "Riot", description: "A loud cut-and-paste portfolio with comic panels and electric print colours." },
+  { id: "orbit", label: "Orbit", description: "An interactive project constellation with GSAP motion and a live case-file display." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];

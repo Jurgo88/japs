@@ -253,6 +253,24 @@ importers:
         specifier: ^3.15.0
         version: 3.15.0
 
+  apps/theme-fieldnotes:
+    dependencies:
+      '@fontsource-variable/archivo':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/dm-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   apps/theme-gallery:
     dependencies:
       '@fontsource-variable/bricolage-grotesque':
@@ -270,6 +288,45 @@ importers:
       gsap:
         specifier: ^3.15.0
         version: 3.15.0
+
+  apps/theme-orbit:
+    dependencies:
+      '@fontsource-variable/space-grotesk':
+        specifier: ^5.2.6
+        version: 5.3.0
+      '@fontsource/dm-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
+
+  apps/theme-riot:
+    dependencies:
+      '@fontsource-variable/bricolage-grotesque':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/dm-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
 
   apps/theme-studio:
     dependencies:
@@ -729,6 +786,9 @@ packages:
 
   '@fontsource-variable/fraunces@5.3.0':
     resolution: {integrity: sha512-9BYGySn4AHEJdgp9Z28tQ3X+laJMEOITXkQarZXeloWQZDq5oOvXJ3kDA8c7MGIfpogIaZfjrQBqmda8POOCKA==}
+
+  '@fontsource-variable/space-grotesk@5.3.0':
+    resolution: {integrity: sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==}
 
   '@fontsource/dm-mono@5.3.0':
     resolution: {integrity: sha512-OINjI8C1S/wpchhQxl7njZdMn4+hnDCpQ4YtvvOpKNARo+0J8O1x1IcrChxNjHOhfVv1by8C/FQoy3hXK+C1Ug==}
@@ -2611,6 +2671,8 @@ snapshots:
   '@fontsource-variable/bricolage-grotesque@5.3.0': {}
 
   '@fontsource-variable/fraunces@5.3.0': {}
+
+  '@fontsource-variable/space-grotesk@5.3.0': {}
 
   '@fontsource/dm-mono@5.3.0': {}
 

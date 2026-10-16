@@ -1,0 +1,168 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, portfolioStats, projectUrl, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { locale: string }
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stats = portfolioStats(portfolio);
+const tags = tagCounts(portfolio).slice(0, 10);
+const firstName = profile.name.trim().split(/\s+/)[0] ?? profile.name;
+const colors = ["lemon", "cyan", "pink", "orange"];
+const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? "").slice(0, 4);
+const pad = (n: number) => String(n + 1).padStart(2, "0");
+---
+
+<Base locale={locale} title={`${profile.name} — ${text(profile.headline, locale)}`} description={text(profile.headline, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))} homeHref={home(locale)}>
+  <section class="cover">
+    <div class="cover-stamp mono"><span>{tt(locale, "issue")} Nº 01</span><span>VOL. {new Date().getFullYear()}</span></div>
+    <div class="cover-copy">
+      <p class="hello">HEY, I'M <span>{firstName}!</span></p>
+      <h1>{profile.name}<b aria-hidden="true">✳</b></h1>
+      <p class="role">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+      <div class="cover-links mono">
+        {profile.email && <a href={`mailto:${profile.email}`}>{profile.email} ↗</a>}
+        {profile.links.map((link) => <a href={link.url} rel="me noopener">{link.label} ↗</a>)}
+      </div>
+    </div>
+    <aside class="cover-aside">
+      <div class="scribble" aria-hidden="true">GOOD<br />IDEAS<br /><span>ONLY*</span></div>
+      <p class="aside-note">* AND A FEW<br />QUESTIONABLE ONES</p>
+      <a class="jump mono" href="#work">{tt(locale, "archive")} <span aria-hidden="true">↓</span></a>
+    </aside>
+    <div class="cover-bottom"><span class="issue-line"></span><span>{tt(locale, "punchline")}</span><span class="cover-count">{String(projects.length).padStart(2, "0")} PROJECTS</span></div>
+  </section>
+
+  <section class="work" id="work" aria-labelledby="work-title">
+    <header class="section-heading"><div><span class="eyebrow">{tt(locale, "selected")}</span><h2 id="work-title">{tt(locale, "archive")}<i aria-hidden="true">!</i></h2></div><span class="section-number mono">01 — {String(projects.length).padStart(2, "0")}</span></header>
+    <div class="project-grid">
+      {projects.map((project, i) => {
+        const shot = coverShot(project);
+        return (
+          <a class:list={["project", `color-${colors[i % colors.length]}`, { featured: i === 0 || i % 5 === 3 }]} href={projectUrl(project, locale, portfolio)}>
+            <div class="panel-top mono"><span>CASE FILE / {pad(i)}</span><span>{year(project) || "—"}</span></div>
+            <div class="project-visual">
+              {shot ? <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading={i > 1 ? "lazy" : "eager"} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} /> : <span class="no-shot" aria-hidden="true">{text(project.title, locale).charAt(0)}</span>}
+              <span class="project-mark" aria-hidden="true">{pad(i)}</span>
+              <span class="arrow" aria-hidden="true">↗</span>
+            </div>
+            <div class="project-caption"><div><h3>{text(project.title, locale)}</h3><p>{text(project.summary, locale)}</p></div><span class="burst" aria-hidden="true">!</span></div>
+            <div class="project-tags mono">{project.client.isClient && <span class="client">{tt(locale, "clientWork")}</span>}{project.tags.slice(0, 4).map((tag) => <span>{tag}</span>)}</div>
+          </a>
+        );
+      })}
+    </div>
+  </section>
+
+  <section class="toolbox" aria-labelledby="toolbox-title">
+    <div class="toolbox-head"><span class="eyebrow">THE TOOLBOX</span><h2 id="toolbox-title">{tt(locale, "tools")}<span aria-hidden="true">*</span></h2><p>* the stuff that makes the stuff</p></div>
+    <div class="tool-cloud">{tags.map(({ tag }, i) => <span class={`tag-color-${i % 4}`}>{tag}</span>)}</div>
+    <ul class="stats"><li><b>{stats.projects}</b><span>{tt(locale, "projects")}</span></li><li><b>{stats.technologies}</b><span>{tt(locale, "technologies")}</span></li>{stats.years !== null && <li><b>{stats.years}</b><span>{tt(locale, "years")}</span></li>}</ul>
+  </section>
+</Base>
+
+<style>
+  .cover { position: relative; min-height: 570px; padding: 42px var(--pad) 22px; display: grid; grid-template-columns: minmax(0, 1fr) 220px; grid-template-rows: auto 1fr auto; gap: 28px; overflow: hidden; border-bottom: 2px solid var(--ink); background: var(--lemon); }
+  .cover::after { position: absolute; right: 36%; top: 23%; width: 160px; height: 160px; border: 2px solid var(--ink); border-radius: 50%; content: ""; opacity: .15; box-shadow: 0 0 0 16px var(--lemon), 0 0 0 18px var(--ink), 0 0 0 34px var(--lemon), 0 0 0 36px var(--ink); pointer-events: none; }
+  .cover-stamp { grid-column: 1 / -1; display: flex; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
+  .cover-copy { position: relative; z-index: 1; align-self: center; }
+  .hello { margin: 0 0 6px; font: 12px/1.4 var(--mono); }
+  .hello span { padding: 1px 5px; background: var(--pink); }
+  .cover h1 { max-width: 10ch; margin: 0; font-size: 112px; line-height: .8; font-weight: 900; overflow-wrap: anywhere; }
+  .cover h1 b { display: inline-block; margin-left: 5px; color: var(--orange); font-size: .46em; vertical-align: top; }
+  .role { max-width: 28ch; margin: 22px 0 0; font-size: 25px; line-height: 1.1; font-weight: 700; }
+  .bio { max-width: 46ch; margin: 12px 0 0; font-size: 15px; }
+  .cover-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; font-size: 10px; }
+  .cover-links a { border-bottom: 1px solid var(--ink); }
+  .cover-links a:hover { color: var(--orange); border-color: var(--orange); }
+  .cover-aside { position: relative; z-index: 1; align-self: center; display: grid; justify-items: center; }
+  .scribble { width: 164px; aspect-ratio: 1; display: grid; align-content: center; rotate: 8deg; border: 3px solid var(--ink); border-radius: 50%; background: var(--pink); text-align: center; font-size: 24px; line-height: .86; font-weight: 900; }
+  .scribble span { color: var(--orange); }
+  .aside-note { margin: 14px 0 0; rotate: -4deg; text-align: center; font: 10px/1.4 var(--mono); }
+  .jump { margin-top: 32px; padding: 9px 12px; rotate: -3deg; border: 2px solid var(--ink); background: var(--cyan); }
+  .jump span { margin-left: 12px; }
+  .cover-bottom { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; font: 10px/1.5 var(--mono); text-transform: uppercase; }
+  .issue-line { width: 48px; height: 2px; background: var(--orange); }
+  .cover-count { margin-left: auto; }
+  .work { padding: 70px var(--pad) 0; }
+  .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding-bottom: 15px; border-bottom: 2px solid var(--ink); }
+  .section-heading h2, .toolbox h2 { margin: 3px 0 0; font-size: 50px; line-height: .95; font-weight: 900; }
+  .section-heading h2 i { color: var(--orange); font-style: normal; }
+  .section-number { padding: 6px 8px; rotate: 3deg; background: var(--cyan); }
+  .project-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding-top: 24px; }
+  .project { min-width: 0; display: grid; align-content: start; padding: 12px; border: 2px solid var(--ink); background: var(--orange); box-shadow: 5px 5px 0 var(--ink); transition: translate .18s, box-shadow .18s; }
+  .project:hover, .project:focus-visible { translate: -2px -2px; box-shadow: 8px 8px 0 var(--ink); }
+  .project.featured { grid-column: span 2; }
+  .color-lemon { background: var(--lemon); }
+  .color-cyan { background: var(--cyan); }
+  .color-pink { background: var(--pink); }
+  .color-orange { background: var(--orange); }
+  .panel-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+  .project-visual { position: relative; display: grid; place-items: center; aspect-ratio: 1.65; overflow: hidden; border: 2px solid var(--ink); background: var(--paper); }
+  .project.featured .project-visual { aspect-ratio: 2.35; }
+  .project-visual img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: scale .3s; }
+  .project:hover .project-visual img { scale: 1.025; }
+  .no-shot { color: var(--orange); font-size: 100px; font-weight: 900; }
+  .project-mark { position: absolute; top: 9px; left: 9px; min-width: 38px; padding: 5px; rotate: -5deg; border: 2px solid var(--ink); background: var(--lemon); text-align: center; font: 10px/1.3 var(--mono); }
+  .arrow { position: absolute; right: 9px; bottom: 9px; width: 36px; height: 36px; display: grid; place-items: center; rotate: -5deg; border: 2px solid var(--ink); background: var(--pink); font-size: 18px; }
+  .project-caption { display: flex; justify-content: space-between; gap: 12px; padding: 13px 1px 9px; }
+  .project-caption h3 { margin: 0; font-size: 29px; line-height: 1; font-weight: 800; overflow-wrap: anywhere; }
+  .project-caption p { max-width: 60ch; margin: 6px 0 0; font-size: 13px; line-height: 1.35; }
+  .burst { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; rotate: 8deg; border: 2px solid var(--ink); border-radius: 50%; background: var(--paper); font-size: 20px; font-weight: 900; }
+  .project-tags { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 8px; border-top: 1px solid var(--ink); font-size: 9px; }
+  .project-tags span { padding: 2px 5px; border: 1px solid var(--ink); }
+  .project-tags .client { background: var(--paper); }
+  .toolbox { margin: 80px var(--pad) 0; padding: 24px; border: 2px solid var(--ink); background: var(--cyan); box-shadow: 6px 6px 0 var(--ink); }
+  .toolbox-head { display: flex; align-items: end; gap: 15px; flex-wrap: wrap; }
+  .toolbox h2 { font-size: 42px; }
+  .toolbox h2 span { color: var(--orange); }
+  .toolbox-head p { margin: 0 0 4px; font: 10px/1.4 var(--mono); }
+  .tool-cloud { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 24px 0; }
+  .tool-cloud span { padding: 6px 10px; border: 2px solid var(--ink); font-size: 16px; font-weight: 700; }
+  .tag-color-0 { rotate: -2deg; background: var(--lemon); }
+  .tag-color-1 { rotate: 1deg; background: var(--pink); }
+  .tag-color-2 { rotate: -1deg; background: var(--paper); }
+  .tag-color-3 { rotate: 2deg; background: var(--orange); }
+  .stats { display: flex; flex-wrap: wrap; gap: 18px 38px; margin: 0; padding: 15px 0 0; border-top: 1px solid var(--ink); list-style: none; }
+  .stats li { display: grid; gap: 1px; }
+  .stats b { font-size: 28px; line-height: 1; }
+  .stats span { font: 9px/1.5 var(--mono); text-transform: uppercase; }
+  @media (max-width: 780px) {
+    .cover { min-height: 500px; grid-template-columns: minmax(0, 1fr) 150px; }
+    .cover h1 { font-size: 82px; }
+    .scribble { width: 132px; font-size: 20px; }
+    .project.featured .project-visual { aspect-ratio: 1.8; }
+  }
+  @media (max-width: 560px) {
+    .cover { min-height: 0; grid-template-columns: minmax(0, 1fr); gap: 25px; padding-top: 24px; }
+    .cover-stamp { grid-column: 1; }
+    .cover-copy { padding: 16px 0 0; }
+    .cover h1 { max-width: 9ch; font-size: 68px; }
+    .role { max-width: 24ch; font-size: 22px; }
+    .cover-aside { position: absolute; right: 23px; top: 120px; }
+    .scribble { width: 96px; border-width: 2px; font-size: 15px; }
+    .aside-note { display: none; }
+    .jump { margin-top: 13px; padding: 6px 8px; font-size: 9px; }
+    .cover-bottom { grid-column: 1; }
+    .work { padding-top: 48px; }
+    .section-heading h2 { font-size: 38px; }
+    .project-grid { grid-template-columns: minmax(0, 1fr); gap: 17px; }
+    .project.featured { grid-column: auto; }
+    .project.featured .project-visual, .project-visual { aspect-ratio: 1.5; }
+    .project-caption h3 { font-size: 25px; }
+    .toolbox { margin-top: 54px; padding: 18px; }
+    .toolbox h2 { font-size: 34px; }
+  }
+  @media (max-width: 390px) {
+    .cover h1 { font-size: 56px; }
+    .cover-aside { right: 18px; top: 115px; }
+    .scribble { width: 80px; font-size: 13px; }
+    .role { max-width: 20ch; font-size: 20px; }
+    .section-number { font-size: 9px; }
+  }
+</style>

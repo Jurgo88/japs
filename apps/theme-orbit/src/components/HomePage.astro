@@ -1,0 +1,232 @@
+---
+import { coverShot, formatMonth, loadPortfolio, localePrefix, orderedProjects, projectUrl, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { locale: string }
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const projects = orderedProjects(portfolio);
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const selected = projects[0];
+const selectedShot = selected ? coverShot(selected) : undefined;
+const period = (project: (typeof projects)[number]) => {
+  const from = formatMonth(project.period.from, locale);
+  const to = formatMonth(project.period.to, locale) ?? (project.period.from ? tt(locale, "present") : "");
+  return from ? `${from} – ${to}` : to;
+};
+const pad = (n: number) => String(n + 1).padStart(2, "0");
+---
+
+<Base locale={locale} title={`${profile.name} — ${text(profile.headline, locale)}`} description={text(profile.headline, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))} homeHref={home(locale)}>
+  <div class="page-shell">
+    <section class="intro-bar">
+      <div class="intro-copy"><span class="eyebrow">{tt(locale, "constellation")} / {new Date().getFullYear()}</span><h1>{profile.name}<span class="period">.</span></h1><p>{text(profile.headline, locale)}</p></div>
+      <div class="intro-aside">{text(profile.bio, locale) && <p>{text(profile.bio, locale)}</p>}<span class="mono">{profile.location ?? "INDEPENDENT PRACTICE"}</span></div>
+    </section>
+
+    <section class="map-section" aria-label={tt(locale, "constellation")}>
+      <div class="map-label mono"><span>{tt(locale, "orbitIndex")}</span><span>{String(projects.length).padStart(2, "0")} {tt(locale, "projects").toUpperCase()}</span></div>
+      <div class="orbit-stage" data-orbit-stage>
+        <div class="star-field" aria-hidden="true"></div>
+        <div class="orbit-ring ring-outer" data-orbit-ring aria-hidden="true"><i></i></div>
+        <div class="orbit-ring ring-mid" data-orbit-ring aria-hidden="true"><i></i></div>
+        <div class="orbit-ring ring-core" data-orbit-ring aria-hidden="true"><i></i></div>
+        <div class="orbit-ring ring-inner" data-orbit-ring aria-hidden="true"><i></i></div>
+        <div class="orbit-hub">
+          <span class="hub-pulse" data-hub-pulse aria-hidden="true"></span>
+          <div class="hub-top mono"><span>PROFILE / 01</span>{profile.available === true && <span class="hub-status"><i></i>{tt(locale, "available")}</span>}</div>
+          <strong>{profile.name}</strong>
+          <span class="hub-role">{text(profile.headline, locale)}</span>
+          {text(profile.bio, locale) && <span class="hub-bio">{text(profile.bio, locale)}</span>}
+          <div class="hub-bottom mono"><span>{profile.location ?? "INDEPENDENT"}</span><span>CORE SIGNAL</span></div>
+        </div>
+        <nav class="orbit-nodes" data-orbit-nodes aria-label={tt(locale, "constellation")}>
+          {projects.map((project, i) => {
+            const shot = coverShot(project);
+            return (
+              <a
+                class:list={["orbit-node", { selected: i === 0 }]}
+                href={projectUrl(project, locale, portfolio)}
+                aria-label={`${pad(i)}: ${text(project.title, locale)}`}
+                aria-current={i === 0 ? "true" : undefined}
+                data-orbit-node
+                data-title={text(project.title, locale)}
+                data-summary={text(project.summary, locale)}
+                data-index={pad(i)}
+                data-image={shot ? `/${shot.src}` : ""}
+                data-alt={shot ? text(shot.alt, locale) : ""}
+                data-tags={project.tags.slice(0, 5).join(" · ")}
+                data-role={project.role ? text(project.role, locale) : ""}
+                data-period={period(project)}
+                data-live={project.links.live ?? ""}
+                data-repo={project.links.repo ?? ""}
+              >
+                <span class="planet-body">
+                  {shot ? <img src={`/${shot.src}`} alt="" loading="lazy" width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} /> : <span class="planet-initial">{text(project.title, locale).slice(0, 1)}</span>}
+                </span>
+                <span class="planet-label">{text(project.title, locale)}</span>
+                <b>{pad(i)}</b>
+              </a>
+            );
+          })}
+        </nav>
+      </div>
+      <div class="map-legend mono"><span><i class="legend-core"></i>{tt(locale, "signal")}</span><span><i class="legend-project"></i>{tt(locale, "projects")}</span><span class="legend-hint">{tt(locale, "coordinates")} / {profile.location ?? "EARTH"}</span></div>
+    </section>
+
+    {selected && <section class="dossier" data-dossier aria-live="polite" aria-atomic="true">
+      <div class="dossier-heading"><span class="eyebrow">{tt(locale, "dossier")}</span><span class="dossier-index mono" data-detail-index>{pad(0)}</span></div>
+      <div class="dossier-content">
+        <a class="dossier-image" data-detail-image-frame href={projectUrl(selected, locale, portfolio)} aria-label={`${tt(locale, "openCase")}: ${text(selected.title, locale)}`} hidden={!selectedShot}>
+          <img data-detail-image src={selectedShot ? `/${selectedShot.src}` : ""} alt={selectedShot ? text(selectedShot.alt, locale) : ""} width={selectedShot?.viewport === "mobile" ? 390 : 1440} height={selectedShot?.viewport === "mobile" ? 844 : 900} hidden={!selectedShot} />
+          <span class="image-label mono">{tt(locale, "signal")} / {pad(0)}</span>
+        </a>
+        <div class="image-empty" data-detail-placeholder hidden={Boolean(selectedShot)} aria-hidden="true"><span>{text(selected.title, locale).slice(0, 1)}</span></div>
+        <div class="dossier-copy">
+          <h2 data-detail-title>{text(selected.title, locale)}</h2>
+          <p class="dossier-summary" data-detail-summary>{text(selected.summary, locale)}</p>
+          <div class="dossier-facts mono"><span data-detail-role>{selected.role ? text(selected.role, locale) : ""}</span><span data-detail-period>{period(selected)}</span><span data-detail-tags>{selected.tags.slice(0, 5).join(" · ")}</span></div>
+          <div class="dossier-actions">
+            <a class="open-case" data-open-case href={projectUrl(selected, locale, portfolio)}>{tt(locale, "openCase")} <span aria-hidden="true">↗</span></a>
+            <a class="external-link" data-detail-live href={selected.links.live ?? "#"} hidden={!selected.links.live} rel="noopener">{tt(locale, "live")} ↗</a>
+            <a class="external-link" data-detail-repo href={selected.links.repo ?? "#"} hidden={!selected.links.repo} rel="noopener">{tt(locale, "source")} ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>}
+  </div>
+</Base>
+
+<style>
+  .page-shell { max-width: 1600px; margin: 0 auto; padding: 0 var(--pad); }
+  .intro-bar { min-height: 145px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .55fr); gap: 28px; align-items: end; padding: 25px 0 20px; }
+  .intro-copy .eyebrow { color: var(--teal); }
+  h1 { margin: 5px 0 0; font-size: 44px; line-height: 1; font-weight: 500; }
+  .period { color: var(--coral); }
+  .intro-copy > p { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
+  .intro-aside { max-width: 42ch; justify-self: end; color: var(--muted); font-size: 13px; }
+  .intro-aside p { margin: 0 0 8px; }
+  .intro-aside .mono { color: var(--teal); }
+  .map-section { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .map-label, .map-legend { min-height: 34px; display: flex; justify-content: space-between; align-items: center; gap: 14px; color: var(--muted); }
+  .orbit-stage { position: relative; height: clamp(640px, 76svh, 820px); overflow: hidden; isolation: isolate; background-color: #dce9e7; background-image: radial-gradient(circle at 50% 50%, #f1f6f4 0, #e4eeec 54%, #dce9e7 100%); }
+  .star-field { position: absolute; inset: 0; z-index: -1; opacity: .48; background-image: radial-gradient(circle, var(--teal) .7px, transparent 1px), radial-gradient(circle, var(--coral) .7px, transparent 1px); background-position: 0 0, 31px 47px; background-size: 63px 63px, 89px 89px; mask-image: radial-gradient(ellipse at center, black 5%, transparent 75%); }
+  .orbit-ring { position: absolute; top: 50%; left: 50%; border: 1px solid rgb(0 127 134 / .23); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+  .ring-outer { width: min(96%, 1360px); height: 78%; border-style: dashed; border-color: rgb(0 127 134 / .36); }
+  .ring-mid { width: 88%; height: 72%; border-style: dotted; }
+  .ring-core { width: 80%; height: 67%; border-color: rgb(0 127 134 / .28); }
+  .ring-inner { width: 72%; height: 64%; border-style: dashed; border-color: rgb(0 127 134 / .3); }
+  .orbit-ring i { position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 5px rgb(242 105 78 / .14), 0 0 16px rgb(242 105 78 / .5); }
+  .ring-mid i { width: 7px; height: 7px; background: #e34f43; box-shadow: 0 0 0 4px rgb(227 79 67 / .14), 0 0 13px rgb(227 79 67 / .45); }
+  .ring-core i { width: 8px; height: 8px; background: #f2694e; }
+  .ring-inner i { width: 6px; height: 6px; background: var(--teal); box-shadow: 0 0 0 4px rgb(0 127 134 / .13), 0 0 12px rgb(0 127 134 / .42); }
+  .orbit-hub { position: absolute; z-index: 1; top: 50%; left: 50%; width: min(420px, 36vw); aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px; transform: translate(-50%, -50%); border: 1px solid #caad5c; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #fff9d9 0, #f6e6a8 44%, #e8cf7e 100%); color: #31494a; text-align: center; box-shadow: 0 0 0 10px rgb(214 210 89 / .16), 0 0 44px rgb(214 210 89 / .34), 0 20px 58px rgb(21 54 59 / .2); }
+  .hub-pulse { position: absolute; inset: -10px; border: 1px solid rgb(202 173 92 / .55); border-radius: 50%; opacity: .7; pointer-events: none; }
+  .hub-top, .hub-bottom { position: relative; z-index: 1; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #597171; font-size: 10px; }
+  .orbit-hub strong { position: relative; z-index: 1; max-width: 100%; margin-top: 16px; overflow: hidden; color: #17383c; font-size: clamp(34px, 3.2vw, 48px); line-height: 1; font-weight: 600; text-overflow: ellipsis; }
+  .hub-role { position: relative; z-index: 1; display: -webkit-box; max-width: 28ch; margin-top: 10px; overflow: hidden; color: #38575a; font-size: 16px; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .hub-bio { position: relative; z-index: 1; display: -webkit-box; max-width: 34ch; margin-top: 10px; overflow: hidden; color: #587173; font-size: 13px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  .hub-bottom { margin-top: 16px; padding-top: 10px; border-top: 1px solid rgb(85 110 109 / .3); color: #587173; }
+  .hub-status { display: flex; align-items: center; gap: 5px; color: var(--teal); font: 8px/1.3 var(--mono); text-transform: uppercase; }
+  .hub-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--coral); }
+  .orbit-nodes { position: absolute; z-index: 2; inset: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); align-content: center; justify-items: center; gap: 16px; padding: 24px; }
+  .orbit-node { position: relative; width: 72px; min-height: 74px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .orbit-node img { display: none; }
+  .orbit-node > .planet-initial { font-size: 20px; font-weight: 600; }
+  .orbit-node b { font: 8px/1.2 var(--mono); }
+  .planet-label { font-size: 11px; line-height: 1.2; }
+  .orbit-node:hover, .orbit-node:focus-visible, .orbit-node.selected { border-color: var(--coral); background: white; box-shadow: 0 0 0 3px rgb(242 105 78 / .2), 0 5px 18px rgb(21 54 59 / .15); }
+  .orbit-ready .orbit-nodes { display: block; padding: 0; pointer-events: none; }
+  .orbit-ready .orbit-node { position: absolute; top: 50%; left: 50%; width: clamp(76px, 6vw, 96px); min-height: 0; aspect-ratio: 1; display: block; padding: 0; overflow: visible; border: 2px solid white; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 1px var(--teal), 0 8px 20px rgb(21 54 59 / .2); pointer-events: auto; transition: border-color .2s, box-shadow .2s; }
+  .orbit-ready .planet-body { position: absolute; inset: 0; display: grid; overflow: visible; border-radius: 50%; pointer-events: none; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .orbit-ready .planet-body > img, .orbit-ready .planet-initial { position: absolute; inset: 0; width: 100%; height: 100%; display: grid; place-items: center; border-radius: 50%; object-fit: cover; object-position: center; color: white; font-size: 30px; font-weight: 600; }
+  .orbit-ready .planet-label { position: absolute; top: calc(100% + 8px); left: 50%; width: max-content; max-width: 148px; padding: 4px 7px; transform: translateX(-50%); border: 1px solid rgb(21 54 59 / .16); border-radius: 4px; background: rgb(244 247 245 / .93); color: var(--ink); font-size: 10px; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+  .orbit-ready .orbit-node b { position: absolute; top: -5px; right: -6px; min-width: 22px; padding: 3px 4px; border: 1px solid white; border-radius: 10px; background: var(--ink); color: white; text-align: center; font: 8px/1.2 var(--mono); }
+  .orbit-ready .planet-label { transform: translate(-50%, 4px); opacity: 0; visibility: hidden; transition: opacity .18s, transform .18s, visibility .18s; }
+  .orbit-ready .orbit-node:hover .planet-label, .orbit-ready .orbit-node:focus-visible .planet-label, .orbit-ready .orbit-node.selected .planet-label { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
+  .orbit-ready .orbit-node:hover .planet-body, .orbit-ready .orbit-node:focus-visible .planet-body { transform: scale(3.5); }
+  .orbit-ready .orbit-node:hover, .orbit-ready .orbit-node:focus-visible { z-index: 5; border-color: var(--coral); box-shadow: 0 0 0 4px rgb(242 105 78 / .3), 0 14px 34px rgb(21 54 59 / .3); }
+  .orbit-ready .orbit-node.selected { z-index: 3; border-color: var(--coral); box-shadow: 0 0 0 4px rgb(242 105 78 / .27), 0 10px 26px rgb(21 54 59 / .23); }
+  .map-legend { justify-content: flex-start; min-height: 40px; gap: 20px; }
+  .map-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+  .map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--coral); }
+  .map-legend .legend-project { background: var(--teal); }
+  .map-legend .legend-hint { margin-left: auto; color: var(--teal); }
+  .dossier { padding: 27px 0 0; }
+  .dossier-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+  .dossier-heading .eyebrow { color: var(--teal); }
+  .dossier-index { color: var(--coral); }
+  .dossier-content { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: clamp(24px, 5vw, 68px); align-items: center; padding-top: 20px; }
+  .dossier-image, .image-empty { position: relative; display: grid; min-height: 240px; place-items: center; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+  .dossier-image[hidden], .image-empty[hidden] { display: none; }
+  .dossier-image img { width: 100%; max-height: 430px; object-fit: cover; object-position: top; transition: scale .4s; }
+  .dossier-image:hover img { scale: 1.02; }
+  .image-label { position: absolute; right: 9px; bottom: 9px; padding: 5px 7px; background: var(--ink); color: white; font-size: 8px; }
+  .image-empty { background: linear-gradient(140deg, #c6dbd8, #edf3ef); color: var(--teal); font-size: 96px; }
+  .dossier-copy h2 { margin: 0; font-size: clamp(31px, 4vw, 52px); line-height: 1; font-weight: 500; overflow-wrap: anywhere; }
+  .dossier-summary { max-width: 52ch; margin: 14px 0 0; color: #3f6064; font-size: 16px; line-height: 1.55; }
+  .dossier-facts { display: flex; flex-wrap: wrap; gap: 7px 15px; margin-top: 18px; color: var(--muted); font-size: 9px; }
+  .dossier-facts span:empty { display: none; }
+  .dossier-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; margin-top: 22px; }
+  .dossier-actions a[hidden] { display: none; }
+  .open-case { padding: 10px 13px; background: var(--teal); color: white; font: 10px/1.4 var(--mono); transition: background .2s; }
+  .open-case span { color: var(--lime); }
+  .open-case:hover { background: var(--ink); }
+  .external-link { color: var(--muted); font: 9px/1.4 var(--mono); }
+  .external-link:hover { color: var(--coral); }
+  @media (max-width: 760px) {
+    .intro-bar { min-height: 0; grid-template-columns: 1fr; gap: 8px; padding: 20px 0 16px; }
+    .intro-aside { justify-self: start; }
+    .intro-aside p { max-width: 55ch; }
+    .orbit-stage { height: clamp(500px, 64svh, 620px); }
+    .ring-outer { width: 94%; height: 82%; }
+    .ring-mid { width: 88%; height: 76%; }
+    .ring-core { width: 82%; height: 70%; }
+    .ring-inner { width: 76%; height: 66%; }
+    .orbit-hub { width: min(290px, 64vw); aspect-ratio: 1; padding: 30px; }
+    .orbit-hub strong { margin-top: 10px; font-size: 30px; }
+    .hub-top, .hub-bottom { font-size: 9px; }
+    .hub-role { margin-top: 7px; font-size: 13px; }
+    .hub-bio { display: none; }
+    .hub-bottom { margin-top: 10px; padding-top: 6px; font-size: 7px; }
+    .hub-bio { font-size: 9px; }
+    .orbit-ready .orbit-node { width: 70px; }
+    .orbit-ready .planet-label { max-width: 100px; font-size: 9px; }
+    .dossier-content { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .dossier-image, .image-empty { min-height: 180px; max-height: 360px; }
+  }
+  @media (max-width: 430px) {
+    .orbit-stage { height: 440px; }
+    .ring-outer { width: 94%; height: 80%; }
+    .ring-mid { width: 88%; height: 74%; }
+    .ring-core { width: 82%; height: 68%; }
+    .ring-inner { width: 76%; height: 62%; }
+    .orbit-hub { width: min(220px, 58vw); aspect-ratio: 1; padding: 22px; }
+    .orbit-hub strong { margin-top: 8px; font-size: 25px; }
+    .hub-role { margin-top: 6px; font-size: 11px; line-height: 1.25; }
+    .hub-bio { display: none; }
+    .hub-top, .hub-bottom { font-size: 8px; }
+    .hub-bottom { margin-top: 9px; padding-top: 7px; }
+    .orbit-ready .orbit-node { width: 48px; }
+    .orbit-ready .planet-label { display: none; }
+    .orbit-nodes { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 12px; padding: 18px; }
+    .map-legend { gap: 12px; font-size: 8px; }
+    .map-legend .legend-hint { display: none; }
+    .dossier-copy h2 { font-size: 35px; }
+  }
+  @media (max-width: 360px) {
+    .ring-outer { width: 94%; height: 80%; }
+    .ring-mid { width: 90%; height: 74%; }
+    .ring-core { width: 86%; height: 68%; }
+    .ring-inner { width: 82%; height: 62%; }
+    .orbit-hub { width: 194px; aspect-ratio: 1; padding: 17px; }
+    .orbit-hub strong { font-size: 22px; }
+    .hub-top, .hub-bottom { font-size: 7px; }
+    .orbit-ready .orbit-node { width: 42px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>

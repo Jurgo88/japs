@@ -1,0 +1,67 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { project: PortfolioProject; locale: string }
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const ordered = orderedProjects(portfolio);
+const title = text(project.title, locale);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+---
+
+<Base locale={locale} title={`${title} — ${portfolio.profile.name}`} description={text(project.summary, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))} homeHref={home}>
+  <article class="project-record">
+    <a class="back mono" href={`${home}#work`}>← {tt(locale, "constellation")}</a>
+    <div class="record-heading"><span class="eyebrow">{tt(locale, "signal")} / {String(index + 1).padStart(2, "0")}</span><h1>{title}</h1><p>{text(project.summary, locale)}</p></div>
+    {desktop && <figure class="record-shot"><img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" /></figure>}
+    <div class="record-body">
+      <aside class="record-facts"><div><span class="mono">{tt(locale, "role")}</span><p>{project.role ? text(project.role, locale) : "—"}</p></div><div><span class="mono">{tt(locale, "period")}</span><p>{period}</p></div><div><span class="mono">{tt(locale, "stack")}</span><p>{project.tags.join(" · ") || "—"}</p></div>{project.client.isClient && <div><span class="mono">{tt(locale, "clientWork")}</span><p>{project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")}</p></div>}<div class="record-links">{project.links.live && <a href={project.links.live} rel="noopener">{tt(locale, "live")} ↗</a>}{project.links.repo && <a href={project.links.repo} rel="noopener">{tt(locale, "source")} ↗</a>}</div>{mobile && <figure class="mobile-shot"><img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" /></figure>}</aside>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+    </div>
+    {next && <a class="next-project" href={projectUrl(next, locale, portfolio)}><span class="eyebrow">{tt(locale, "next")}</span><span>{text(next.title, locale)} <i aria-hidden="true">↗</i></span></a>}
+  </article>
+</Base>
+
+<style>
+  .project-record { max-width: 1440px; margin: 0 auto; padding: 25px var(--pad) 0; }
+  .back { color: var(--muted); }
+  .back:hover { color: var(--teal); }
+  .record-heading { max-width: 900px; padding: 56px 0 30px; }
+  .eyebrow { color: var(--teal); }
+  h1 { margin: 10px 0 0; font-size: clamp(42px, 7vw, 88px); line-height: .98; font-weight: 500; overflow-wrap: anywhere; }
+  .record-heading p { max-width: 58ch; margin: 14px 0 0; color: var(--muted); font-size: 20px; }
+  .record-shot { margin: 0; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+  .record-shot img { width: 100%; max-height: 700px; object-fit: cover; object-position: top; }
+  .record-body { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(0, 1.35fr); gap: 64px; align-items: start; padding-top: 48px; }
+  .record-facts > div { padding: 11px 0; border-top: 1px solid var(--line); }
+  .record-facts > div:last-child { border-bottom: 1px solid var(--line); }
+  .record-facts p { margin: 4px 0 0; font-size: 13px; }
+  .record-facts .mono { color: var(--muted); }
+  .record-links { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+  .record-links a { color: var(--teal); font: 10px/1.4 var(--mono); }
+  .record-links a:hover { color: var(--coral); }
+  .mobile-shot { width: min(100%, 240px); margin: 18px 0 0; padding: 6px; border: 1px solid var(--line); background: var(--surface); }
+  .mobile-shot img { width: 100%; }
+  .description { max-width: 66ch; font-size: 18px; line-height: 1.7; }
+  .description :global(h2), .description :global(h3) { margin: 1.8em 0 .55em; font-weight: 500; line-height: 1.15; }
+  .description :global(h2) { font-size: 30px; }
+  .description :global(h3) { font-size: 23px; }
+  .description :global(p) { margin: 0 0 1.2em; }
+  .description :global(a) { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+  .description :global(ul), .description :global(ol) { padding-left: 1.35em; }
+  .next-project { display: grid; gap: 10px; margin-top: 76px; padding: 18px 0; border-block: 1px solid var(--ink); }
+  .next-project > span:last-child { font-size: 42px; line-height: 1.05; }
+  .next-project i { color: var(--coral); font-style: normal; }
+  .next-project:hover > span:last-child { color: var(--teal); }
+  @media (max-width: 700px) { .record-body { grid-template-columns: 1fr; gap: 28px; padding-top: 34px; } .record-heading { padding-top: 42px; } }
+</style>

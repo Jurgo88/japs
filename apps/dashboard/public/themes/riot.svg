@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Riot theme preview">
+  <rect width="640" height="400" fill="#f4f0e6"/>
+  <path d="M0 0h640v36H0z" fill="#ff5238"/>
+  <text x="18" y="24" fill="#1b1b19" font-family="monospace" font-size="10" font-weight="700">JAPS INDEPENDENT WORKS ✳ LOUD IDEAS ONLY ✳</text>
+  <rect x="0" y="36" width="640" height="226" fill="#f4ed45"/>
+  <circle cx="520" cy="150" r="72" fill="#ff91b7" stroke="#1b1b19" stroke-width="4"/>
+  <text x="520" y="142" fill="#1b1b19" font-family="Arial,sans-serif" font-size="25" font-weight="900" text-anchor="middle">GOOD</text>
+  <text x="520" y="169" fill="#1b1b19" font-family="Arial,sans-serif" font-size="25" font-weight="900" text-anchor="middle">IDEAS!</text>
+  <text x="26" y="83" fill="#1b1b19" font-family="monospace" font-size="10">HEY, I'M JURAI!</text>
+  <text x="24" y="164" fill="#1b1b19" font-family="Arial,sans-serif" font-size="73" font-weight="900">JURAI</text>
+  <text x="27" y="195" fill="#ff5238" font-family="Arial,sans-serif" font-size="19" font-weight="700">DESIGNER · DEVELOPER · MENACE</text>
+  <rect x="0" y="262" width="640" height="138" fill="#f4f0e6"/>
+  <text x="22" y="290" fill="#1b1b19" font-family="monospace" font-size="10">01 / SELECTED CHAOS</text>
+  <rect x="22" y="305" width="270" height="78" fill="#48d5cd" stroke="#1b1b19" stroke-width="3"/>
+  <path d="M22 366 95 321l42 26 41-31 114 49v18H22z" fill="#1b1b19" fill-opacity=".72"/>
+  <rect x="310" y="305" width="306" height="78" fill="#ff5238" stroke="#1b1b19" stroke-width="3"/>
+  <text x="327" y="334" fill="#1b1b19" font-family="Arial,sans-serif" font-size="23" font-weight="900">PROJECT TITLE!</text>
+  <text x="328" y="357" fill="#1b1b19" font-family="monospace" font-size="9">VUE · DESIGN · GOOD CHAOS</text>
+</svg>
