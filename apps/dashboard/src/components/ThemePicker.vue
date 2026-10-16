@@ -31,7 +31,7 @@ function choose(id: ThemeId): void {
         :class="{ active: current === theme.id }"
         @click="choose(theme.id)"
       >
-        <img :src="`/themes/${theme.id}.jpg`" :alt="`${theme.label} theme preview`" width="640" height="400" loading="lazy" />
+        <img :src="['fieldnotes', 'riot', 'orbit'].includes(theme.id) ? `/themes/${theme.id}.svg` : `/themes/${theme.id}.jpg`" :alt="`${theme.label} theme preview`" width="640" height="400" loading="lazy" />
         <span class="name">
           {{ theme.label }}
           <span v-if="current === theme.id" class="badge">Selected</span>

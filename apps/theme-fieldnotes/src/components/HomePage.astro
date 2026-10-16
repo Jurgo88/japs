@@ -1,0 +1,139 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, projectUrl, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { locale: string }
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const formatIndex = (n: number) => String(n + 1).padStart(2, "0");
+const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? "").slice(0, 4);
+---
+
+<Base locale={locale} title={`${profile.name} — ${text(profile.headline, locale)}`} description={text(profile.headline, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))} homeHref={home(locale)}>
+  <section class="intro">
+    <div class="intro-label mono"><span>FIELD LOG / 01</span><span>{tt(locale, "selected")}</span></div>
+    <div class="intro-grid">
+      <div class="identity">
+        <h1>{profile.name}</h1>
+        <p class="headline">{text(profile.headline, locale)}</p>
+        {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+        <div class="profile-links mono">
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email} ↗</a>}
+          {profile.links.map((link) => <a href={link.url} rel="me noopener">{link.label} ↗</a>)}
+        </div>
+      </div>
+      <aside class="index-note">
+        <span class="index-mark" aria-hidden="true">{formatIndex(projects.length > 0 ? 0 : 0)}</span>
+        <div class="index-copy">
+          <span class="eyebrow">{tt(locale, "archive")}</span>
+          <strong>{String(projects.length).padStart(2, "0")} <span>{tt(locale, "projects").toLowerCase()}</span></strong>
+          <span class="mono note-foot">{profile.location ?? "Independent practice"}</span>
+        </div>
+      </aside>
+    </div>
+    <a class="scroll-cue mono" href="#work"><span class="cue-line" aria-hidden="true"></span>{tt(locale, "projects")} <span aria-hidden="true">↓</span></a>
+  </section>
+
+  <section class="archive" id="work" aria-labelledby="archive-title">
+    <div class="archive-head">
+      <h2 id="archive-title">{tt(locale, "archive")}</h2>
+      <span class="mono">{String(projects.length).padStart(2, "0")} / {new Date().getFullYear()}</span>
+    </div>
+    <ol class="entries">
+      {projects.map((project, i) => {
+        const shot = coverShot(project);
+        return (
+          <li class="entry">
+            <a class="entry-link" href={projectUrl(project, locale, portfolio)}>
+              <span class="entry-number mono">{formatIndex(i)}</span>
+              <div class="entry-image">
+                {shot ? <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading={i > 1 ? "lazy" : "eager"} width="1440" height="900" /> : <span class="image-placeholder" aria-hidden="true">{formatIndex(i)}</span>}
+                <span class="image-arrow" aria-hidden="true">↗</span>
+              </div>
+              <div class="entry-info">
+                <div class="entry-title-row"><h3>{text(project.title, locale)}</h3><span class="entry-year mono">{year(project)}</span></div>
+                <p>{text(project.summary, locale)}</p>
+                <div class="entry-meta mono">
+                  {project.client.isClient && <span class="client-mark">{tt(locale, "clientWork")}</span>}
+                  <span>{project.tags.slice(0, 4).join(" · ")}</span>
+                </div>
+              </div>
+            </a>
+          </li>
+        );
+      })}
+    </ol>
+  </section>
+</Base>
+
+<style>
+  .intro { padding: 24px var(--gutter) 34px; min-height: 590px; display: flex; flex-direction: column; }
+  .intro-label { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--rule); color: var(--muted); }
+  .intro-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(220px, .55fr); gap: 48px; align-items: center; padding: 44px 0 48px; }
+  .identity h1 { max-width: 11ch; margin: 0; font-size: 82px; line-height: .94; font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; }
+  .headline { max-width: 32ch; margin: 24px 0 0; color: var(--signal); font-size: 24px; line-height: 1.22; }
+  .bio { max-width: 52ch; margin: 18px 0 0; color: #4f6258; font-size: 16px; }
+  .profile-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 26px; color: var(--muted); }
+  .profile-links a:hover { color: var(--signal); }
+  .index-note { min-height: 270px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--ink); background: var(--paper-deep); }
+  .index-mark { font: 500 76px/.9 var(--sans); color: var(--signal); }
+  .index-copy { display: grid; gap: 8px; }
+  .index-copy strong { font-size: 25px; line-height: 1.1; font-weight: 500; }
+  .index-copy strong span { color: var(--muted); font-size: 16px; }
+  .note-foot { color: var(--muted); }
+  .scroll-cue { display: flex; align-items: center; gap: 10px; align-self: flex-start; color: var(--muted); }
+  .scroll-cue > span:last-child { color: var(--signal); font-size: 16px; }
+  .cue-line { width: 42px; height: 1px; background: var(--signal); }
+  .archive { padding: 0 var(--gutter); }
+  .archive-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 0; border-block: 1px solid var(--ink); }
+  .archive-head h2 { margin: 0; font: 11px/1.5 var(--mono); text-transform: uppercase; }
+  .archive-head > span { color: var(--muted); }
+  .entries { margin: 0; padding: 0; list-style: none; counter-reset: entry; }
+  .entry { border-bottom: 1px solid var(--rule); }
+  .entry-link { display: grid; grid-template-columns: 52px minmax(260px, .95fr) minmax(250px, 1.05fr); gap: 28px; align-items: center; padding: 24px 0; }
+  .entry-number { align-self: start; padding-top: 4px; color: var(--signal); }
+  .entry-image { position: relative; overflow: hidden; aspect-ratio: 1.62; background: var(--moss); }
+  .entry-image img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform .5s cubic-bezier(.2,.65,.3,1); }
+  .entry-link:hover .entry-image img { transform: scale(1.035); }
+  .image-placeholder { display: grid; width: 100%; height: 100%; place-items: center; color: var(--paper); font: 500 60px/1 var(--mono); }
+  .image-arrow { position: absolute; right: 10px; bottom: 10px; width: 34px; height: 34px; display: grid; place-items: center; background: var(--signal); color: var(--paper); font-size: 17px; }
+  .entry-info { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+  .entry-title-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .entry-title-row h3 { margin: 0; font-size: 29px; font-weight: 500; line-height: 1.12; }
+  .entry-year { flex: 0 0 auto; color: var(--muted); }
+  .entry-info p { max-width: 48ch; margin: 12px 0 20px; color: #53645a; font-size: 15px; }
+  .entry-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--muted); }
+  .client-mark { color: var(--signal); }
+  @media (max-width: 900px) {
+    .intro { min-height: 520px; }
+    .intro-grid { grid-template-columns: minmax(0, 1.2fr) minmax(190px, .8fr); gap: 28px; }
+    .identity h1 { font-size: 64px; }
+    .entry-link { grid-template-columns: 36px minmax(220px, .95fr) minmax(200px, 1.05fr); gap: 18px; }
+    .entry-title-row h3 { font-size: 24px; }
+  }
+  @media (max-width: 650px) {
+    .intro { min-height: 0; padding-top: 18px; }
+    .intro-grid { grid-template-columns: 1fr; gap: 28px; padding: 38px 0 28px; }
+    .identity h1 { max-width: 10ch; font-size: 52px; }
+    .headline { margin-top: 18px; font-size: 21px; }
+    .index-note { min-height: 145px; padding: 16px; flex-direction: row; align-items: flex-end; }
+    .index-mark { font-size: 56px; }
+    .index-copy { justify-items: end; text-align: right; }
+    .entry-link { grid-template-columns: 32px minmax(0, 1fr); gap: 12px; padding: 20px 0 22px; }
+    .entry-number { grid-row: 1 / span 2; }
+    .entry-image { grid-column: 2; }
+    .entry-info { grid-column: 2; }
+    .entry-info p { margin: 9px 0 14px; }
+    .entry-title-row h3 { font-size: 23px; }
+  }
+  @media (max-width: 390px) {
+    .identity h1 { font-size: 44px; }
+    .entry-title-row { align-items: flex-start; }
+    .entry-title-row h3 { font-size: 21px; }
+    .entry-year { font-size: 10px; }
+  }
+</style>

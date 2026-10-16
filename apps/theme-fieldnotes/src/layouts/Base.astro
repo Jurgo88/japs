@@ -1,0 +1,143 @@
+---
+import "@fontsource-variable/archivo";
+import "@fontsource/dm-mono/400.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#f1f0e8" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='9' fill='%23e85d3f'/><path d='M12 9h16v4H12zm0 9h16v4H12zm0 9h10v4H12z' fill='%23f1f0e8'/></svg>`} />
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="wordmark" href={homeHref} aria-label={`${profile.name} portfolio`}>
+        <span class="mark" aria-hidden="true">F.</span>
+        <span>FIELDNOTES <span class="wordmark-sub">/ PORTFOLIO</span></span>
+      </a>
+      <div class="head-meta">
+        {profile.location && <span>{profile.location}</span>}
+        {profile.available !== null && <span class:list={["availability", { active: profile.available }]}>{tt(locale, profile.available ? "available" : "unavailable")}</span>}
+        {alternates.length > 1 && (
+          <nav class="languages" aria-label={tt(locale, "language")}>
+            {alternates.map((a) => <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>{a.locale.toUpperCase()}</a>)}
+          </nav>
+        )}
+      </div>
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="footer">
+      <div class="footer-callout">
+        <span class="eyebrow">{tt(locale, "contact")}</span>
+        {profile.email && <a class="contact-link" href={`mailto:${profile.email}`}>{tt(locale, "sayHello")} <span aria-hidden="true">↗</span></a>}
+        {!profile.email && <span class="contact-link">{profile.name}</span>}
+      </div>
+      <div class="footer-bottom">
+        <span>© {new Date().getFullYear()} {profile.name}</span>
+        <span class="footer-links">
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+          {profile.links.map((link) => <a href={link.url} rel="me noopener">{link.label} ↗</a>)}
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --paper: #f1f0e8;
+    --paper-deep: #e7e5d9;
+    --ink: #20352d;
+    --muted: #68766d;
+    --rule: #c9c9ba;
+    --signal: #e85d3f;
+    --moss: #9daa7b;
+    --sans: "Archivo Variable", "Helvetica Neue", sans-serif;
+    --mono: "DM Mono", "Courier New", monospace;
+    --gutter: 56px;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-width: 320px;
+    background-color: var(--paper);
+    background-image: linear-gradient(to right, rgba(32, 53, 45, .025) 1px, transparent 1px);
+    background-size: 80px 100%;
+    color: var(--ink);
+    font: 17px/1.55 var(--sans);
+  }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; height: auto; }
+  ::selection { background: var(--signal); color: var(--paper); }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; }
+  .eyebrow, .mono { font-family: var(--mono); font-size: 11px; line-height: 1.5; text-transform: uppercase; }
+  .eyebrow { color: var(--muted); }
+  .masthead {
+    min-height: 74px;
+    padding: 15px var(--gutter);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .wordmark { display: flex; align-items: center; gap: 11px; font: 500 12px/1 var(--mono); }
+  .mark { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--signal); color: var(--paper); font: 500 17px/1 var(--sans); }
+  .wordmark-sub { color: var(--muted); }
+  .head-meta { display: flex; align-items: center; gap: 22px; color: var(--muted); font: 11px/1.4 var(--mono); }
+  .availability { display: inline-flex; align-items: center; gap: 8px; }
+  .availability::before { width: 7px; height: 7px; content: ""; border: 1px solid currentColor; border-radius: 50%; }
+  .availability.active { color: var(--ink); }
+  .availability.active::before { border-color: var(--signal); background: var(--signal); }
+  .languages { display: flex; gap: 6px; }
+  .languages a { min-width: 32px; padding: 6px 5px; text-align: center; }
+  .languages a[aria-current="page"] { background: var(--ink); color: var(--paper); }
+  .footer { margin-top: 120px; padding: 0 var(--gutter) 22px; }
+  .footer-callout { min-height: 250px; padding: 28px 0 36px; border-top: 1px solid var(--ink); display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; }
+  .contact-link { font-size: 46px; line-height: 1.05; font-weight: 500; }
+  .contact-link span { color: var(--signal); }
+  .contact-link:hover { color: var(--signal); }
+  .footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px 24px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font: 10px/1.6 var(--mono); }
+  .footer-links { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+  .footer-links a:hover { color: var(--signal); }
+  @media (max-width: 760px) {
+    :root { --gutter: 22px; }
+    .masthead { min-height: 66px; align-items: flex-start; }
+    .head-meta { justify-content: flex-end; flex-wrap: wrap; gap: 8px 14px; }
+    .head-meta > span:first-child { display: none; }
+    .footer { margin-top: 80px; }
+    .footer-callout { min-height: 190px; }
+    .contact-link { font-size: 36px; }
+  }
+  @media (max-width: 420px) {
+    .masthead { gap: 12px; }
+    .wordmark { gap: 7px; font-size: 10px; }
+    .mark { width: 32px; height: 32px; }
+    .availability { max-width: 112px; }
+    .head-meta { gap: 6px; font-size: 10px; }
+  }
+</style>

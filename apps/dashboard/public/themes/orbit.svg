@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Orbit theme preview">
+  <rect width="640" height="400" fill="#e8efee"/>
+  <path d="M0 61h640" stroke="#b7ccca"/>
+  <circle cx="314" cy="229" r="164" fill="#dce9e7" stroke="#80aaa9" stroke-dasharray="3 6"/>
+  <circle cx="314" cy="229" r="116" fill="none" stroke="#80aaa9"/>
+  <circle cx="314" cy="229" r="53" fill="#f4f7f5" stroke="#007f86"/>
+  <text x="314" y="223" fill="#15363b" font-family="Arial,sans-serif" font-size="13" text-anchor="middle">Juraj Paluš</text>
+  <text x="314" y="242" fill="#5a777b" font-family="monospace" font-size="7" text-anchor="middle">PROFILE HUB</text>
+  <g fill="#007f86" stroke="#f4f7f5" stroke-width="3"><circle cx="314" cy="65" r="20"/><circle cx="465" cy="164" r="20"/><circle cx="419" cy="356" r="20"/><circle cx="155" cy="326" r="20"/><circle cx="154" cy="131" r="20"/><circle cx="218" cy="75" r="20"/></g>
+  <g fill="#f2694e"><circle cx="314" cy="65" r="4"/><circle cx="465" cy="164" r="4"/><circle cx="419" cy="356" r="4"/><circle cx="155" cy="326" r="4"/><circle cx="154" cy="131" r="4"/><circle cx="218" cy="75" r="4"/></g>
+  <rect x="440" y="94" width="179" height="120" fill="#f4f7f5" stroke="#b7ccca"/>
+  <rect x="440" y="94" width="179" height="9" fill="#007f86"/>
+  <text x="453" y="125" fill="#007f86" font-family="monospace" font-size="8">SELECTED TRANSMISSION</text>
+  <text x="453" y="151" fill="#15363b" font-family="Arial,sans-serif" font-size="19">Project title</text>
+  <text x="453" y="170" fill="#5a777b" font-family="Arial,sans-serif" font-size="9">Live case file, technologies,</text>
+  <text x="453" y="184" fill="#5a777b" font-family="Arial,sans-serif" font-size="9">screenshots and project notes.</text>
+  <text x="24" y="34" fill="#15363b" font-family="monospace" font-size="10">ORBITAL / WORK INDEX</text>
+  <text x="24" y="81" fill="#007f86" font-family="monospace" font-size="8">PROJECT CONSTELLATION / 2026</text>
+</svg>

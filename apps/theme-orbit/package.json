@@ -1,0 +1,20 @@
+{
+  "name": "@japs/theme-orbit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JAPS theme \"orbit\": a spatial Astro portfolio with GSAP motion",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/space-grotesk": "^5.2.6",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@japs/schema": "workspace:*",
+    "@japs/theme-kit": "workspace:*",
+    "astro": "^7.3.6",
+    "gsap": "^3.15.0"
+  }
+}

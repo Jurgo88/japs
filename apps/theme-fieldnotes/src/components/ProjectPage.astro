@@ -1,0 +1,112 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { project: PortfolioProject; locale: string }
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const pad = (n: number) => String(n + 1).padStart(2, "0");
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const details = [
+  project.role && [tt(locale, "role"), text(project.role, locale)],
+  [tt(locale, "period"), period],
+  project.client.isClient && [tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"],
+].filter((row): row is [string, string] => Array.isArray(row));
+---
+
+<Base locale={locale} title={`${title} — ${portfolio.profile.name}`} description={text(project.summary, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))} homeHref={home}>
+  <article class="record">
+    <div class="record-top mono">
+      <a href={`${home}#work`}>← {tt(locale, "back")}</a>
+      <span>{tt(locale, "entry")} {pad(index)} <span class="muted">/ {pad(ordered.length)}</span></span>
+    </div>
+
+    <header class="record-heading">
+      <span class="eyebrow">{tt(locale, "notes")}</span>
+      <h1>{title}</h1>
+      <p class="summary">{text(project.summary, locale)}</p>
+    </header>
+
+    {desktop && <figure class="hero-image"><img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" /></figure>}
+
+    <div class="record-body">
+      <aside class="details">
+        <dl>
+          {details.map(([label, value]) => <div><dt class="mono">{label}</dt><dd>{value}</dd></div>)}
+          {project.tags.length > 0 && <div><dt class="mono">{tt(locale, "stack")}</dt><dd class="tags">{project.tags.map((tag) => <span>{tag}</span>)}</dd></div>}
+        </dl>
+        <div class="external-links">
+          {project.links.live && <a href={project.links.live} rel="noopener">{tt(locale, "live")} <span aria-hidden="true">↗</span></a>}
+          {project.links.repo && <a href={project.links.repo} rel="noopener">{tt(locale, "source")} <span aria-hidden="true">↗</span></a>}
+        </div>
+      </aside>
+
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+      {mobile && <figure class="mobile-image"><img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" /></figure>}
+    </div>
+
+    {next && <a class="next-entry" href={projectUrl(next, locale, portfolio)}><span class="eyebrow">{tt(locale, "next")}</span><span class="next-title">{text(next.title, locale)} <span aria-hidden="true">↗</span></span></a>}
+  </article>
+</Base>
+
+<style>
+  .record { padding: 0 var(--gutter); }
+  .record-top { min-height: 54px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--rule); color: var(--muted); }
+  .record-top a:hover { color: var(--signal); }
+  .record-heading { max-width: 1040px; padding: 66px 0 42px; }
+  .record-heading h1 { max-width: 18ch; margin: 12px 0 0; font-size: 68px; line-height: 1; font-weight: 500; overflow-wrap: anywhere; }
+  .summary { max-width: 52ch; margin: 20px 0 0; color: #52645a; font-size: 20px; line-height: 1.4; }
+  .hero-image { margin: 0; max-height: 680px; overflow: hidden; border: 1px solid var(--ink); background: var(--paper-deep); }
+  .hero-image img { width: 100%; max-height: 680px; object-fit: cover; object-position: top; }
+  .record-body { display: grid; grid-template-columns: minmax(210px, .68fr) minmax(0, 1.32fr); gap: 60px; padding: 58px 0 0; align-items: start; }
+  .details dl { margin: 0; }
+  .details dl > div { display: grid; grid-template-columns: 95px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); }
+  .details dl > div:last-child { border-bottom: 1px solid var(--rule); }
+  .details dt { color: var(--muted); }
+  .details dd { margin: 0; font-size: 14px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  .tags span { color: var(--signal); }
+  .external-links { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 20px; font: 12px/1.5 var(--mono); }
+  .external-links a:hover { color: var(--signal); }
+  .external-links span { color: var(--signal); }
+  .description { max-width: 65ch; font-size: 18px; line-height: 1.7; }
+  .description :global(h2), .description :global(h3) { margin: 1.8em 0 .55em; font-weight: 500; line-height: 1.2; }
+  .description :global(h2) { font-size: 30px; }
+  .description :global(h3) { font-size: 23px; }
+  .description :global(p) { margin: 0 0 1.2em; }
+  .description :global(a) { color: var(--signal); text-decoration: underline; text-underline-offset: 3px; }
+  .description :global(ul), .description :global(ol) { padding-left: 1.3em; }
+  .description :global(li) { padding-left: .25em; margin: .35em 0; }
+  .mobile-image { grid-column: 2; width: min(100%, 300px); margin: 0; padding: 8px; border: 1px solid var(--rule); background: var(--paper-deep); }
+  .mobile-image img { width: 100%; }
+  .next-entry { display: grid; gap: 10px; margin-top: 88px; padding: 22px 0 28px; border-block: 1px solid var(--ink); }
+  .next-title { font-size: 42px; line-height: 1.1; font-weight: 500; }
+  .next-title span { color: var(--signal); }
+  .next-entry:hover .next-title { color: var(--signal); }
+  @media (max-width: 760px) {
+    .record-heading { padding: 46px 0 28px; }
+    .record-heading h1 { font-size: 48px; }
+    .record-body { grid-template-columns: 1fr; gap: 34px; padding-top: 36px; }
+    .details { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, .7fr); gap: 22px; }
+    .mobile-image { grid-column: 1; width: min(100%, 250px); }
+    .next-entry { margin-top: 60px; }
+    .next-title { font-size: 34px; }
+  }
+  @media (max-width: 460px) {
+    .record-heading h1 { font-size: 40px; }
+    .summary { font-size: 18px; }
+    .details { grid-template-columns: 1fr; }
+    .details dl > div { grid-template-columns: 90px minmax(0, 1fr); }
+  }
+</style>
