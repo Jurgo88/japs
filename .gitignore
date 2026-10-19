@@ -17,3 +17,4 @@ screenshots/
 !packages/theme-kit/sample/portfolio.json
 publish.json
 *.pem
+.astro/

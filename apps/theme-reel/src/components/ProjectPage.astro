@@ -1,0 +1,135 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props { project: PortfolioProject; locale: string }
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const ordered = orderedProjects(portfolio);
+const title = text(project.title, locale);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const pad = (n: number) => String(n + 1).padStart(2, "0");
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const address = project.links.live ? new URL(project.links.live).host.replace(/^www\./, "") : title;
+const specs =[project.role && [tt(locale, "role"), text(project.role, locale)], [tt(locale, "period"), period], project.client.isClient && [tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"], [tt(locale, "stack"), project.tags.join(" · ")]].filter((row): row is [string, string] => Array.isArray(row) && row[1] !== "");
+---
+
+<Base locale={locale} title={`${title} — ${portfolio.profile.name}`} description={text(project.summary, locale)} alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))} homeHref={home}>
+  <article class="case">
+    <nav class="case-top mono"><a href={`${home}#work`}>← {tt(locale, "back")}</a><span><b>{pad(index)}</b> / {String(ordered.length).padStart(2, "0")}</span></nav>
+
+    <header class="case-head">
+      <span class="eyebrow">{project.client.isClient ? tt(locale, "clientWork") : tt(locale, "project")}</span>
+      <h1>{title}</h1>
+      <p class="summary">{text(project.summary, locale)}</p>
+      <div class="actions">
+        {project.links.live && <a class="primary" href={project.links.live} rel="noopener">{tt(locale, "live")} ↗</a>}
+        {project.links.repo && <a href={project.links.repo} rel="noopener">{tt(locale, "source")} ↗</a>}
+      </div>
+    </header>
+
+    {(desktop || mobile) && (
+      <div class:list={["devices", { "only-desktop": !mobile, "only-mobile": !desktop }]}>
+        {desktop && (
+          <figure class="browser">
+            <div class="browser-bar" aria-hidden="true">
+              <span class="dots"><i></i><i></i><i></i></span>
+              <span class="address mono"><svg viewBox="0 0 10 12"><path d="M2 5V3.5a3 3 0 0 1 6 0V5M1 5h8v6H1z" /></svg>{address}</span>
+            </div>
+            <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+          </figure>
+        )}
+        {mobile && (
+          <figure class="phone">
+            <span class="island" aria-hidden="true"></span>
+            <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+          </figure>
+        )}
+      </div>
+    )}
+
+    <div class="case-body">
+      <aside class="facts">
+        <dl>{specs.map(([label, value]) => <div><dt class="mono">{label}</dt><dd>{value}</dd></div>)}</dl>
+      </aside>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+    </div>
+
+    {next && next.slug !== project.slug && (
+      <a class="next" href={projectUrl(next, locale, portfolio)}>
+        <span class="eyebrow">{tt(locale, "next")} · {pad(ordered.findIndex((p) => p.slug === next.slug))}</span>
+        <span class="next-title">{text(next.title, locale)} <i aria-hidden="true">→</i></span>
+      </a>
+    )}
+  </article>
+</Base>
+
+<style>
+  .case { padding: 0 var(--pad); }
+  .case-top { min-height: 54px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .case-top a:hover { color: var(--ink); }
+  .case-top b { color: var(--hot); font-weight: 400; }
+  .case-head { max-width: 1100px; padding: clamp(40px, 7vw, 88px) 0 36px; }
+  h1 { margin: 10px 0 0; font-size: clamp(44px, 8vw, 112px); line-height: .88; font-weight: 800; font-stretch: 125%; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  .summary { max-width: 44ch; margin: 20px 0 0; color: var(--muted); font-size: clamp(18px, 2.2vw, 24px); line-height: 1.3; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .actions a { padding: 11px 18px; border: 1px solid var(--line); border-radius: 999px; font: 12px/1.2 var(--mono); transition: border-color .2s, background .2s; }
+  .actions a:hover { border-color: var(--ink); }
+  .actions .primary { border-color: transparent; background: linear-gradient(100deg, var(--hot), var(--warm)); color: var(--bg); }
+  /* Device stage: desktop in a browser window, mobile in a phone, side by side on one baseline.
+     Column ratio 3.15 : 1 keeps both devices about the same height (1440×900 + bar vs 390×844 + bezel). */
+  .devices { position: relative; display: grid; grid-template-columns: minmax(0, 3.15fr) minmax(0, 1fr); align-items: end; gap: clamp(14px, 3vw, 40px); padding: clamp(20px, 4vw, 48px); border: 1px solid var(--line); border-radius: 24px; background: radial-gradient(60% 80% at 30% 110%, rgba(255, 79, 109, .22), transparent 70%), radial-gradient(40% 70% at 90% 0%, rgba(109, 75, 255, .2), transparent 70%), var(--bg-2); }
+  .devices.only-desktop { grid-template-columns: minmax(0, 1fr); }
+  .devices.only-mobile { grid-template-columns: minmax(0, 300px); justify-content: center; }
+  .devices figure { margin: 0; transition: translate .4s cubic-bezier(.2, .7, .2, 1); }
+  .devices figure:hover { translate: 0 -6px; }
+  .browser { overflow: hidden; border-radius: clamp(8px, 1.2vw, 14px); background: #1d1828; box-shadow: 0 0 0 1px rgba(243, 239, 231, .12), 0 50px 100px -40px rgba(0, 0, 0, .9), 0 40px 90px -50px rgba(255, 79, 109, .5); }
+  .browser-bar { position: relative; height: clamp(22px, 2.6vw, 38px); display: flex; align-items: center; padding: 0 clamp(8px, 1.2vw, 16px); border-bottom: 1px solid rgba(243, 239, 231, .08); }
+  .dots { display: flex; gap: clamp(4px, .5vw, 7px); }
+  .dots i { width: clamp(6px, .8vw, 11px); aspect-ratio: 1; border-radius: 50%; background: var(--hot); }
+  .dots i:nth-child(2) { background: var(--warm); }
+  .dots i:nth-child(3) { background: #5cf2a0; }
+  .address { position: absolute; left: 50%; translate: -50% 0; max-width: 55%; display: flex; align-items: center; gap: 6px; padding: clamp(2px, .35vw, 5px) clamp(8px, 1.4vw, 18px); overflow: hidden; border-radius: 999px; background: rgba(243, 239, 231, .07); color: var(--muted); font-size: clamp(8px, .85vw, 11px); text-transform: none; white-space: nowrap; }
+  .address svg { flex: 0 0 auto; width: .8em; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  .browser img { width: 100%; aspect-ratio: 1440 / 900; object-fit: cover; object-position: top; }
+  .phone { position: relative; padding: clamp(4px, .7vw, 9px); border-radius: clamp(18px, 3vw, 42px); background: linear-gradient(150deg, #2a2338, #0a0810 60%); box-shadow: 0 0 0 1px rgba(243, 239, 231, .16), inset 0 0 0 1px rgba(255, 255, 255, .05), 0 50px 100px -40px rgba(0, 0, 0, .9), 0 40px 90px -50px rgba(109, 75, 255, .6); }
+  .phone img { width: 100%; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; border-radius: clamp(14px, 2.4vw, 34px); }
+  .island { position: absolute; top: clamp(8px, 1.3vw, 18px); left: 50%; z-index: 1; width: 30%; height: clamp(6px, 1vw, 14px); translate: -50% 0; border-radius: 999px; background: #000; }
+  .case-body { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: clamp(28px, 5vw, 64px); align-items: start; padding-top: 56px; }
+  .facts dl { margin: 0; border-top: 1px solid var(--line); }
+  .facts dl > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; overflow-wrap: anywhere; }
+  .description { max-width: 66ch; font-size: 18px; line-height: 1.7; }
+  .description :global(h2), .description :global(h3) { margin: 1.6em 0 .5em; line-height: 1.1; font-weight: 700; font-stretch: 115%; }
+  .description :global(h2) { font-size: 30px; }
+  .description :global(h3) { font-size: 22px; }
+  .description :global(p) { margin: 0 0 1.1em; }
+  .description :global(a) { text-decoration: underline; text-decoration-color: var(--hot); text-underline-offset: 3px; }
+  .description :global(code) { padding: 1px 5px; border-radius: 4px; background: var(--bg-2); font: .88em var(--mono); }
+  .description :global(ul), .description :global(ol) { padding-left: 1.3em; }
+  .next { display: grid; gap: 10px; margin-top: 100px; padding: 32px 0; border-block: 1px solid var(--line); }
+  .next-title { font-size: clamp(34px, 6vw, 80px); line-height: .95; font-weight: 800; font-stretch: 125%; overflow-wrap: anywhere; transition: color .2s; }
+  .next-title i { display: inline-block; color: var(--hot); font-style: normal; transition: translate .25s; }
+  .next:hover .next-title { color: var(--warm); }
+  .next:hover .next-title i { translate: 12px 0; }
+  @media (max-width: 760px) {
+    .case-body { grid-template-columns: minmax(0, 1fr); padding-top: 36px; }
+  }
+  /* Small screens: the browser bar is relatively taller, so give the phone a bit more width to keep one baseline. */
+  @media (max-width: 560px) {
+    .devices { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); padding: 14px; border-radius: 16px; }
+    .browser-bar { height: 16px; padding: 0 6px; }
+    .dots { gap: 3px; }
+    .dots i { width: 5px; }
+    .address { max-width: 60%; gap: 3px; padding: 1px 8px; font-size: 6.5px; }
+  }
+</style>
