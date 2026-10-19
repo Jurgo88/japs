@@ -12,6 +12,7 @@ export const THEMES = [
   { id: "fieldnotes", label: "Fieldnotes", description: "A considered project journal: archival details, warm paper and vivid field marks." },
   { id: "riot", label: "Riot", description: "A loud cut-and-paste portfolio with comic panels and electric print colours." },
   { id: "orbit", label: "Orbit", description: "An interactive project constellation with GSAP motion and a live case-file display." },
+  { id: "reel", label: "Reel", description: "Cinematic and dark: projects spin on a 3D carousel, the showcase filters by technology with duotone spotlight screenshots." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];
