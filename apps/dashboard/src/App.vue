@@ -314,12 +314,12 @@ pnpm japs analyze</pre>
     <ProjectDetail v-if="selected" :key="selected.key" :project="selected" />
   </main>
 
-  <main v-else-if="tab === 'design'" class="single">
+  <main v-else-if="tab === 'design'" class="page with-aside">
     <ThemePicker />
-    <PublishTarget />
+    <aside class="aside"><PublishTarget /></aside>
   </main>
 
-  <main v-else class="wide">
+  <main v-else class="page">
     <ProfileEditor>
       <template #aside><LanguagesEditor /></template>
     </ProfileEditor>
@@ -397,8 +397,6 @@ pnpm japs analyze</pre>
   padding: 16px 20px;
   align-items: start;
 }
-.single { padding: 16px 20px; max-width: 820px; display: grid; gap: 16px; }
-.wide { padding: 20px; }
 .empty { padding: 48px 20px; text-align: center; }
 .empty pre { display: inline-block; text-align: left; background: var(--panel); padding: 12px 16px; border-radius: 8px; }
 @media (max-width: 860px) {

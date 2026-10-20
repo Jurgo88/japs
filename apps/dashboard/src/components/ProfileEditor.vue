@@ -63,7 +63,7 @@ const BIO_SOFT_LIMIT = 320;
 </script>
 
 <template>
-  <div class="profile">
+  <div class="with-aside">
     <section class="card editor">
       <header class="card-head">
         <h2>Profile</h2>
@@ -187,7 +187,7 @@ const BIO_SOFT_LIMIT = 320;
       </div>
     </section>
 
-    <aside class="side">
+    <aside class="aside">
       <section class="card preview" aria-label="Profile preview">
         <header class="preview-head">
           <span class="eyebrow">Preview · {{ editLocale.toUpperCase() }}</span>
@@ -219,13 +219,6 @@ const BIO_SOFT_LIMIT = 320;
 </template>
 
 <style scoped>
-.profile {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  gap: 20px;
-  align-items: start;
-}
-.side { position: sticky; top: 72px; display: grid; gap: 16px; }
 .editor { gap: 0; padding: 0; }
 .editor > .card-head { padding: 20px 24px 18px; border-bottom: 1px solid var(--border); }
 
@@ -337,10 +330,6 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .placeholder { color: var(--muted); font-style: italic; opacity: 0.75; }
 .note { margin: 0; font-size: 12px; }
 
-@media (max-width: 1100px) {
-  .profile { grid-template-columns: minmax(0, 1fr); }
-  .side { position: static; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-}
 @media (max-width: 760px) {
   .group { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 18px 16px; }
   .editor > .card-head { padding: 18px 16px 14px; }
