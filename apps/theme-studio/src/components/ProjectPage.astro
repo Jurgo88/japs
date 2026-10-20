@@ -86,22 +86,24 @@ const specs = [
     </div>
 
     {
-      desktop && (
-        <figure class="shot">
-          <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" data-zoom />
-        </figure>
+      (desktop || mobile) && (
+        <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="shot">
+              <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" data-zoom />
+            </figure>
+          )}
+          {mobile && (
+            <figure class="phone" data-reveal>
+              <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+            </figure>
+          )}
+        </div>
       )
     }
 
-    <div class:list={["body", { "with-phone": mobile }]}>
+    <div class="body">
       <div class="description" data-reveal set:html={renderMarkdown(text(project.description, locale))} />
-      {
-        mobile && (
-          <figure class="phone" data-reveal>
-            <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" />
-          </figure>
-        )
-      }
     </div>
 
     {
@@ -176,8 +178,18 @@ const specs = [
   .actions a:hover {
     text-decoration: underline;
   }
-  .shot {
+  .devices {
+    display: grid;
+    gap: 16px;
     margin: 56px var(--pad) 0;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+    align-items: stretch;
+  }
+  .shot {
+    margin: 0;
     overflow: hidden;
     border-radius: 6px;
     background: #1a1a18;
@@ -192,29 +204,31 @@ const specs = [
     gap: 40px var(--pad);
     padding: 72px var(--pad) 0;
   }
-  .body.with-phone {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
-    align-items: start;
-  }
   .description {
-    max-width: 60ch;
-    font-size: 19px;
-    line-height: 1.6;
-    font-stretch: 95%;
+    font-size: 30px;
+    line-height: 1.4;
+    font-stretch: 130%;
   }
   .description :global(a) {
     color: var(--accent);
   }
   .phone {
     margin: 0;
-    padding: 8px;
-    border-radius: 30px;
+    padding: 6px;
+    border-radius: 24px;
     border: 1px solid var(--line);
+    min-height: 0;
+    position: relative;
   }
+  /* Out of flow so the phone never stretches the row; the desktop shot sets its height. */
   .phone img {
-    width: 100%;
-    height: auto;
-    border-radius: 23px;
+    position: absolute;
+    inset: 6px;
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
+    object-fit: cover;
+    object-position: top;
+    border-radius: 18px;
   }
   .next {
     display: grid;
@@ -235,12 +249,23 @@ const specs = [
     color: var(--accent);
   }
   @media (max-width: 760px) {
-    .intro-row,
-    .body.with-phone {
+    .intro-row {
       grid-template-columns: minmax(0, 1fr);
     }
+    /* Keep both side by side on phones too, just smaller. */
+    .devices.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 10px;
+    }
     .phone {
-      max-width: 240px;
+      padding: 3px;
+      border-radius: 14px;
+    }
+    .phone img {
+      inset: 3px;
+      width: calc(100% - 6px);
+      height: calc(100% - 6px);
+      border-radius: 11px;
     }
   }
 </style>

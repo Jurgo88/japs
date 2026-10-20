@@ -32,17 +32,19 @@ const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? 
     <h1 class="name" style={`font-size: ${nameSize}`} data-fit data-chars data-intro>{name}</h1>
     <div class="hero-row">
       {text(profile.bio, locale) && <p class="lead" data-intro>{text(profile.bio, locale)}</p>}
-      <p class="mono muted" data-intro>{text(profile.headline, locale)}</p>
-      <p class="mono links" data-intro>
-        {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
-        {
-          profile.links.map((link) => (
-            <a href={link.url} rel="me noopener">
-              {link.label} ↗
-            </a>
-          ))
-        }
-      </p>
+      <aside class="meta">
+        <p class="mono muted role" data-intro>{text(profile.headline, locale)}</p>
+        <p class="mono links" data-intro>
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+          {
+            profile.links.map((link) => (
+              <a href={link.url} rel="me noopener">
+                {link.label} ↗
+              </a>
+            ))
+          }
+        </p>
+      </aside>
     </div>
   </section>
 
@@ -104,8 +106,8 @@ const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? 
   }
   .hero-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+    gap: 16px clamp(24px, 6vw, 96px);
     margin-top: 28px;
     padding-top: 28px;
     border-top: 1px solid var(--line);
@@ -114,15 +116,26 @@ const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? 
     margin: 0;
   }
   .lead {
-    grid-column: span 2;
-    max-width: 30ch;
-    font-size: clamp(18px, 1.8vw, 24px);
-    line-height: 1.3;
+    max-width: 44ch;
+    font-size: clamp(22px, 2.6vw, 36px);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
     font-stretch: 90%;
+    text-wrap: pretty;
+  }
+  .meta {
+    display: grid;
+    gap: 20px;
+    align-content: start;
+    /* aligns with the "Stack" column of the project list below */
+  }
+  .role {
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
   }
   .links {
     display: grid;
-    gap: 4px;
+    gap: 6px;
     justify-items: start;
     align-content: start;
   }
@@ -219,7 +232,11 @@ const year = (p: (typeof projects)[number]) => (p.period.to ?? p.period.from ?? 
 
   @media (max-width: 760px) {
     .hero-row {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
+      gap: 28px;
+    }
+    .lead {
+      font-size: clamp(20px, 5.5vw, 26px);
     }
     .list-head {
       display: none;
