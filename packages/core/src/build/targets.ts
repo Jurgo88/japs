@@ -4,7 +4,7 @@ import { isPublished, primarySite, showsScreenshots } from "./portfolio.ts";
 export interface ScreenshotTarget {
   key: string;
   slug: string;
-  /** The config's screenshotUrl, else the project's primary site. */
+  /** The config's screenshotUrl, else its liveUrl, else the project's primary site. */
   url: string;
   /** Last deploy of the primary site: shots taken before it are stale. */
   deployedAt: string | null;
@@ -41,7 +41,8 @@ export function screenshotTargets(projectsFile: ProjectsFile, config: JapsConfig
     if (keys && !keys.includes(project.key)) return [];
     if (!isPublished(project, config) || !showsScreenshots(project, config)) return [];
     const site = primarySite(project, siteById);
-    const url = config.projects[project.key]?.screenshotUrl ?? (site?.lastDeployAt ? site.url : undefined);
+    const override = config.projects[project.key];
+    const url = override?.screenshotUrl ?? override?.liveUrl ?? (site?.lastDeployAt ? site.url : undefined);
     return url ? [{ key: project.key, slug: project.slug, url, deployedAt: site?.lastDeployAt ?? null }] : [];
   });
 }

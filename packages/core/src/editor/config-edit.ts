@@ -53,7 +53,7 @@ export function setPublished(config: Config, project: Project, publish: boolean)
 }
 
 /** Sets a simple override field; `undefined` (or false for flags) removes it. */
-export function setOverride<K extends "isClient" | "anonymize" | "allowScreenshots" | "featured" | "screenshotUrl">(
+export function setOverride<K extends "isClient" | "anonymize" | "allowScreenshots" | "featured" | "screenshotUrl" | "liveUrl">(
   config: Config,
   key: string,
   field: K,

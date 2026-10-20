@@ -56,6 +56,7 @@ Texty sú viacjazyčné (`LocalizedText`, [ADR 0005](../adr/0005-bilingual-portf
 - `defaultLocale` musí byť v `locales`. Jednojazyčné portfólio = `locales` s jedným prvkom.
 
 - `links.repo` je `null` pre privátne repá (nikdy neprezradiť existenciu privátneho repa).
+- `links.live` je `liveUrl` z configu, inak adresa hlavného webu projektu z objavenia. `liveUrl` je pre projekty, ku ktorým objavovanie web nenašlo (hosting u poskytovateľa, ktorého JAPS nečíta); screenshoty sa bez `screenshotUrl` fotia práve z neho.
 - Odkazy smú mať len bezpečnú schému: `links.live` a `links.repo` len `http:`/`https:`, `profile.links[].url` aj `mailto:`. `javascript:`, `data:` a podobné schémy validácia odmietne, lebo by po kliknutí spustili skript na doméne portfólia (portfóliá na zdieľaných subdoménach). Markdown v `description` môže odkazovať len na `http(s)`, `mailto:` alebo relatívne ciele; iný odkaz `renderMarkdown` z `@japs/theme-kit` nahradí jeho textom.
 - Ak `client.anonymized = true`: `title` je generický, `links.live` je `null`, `client.label` napr. `{ "sk": "E-shop pre klienta z gastro sektora", "en": "E-shop for a hospitality client" }`, screenshoty sa nezobrazujú, pokiaľ ich používateľ výslovne nepovolí.
 - Obrázky sú relatívne cesty k súborom, ktoré sa kopírujú spolu s `portfolio.json` (žiadne hotlinky na Netlify CDN).

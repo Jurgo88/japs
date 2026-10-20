@@ -102,6 +102,11 @@ describe("buildPortfolio", () => {
     expect(portfolio).toMatchObject({ locales: ["en", "sk"], defaultLocale: "en", profile: { name: "Jane Doe" } });
   });
 
+  it("takes links.live from the config's liveUrl, also for a project without a site", () => {
+    const { portfolio } = build({ config: config({ projects: { "repo:devuser/portfolio-v2": { liveUrl: "https://portfolio.example" } } }) });
+    expect(portfolio.projects.find((p) => p.slug === "portfolio-v2")?.links.live).toBe("https://portfolio.example");
+  });
+
   it("prefers own screenshots over Netlify's, desktop first", () => {
     const shot = (viewport: "desktop" | "mobile") => ({
       key: "repo:devuser/acmeshop",
