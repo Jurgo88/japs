@@ -66,6 +66,7 @@ Presné typy definuje `JapsConfig` (issue #3); lokalizované texty podľa [ADR 0
       "clientLabel": { "en": "E-shop for a hospitality client", "sk": "E-shop pre klienta z gastro sektora" },
       "featured": true,
       "order": 1,
+      "liveUrl": "https://acme.example.com",
       "screenshotUrl": "https://acme.example.com/?demo=1",
       "copy": {
         "title": { "en": "Restaurant e-shop", "sk": "E-shop pre reštauráciu" }

@@ -40,6 +40,8 @@ export const ProjectOverride = z
     allowScreenshots: z.boolean(),
     featured: z.boolean(),
     order: z.number().int(),
+    /** Public address when discovery found no site for the project (e.g. a provider JAPS does not read). */
+    liveUrl: WebUrl,
     /** Page to screenshot instead of the site root (e.g. a demo account). */
     screenshotUrl: WebUrl,
     copy: CopyOverride,

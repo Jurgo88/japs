@@ -69,6 +69,9 @@ const labelMissing = computed(() => {
 const tags = computed(() => override.value.copy?.tags ?? analysis.value?.copy.tags ?? []);
 const setTagList = (list: string[]) => update((c) => setTags(c, props.project.key, list, analysis.value?.copy.tags));
 
+const liveUrl = computed(() => override.value.liveUrl ?? "");
+const setLiveUrl = (value: string) => update((c) => setOverride(c, props.project.key, "liveUrl", value.trim() || undefined));
+
 const screenshotUrl = computed(() => override.value.screenshotUrl ?? "");
 const setScreenshotUrl = (value: string) => update((c) => setOverride(c, props.project.key, "screenshotUrl", value.trim() || undefined));
 
@@ -203,6 +206,16 @@ const localeStatus = computed(() => {
 
     <details class="card advanced">
       <summary>Advanced</summary>
+      <label class="field">
+        <span class="field-label">Live URL</span>
+        <input
+          type="url"
+          :value="liveUrl"
+          :placeholder="site?.url ?? 'https://…'"
+          @change="setLiveUrl(($event.target as HTMLInputElement).value)"
+        />
+        <span class="muted hint">Where the project runs, when discovery found no site for it (e.g. a provider JAPS does not read). Replaces the discovered address.</span>
+      </label>
       <label class="field">
         <span class="field-label">Screenshot page</span>
         <input

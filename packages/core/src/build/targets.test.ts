@@ -32,6 +32,11 @@ describe("screenshotTargets", () => {
     expect(keys(targets)).toContain("repo:devuser/client-app");
   });
 
+  it("falls back to the config's liveUrl, e.g. for a repo with no discovered site", () => {
+    const targets = screenshotTargets(projectsFile, config({ "repo:devuser/tiny-lib": { liveUrl: "https://tiny.example" } }));
+    expect(targets.find((t) => t.key === "repo:devuser/tiny-lib")).toMatchObject({ url: "https://tiny.example", deployedAt: null });
+  });
+
   it("limits to the given keys", () => {
     expect(keys(screenshotTargets(projectsFile, config(), ["repo:devuser/acmeshop"]))).toEqual(["repo:devuser/acmeshop"]);
   });

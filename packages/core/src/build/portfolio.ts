@@ -185,7 +185,7 @@ export function buildPortfolio(input: BuildPortfolioInput): BuildPortfolioResult
       period: { from: month(firstCommit), to: month(project.lastActivityAt) },
       tags: copy.tags ?? analysis.copy.tags,
       links: {
-        live: anonymized ? null : (site?.url ?? null),
+        live: anonymized ? null : (override.liveUrl ?? site?.url ?? null),
         // Never reveal a private repository (CLAUDE.md, portfolio-json spec).
         repo: project.private || !primaryRepo ? null : primaryRepo.url,
       },
