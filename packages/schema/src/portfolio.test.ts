@@ -65,6 +65,19 @@ describe("Portfolio", () => {
     ).toEqual([]);
   });
 
+  it("rejects links that would run script, keeps mailto: in the profile", () => {
+    const p = valid();
+    p.profile.links = [
+      { label: "Mail", url: "mailto:jane@example.com" },
+      { label: "Hi", url: "javascript:alert(1)" },
+    ];
+    p.projects[0]!.links = { live: "data:text/html,x", repo: null };
+    expect(messages(p)).toEqual([
+      "profile.links.1.url: expected an http(s) or mailto: URL",
+      "projects.0.links.live: expected an http:// or https:// URL",
+    ]);
+  });
+
   it("reports a missing translation with its path", () => {
     const p = valid();
     p.projects[0]!.description = { en: "Only English" } as ReturnType<typeof t>;

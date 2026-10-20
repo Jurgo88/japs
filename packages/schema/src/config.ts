@@ -3,6 +3,7 @@ import { Link, Locale, LocalizedText } from "./portfolio.ts";
 import { RepoId } from "./projects.ts";
 import { PublishTarget } from "./publish.ts";
 import { ThemeId } from "./themes.ts";
+import { WebUrl } from "./urls.ts";
 
 /**
  * japs.config.json — user decisions, written only by the user. See ADR 0004.
@@ -40,7 +41,7 @@ export const ProjectOverride = z
     featured: z.boolean(),
     order: z.number().int(),
     /** Page to screenshot instead of the site root (e.g. a demo account). */
-    screenshotUrl: z.string().url(),
+    screenshotUrl: WebUrl,
     copy: CopyOverride,
   })
   .partial()

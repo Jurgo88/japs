@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LinkUrl, WebUrl } from "./urls.ts";
 
 /** Contract between analysis and themes. See docs/spec/portfolio-json.md. */
 
@@ -12,7 +13,7 @@ export type LocalizedText = z.infer<typeof LocalizedText>;
 
 export const Link = z.object({
   label: z.string(),
-  url: z.string().url(),
+  url: LinkUrl,
 });
 
 export const Screenshot = z.object({
@@ -37,9 +38,9 @@ export const PortfolioProject = z.object({
   }),
   tags: z.array(z.string()),
   links: z.object({
-    live: z.string().url().nullable(),
+    live: WebUrl.nullable(),
     /** Always null for private repositories. */
-    repo: z.string().url().nullable(),
+    repo: WebUrl.nullable(),
   }),
   client: z.object({
     isClient: z.boolean(),

@@ -33,8 +33,9 @@ Bez platobnej karty, bez uspávania, core beží bez zmien.
 
 - **Prihlásenie cez GitHub App** (nie OAuth App). OAuth App má na privátne repá len rozsah `repo`, ktorý dáva aj zápis; GitHub App dostane len **Metadata: read** a **Contents: read**. Používateľský token GitHub App expiruje (8 h) a obnovuje sa refresh tokenom. Privátne repá vidí aplikácia až po jej inštalácii na ne; bez inštalácie JAPS pracuje s verejnými repami a s tým, čo dá Netlify (Fáza 0, zistenie 7).
 - **Netlify cez OAuth2 aplikáciu** („Connect Netlify“), ako Netlify vyžaduje pre verejné integrácie. Personal access tokeny sa v hostovanej verzii nepoužívajú.
-- **Relácia:** náhodný 256-bitový token v cookie `HttpOnly; Secure; SameSite=Lax`; v D1 je len jeho SHA-256, takže únik databázy neprezradí prihlásenia. Platnosť 30 dní, odhlásenie ju zmaže.
-- **OAuth `state`** v krátkodobej podpísanej cookie (ochrana proti CSRF pri návrate z OAuth).
+- **Relácia:** náhodný 256-bitový token v cookie `__Host-japs_session` (`HttpOnly; Secure; SameSite=Lax; Path=/`, bez `Domain`); v D1 je len jeho SHA-256, takže únik databázy neprezradí prihlásenia. Platnosť 30 dní, odhlásenie ju zmaže.
+- **OAuth `state`** v krátkodobej podpísanej cookie `__Host-japs_oauth_state` (ochrana proti CSRF pri návrate z OAuth).
+- **Prefix `__Host-`:** prehliadač takú cookie prijme len so `Secure`, `Path=/` a bez `Domain`, takže ju žiadna subdoména (portfólio na `*.japs.app`) nemôže nastaviť ani prepísať a podstrčiť tak vlastnú reláciu alebo `state`. Na `http://localhost` prefix nefunguje, preto lokálny vývoj používa názvy bez neho.
 
 ### Tajomstvá
 

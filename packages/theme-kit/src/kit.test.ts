@@ -131,6 +131,34 @@ describe("renderMarkdown", () => {
   it("escapes raw HTML but keeps Markdown", () => {
     expect(renderMarkdown("**bold** <script>x</script>")).toBe("<p><strong>bold</strong> &lt;script&gt;x&lt;/script&gt;</p>\n");
   });
+
+  it("keeps http(s), mailto: and relative links as they were written", () => {
+    expect(renderMarkdown('[shop](https://acme.example/?a=1&b=2 "Acme & co")')).toBe(
+      '<p><a href="https://acme.example/?a=1&amp;b=2" title="Acme &amp; co">shop</a></p>\n',
+    );
+    expect(renderMarkdown("[mail](mailto:jane@example.com) [top](#top) [about](/about)")).toBe(
+      '<p><a href="mailto:jane@example.com">mail</a> <a href="#top">top</a> <a href="/about">about</a></p>\n',
+    );
+    expect(renderMarkdown("see https://acme.example/?a=1&b=2")).toContain('href="https://acme.example/?a=1&amp;b=2"');
+  });
+
+  it("drops links and images that would run script, keeping their text", () => {
+    for (const href of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:msgbox(1)"]) {
+      expect(renderMarkdown(`[click **me**](${href})`), href).toBe("<p>click <strong>me</strong></p>\n");
+      expect(renderMarkdown(`![a & b](${href})`), href).toBe("<p>a &amp; b</p>\n");
+    }
+  });
+
+  it("doesn't let character references smuggle a scheme into a link", () => {
+    const decode: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
+    for (const href of ["javascript&#58;alert(1)", "javascript&colon;alert(1)", "java&#x09;script:alert(1)"]) {
+      const attr = /href="([^"]*)"/.exec(renderMarkdown(`[x](${href})`))?.[1];
+      if (attr === undefined) continue;
+      // The browser decodes the attribute once; what it gets must be a harmless relative link.
+      const seen = attr.replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => decode[e]!);
+      expect(new URL(seen, "https://portfolio.invalid/").protocol, href).toBe("https:");
+    }
+  });
 });
 
 describe("projectYears", () => {
