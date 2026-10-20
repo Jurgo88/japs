@@ -100,7 +100,8 @@ async function remove(): Promise<void> {
 .meter { height: 6px; border-radius: 999px; background: var(--bg); overflow: hidden; }
 .meter span { display: block; height: 100%; background: var(--accent); }
 summary { cursor: pointer; font-weight: 600; }
-.form { display: grid; gap: 10px; margin-top: 10px; }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 16px; margin-top: 12px; }
+.form > p { grid-column: 1 / -1; margin: 0; }
 .form label { display: grid; gap: 4px; font-weight: 600; }
 select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
 .small { font-size: 12px; }

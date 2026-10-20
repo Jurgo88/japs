@@ -40,7 +40,7 @@ const providers = [
           <strong>{{ p.name }}</strong>
           <span class="muted">{{ p.role }}</span>
         </span>
-        <span v-if="env.tokens[p.id]" class="state ok">● {{ p.variable }} set</span>
+        <span v-if="env.tokens[p.id]" class="state ok"><span class="dot" aria-hidden="true" />{{ p.variable }} set</span>
         <span v-else class="state muted">{{ p.variable }} not set</span>
       </li>
     </ul>
@@ -80,24 +80,12 @@ const providers = [
   border-top: 1px solid var(--border);
 }
 .row:first-child { border-top: 0; }
-.logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  background: #24292f;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
-}
-.logo.netlify { background: #00ad9f; }
-.logo.cloudflare { background: #f38020; }
 .info { display: grid; min-width: 0; }
 .info .muted { font-size: 13px; }
-.state { font-size: 13px; white-space: nowrap; }
-.state.ok, .ok { color: var(--ok); }
+.state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid var(--border); }
+.state.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ok { color: var(--ok); }
 .err { color: var(--danger); }
 .small { font-size: 12px; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }

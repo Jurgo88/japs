@@ -16,16 +16,23 @@ export type SettingsSection = "connections" | "ai" | "account";
 const props = defineProps<{ section: SettingsSection }>();
 const emit = defineEmits<{ navigate: [section: SettingsSection]; close: [] }>();
 
-const sections = computed<{ id: SettingsSection; label: string }[]>(() => [
-  { id: "connections", label: "Connections" },
-  { id: "ai", label: "AI texts" },
-  ...(isCloud.value ? [{ id: "account" as const, label: "Account" }] : []),
+/** Icon paths (16×16, stroked) per section. */
+const ICONS: Record<SettingsSection, string> = {
+  connections: "M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1",
+  ai: "M8 2.5l1.3 3.2 3.2 1.3-3.2 1.3L8 11.5 6.7 8.3 3.5 7l3.2-1.3zM12.5 11l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5L10.5 13l1.5-.5z",
+  account: "M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.6-2.3 2.6-3.5 5-3.5s4.4 1.2 5 3.5",
+};
+
+const sections = computed<{ id: SettingsSection; label: string; hint: string }[]>(() => [
+  { id: "connections", label: "Connections", hint: "Where projects come from" },
+  { id: "ai", label: "AI texts", hint: "Model and limits" },
+  ...(isCloud.value ? [{ id: "account" as const, label: "Account", hint: "Sign-in and data" }] : []),
 ]);
 const user = computed(() => account.value?.user);
 </script>
 
 <template>
-  <main class="settings">
+  <main class="settings page">
     <aside class="nav">
       <button class="back" type="button" @click="emit('close')">← Back to editor</button>
       <h1>Settings</h1>
@@ -38,7 +45,13 @@ const user = computed(() => account.value?.user);
           :aria-current="props.section === s.id ? 'page' : undefined"
           @click="emit('navigate', s.id)"
         >
-          {{ s.label }}
+          <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path :d="ICONS[s.id]" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="label">
+            {{ s.label }}
+            <span class="muted">{{ s.hint }}</span>
+          </span>
         </button>
       </nav>
     </aside>
@@ -72,9 +85,8 @@ const user = computed(() => account.value?.user);
 <style scoped>
 .settings {
   display: grid;
-  grid-template-columns: 220px minmax(0, 720px);
-  gap: 24px;
-  padding: 24px 20px;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
 }
 .nav { position: sticky; top: 72px; display: grid; gap: 8px; }
@@ -84,15 +96,22 @@ const user = computed(() => account.value?.user);
   text-align: left;
   border: 0;
   background: none;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
   cursor: pointer;
 }
-.nav nav button:hover { background: var(--panel); }
+.nav nav button { display: flex; align-items: flex-start; gap: 10px; border: 1px solid transparent; }
+.nav nav button .icon { flex: none; margin-top: 2px; color: var(--muted); }
+.nav nav button .label { display: grid; line-height: 1.35; }
+.nav nav button .label .muted { font-size: 12px; font-weight: 400; }
+.nav nav button:hover { background: var(--panel); border-color: var(--border); }
 .nav nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav nav button.active .icon { color: var(--accent); }
 .back { color: var(--muted); padding-left: 0; }
 .back:hover { color: var(--text); }
 .content { display: grid; gap: 16px; }
+/* Long prose stays readable on wide screens. */
+.content :deep(.card > p), .content :deep(.card-head p) { max-width: 80ch; }
 .profile { display: flex; gap: 12px; align-items: center; }
 .profile img, .initials { width: 48px; height: 48px; border-radius: 50%; }
 .initials { display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 20px; font-weight: 700; }
@@ -102,5 +121,6 @@ const user = computed(() => account.value?.user);
   .settings { grid-template-columns: 1fr; }
   .nav { position: static; }
   .nav nav { display: flex; flex-wrap: wrap; }
+  .nav nav button .label .muted { display: none; }
 }
 </style>
