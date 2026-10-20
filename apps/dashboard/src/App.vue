@@ -319,9 +319,10 @@ pnpm japs analyze</pre>
     <PublishTarget />
   </main>
 
-  <main v-else class="single">
-    <LanguagesEditor />
-    <ProfileEditor />
+  <main v-else class="wide">
+    <ProfileEditor>
+      <template #aside><LanguagesEditor /></template>
+    </ProfileEditor>
   </main>
   </template>
   </template>
@@ -397,6 +398,7 @@ pnpm japs analyze</pre>
   align-items: start;
 }
 .single { padding: 16px 20px; max-width: 820px; display: grid; gap: 16px; }
+.wide { padding: 20px; }
 .empty { padding: 48px 20px; text-align: center; }
 .empty pre { display: inline-block; text-align: left; background: var(--panel); padding: 12px 16px; border-radius: 8px; }
 @media (max-width: 860px) {
