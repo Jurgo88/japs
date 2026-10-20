@@ -19,8 +19,12 @@
   "routes": [{ "pattern": "japs.app", "custom_domain": true }],
   "observability": { "enabled": true },
   "browser": { "binding": "BROWSER" },
-  // Own screenshots, under <user id>/<file>. Private: served only through /api/screenshots.
-  "r2_buckets": [{ "binding": "SHOTS", "bucket_name": "japs-screenshots" }],
+  "r2_buckets": [
+    // Own screenshots, under <user id>/<file>. Private: served only through /api/screenshots.
+    { "binding": "SHOTS", "bucket_name": "japs-screenshots" },
+    // Published portfolios (ADR 0013), written here and served by the japs-sites Worker.
+    { "binding": "SITES", "bucket_name": "japs-sites" }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -47,6 +51,8 @@
     // AI generations per user and month on the shared key; then the user adds an own key.
     "JAPS_FREE_GENERATIONS": "50",
     // Where the publish workflow lives (ADR 0011); its token is the secret GITHUB_BUILD_TOKEN.
-    "JAPS_BUILD_REPO": "Jurgo88/japs"
+    "JAPS_BUILD_REPO": "Jurgo88/japs",
+    // Portfolios on <handle>.japs.app (ADR 0013), served by wrangler.sites.jsonc.
+    "SITES_DOMAIN": "japs.app"
   }
 }

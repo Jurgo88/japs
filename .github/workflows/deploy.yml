@@ -42,3 +42,6 @@ jobs:
         run: pnpm --filter @japs/api run db:migrate:remote
       - name: Deploy the Worker
         run: pnpm --filter @japs/api run deploy
+      # Portfolios on <handle>.japs.app (ADR 0013): a separate, read-only Worker.
+      - name: Deploy the portfolio Worker
+        run: pnpm --filter @japs/api run deploy:sites

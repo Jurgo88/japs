@@ -27,7 +27,8 @@ packages/cli      `japs` command (pnpm japs discover)
 packages/theme-kit  optional theme helpers: load portfolio.json, locales, UI strings, Astro config, sample (ADR 0010)
 apps/theme-<id>     Astro themes, read only out/portfolio.json; chosen by `theme` in japs.config.json (ADR 0010)
 apps/dashboard      Vue 3 editor served by `japs edit`; data via EditorBackend (local now, cloud API next)
-apps/api            hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub App sign-in, Netlify OAuth (ADR 0009)
+apps/api            hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub App sign-in, Netlify OAuth (ADR 0009);
+                    src/sites = <handle>.japs.app, served by a separate read-only Worker (ADR 0013)
 ```
 
 ## Commands

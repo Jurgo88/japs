@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "pnpm --filter @japs/dashboard build && wrangler dev",
     "deploy": "pnpm --filter @japs/dashboard build && wrangler deploy",
+    "dev:sites": "wrangler dev -c wrangler.sites.dev.jsonc --port 8788",
+    "deploy:sites": "wrangler deploy -c wrangler.sites.jsonc",
     "db:migrate:local": "wrangler d1 migrations apply japs --local",
     "db:migrate:remote": "wrangler d1 migrations apply japs --remote",
     "typecheck": "tsc --noEmit -p ."

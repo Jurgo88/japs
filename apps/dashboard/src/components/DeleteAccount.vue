@@ -26,8 +26,9 @@ async function remove(): Promise<void> {
     <h2>Delete account</h2>
     <p>
       Deletes your account, connections, keys, imported projects, texts and screenshots from JAPS, and revokes its
-      GitHub and Cloudflare access. This can't be undone. A portfolio you published stays where it is (Netlify or
-      Cloudflare Pages). See <a href="/privacy" target="_blank">Privacy</a> for the apps to remove there too.
+      GitHub and Cloudflare access. This can't be undone. A portfolio on japs.app goes offline. One you published to
+      Netlify or Cloudflare Pages stays there. See <a href="/privacy" target="_blank">Privacy</a> for the apps to
+      remove there too.
     </p>
     <label>
       <span>Type <code>{{ account.user.login }}</code> to confirm</span>

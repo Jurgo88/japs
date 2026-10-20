@@ -4,7 +4,7 @@
 
 JAPS connects to your **Netlify** and **GitHub** accounts, finds what you've actually shipped, pairs deployed sites with their repositories, analyzes each project, and generates a static portfolio you can tweak and publish.
 
-**Status:** early development. Locally, everything works end to end: the CLI pipeline, the browser editor, the default theme and publishing to your Netlify. The hosted version (sign in with GitHub, no local setup) can already import your projects and write their texts; publishing from it comes next, followed by more themes to choose from.
+**Status:** early development. Locally, everything works end to end: the CLI pipeline, the browser editor, the default theme and publishing to your Netlify. The hosted version (sign in with GitHub, no local setup) imports your projects, writes their texts and publishes the portfolio to your Netlify or Cloudflare Pages, or to `<you>.japs.app` without any other account.
 
 ## Why another one?
 
@@ -29,7 +29,7 @@ GitHub repos ──┘                                                ▲
 Two ways to run it:
 
 - **Locally** with the `japs` CLI and your own tokens. All data stays in files in your working directory.
-- **Hosted** on Cloudflare Workers + D1: sign in with GitHub (a read-only GitHub App), connect Netlify, and import and edit projects in the browser. Background jobs gather facts and write texts; a monthly free AI quota is included, or you can add your own key (OpenAI, Gemini, Groq, OpenRouter). Tokens and keys are stored encrypted and never sent back to the browser. Setup for running your own deployment is in [`apps/api`](apps/api/README.md).
+- **Hosted** on Cloudflare Workers + D1: sign in with GitHub (a read-only GitHub App), connect Netlify, and import and edit projects in the browser. Background jobs gather facts and write texts; a monthly free AI quota is included, or you can add your own key (OpenAI, Gemini, Groq, OpenRouter). Tokens and keys are stored encrypted and never sent back to the browser. Publish to your own Netlify or Cloudflare Pages, or to `<you>.japs.app`: your GitHub username by default, or any free name you pick. Setup for running your own deployment is in [`apps/api`](apps/api/README.md).
 
 ## Development
 
@@ -71,7 +71,7 @@ The default theme has light and dark mode, a technology filter, screenshots in d
 | `packages/theme-kit` | Optional helpers shared by the built-in themes |
 | `apps/theme-*` | Astro themes built from `portfolio.json`; pick one with `"theme"` in `japs.config.json` |
 | `apps/dashboard` | Vue 3 editor, served locally by `japs edit` and online by the API |
-| `apps/api` | Hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub sign-in, Netlify connect |
+| `apps/api` | Hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub sign-in, Netlify connect; a second, read-only Worker serves `<you>.japs.app` |
 | `docs/` | Kickoff, specs and architecture decisions (Slovak) |
 
 ## License

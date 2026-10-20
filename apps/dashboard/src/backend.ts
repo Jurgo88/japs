@@ -31,7 +31,7 @@ export interface PublishStatus {
   id: string;
   status: "building" | "deploying" | "live" | "failed";
   /** Absent from older servers: Netlify. */
-  target?: "netlify" | "cloudflare";
+  target?: "netlify" | "cloudflare" | "japs";
   draft: boolean;
   siteUrl: string;
   url: string | null;
@@ -57,6 +57,22 @@ export interface GenerateSummary {
 export interface LocalEnvironment {
   tokens: { github: boolean; netlify: boolean; cloudflare: boolean };
   llm: { provider: string; model: string | null; ready: boolean; problem: string | null };
+}
+
+/** The portfolio's address on the hosted domain, <handle>.japs.app (ADR 0013). */
+export interface SiteInfo {
+  /** False when this server doesn't host portfolios. */
+  available: boolean;
+  domain?: string;
+  site?: { handle: string; url: string; live: boolean; nextChangeAt: string | null } | null;
+  /** The GitHub login, while there is no address yet and it's free. */
+  suggestion?: string | null;
+}
+
+export interface HandleCheck {
+  handle: string;
+  available: boolean;
+  problem: string | null;
 }
 
 /** The signed-in user in the hosted version. */
@@ -102,6 +118,10 @@ export interface EditorBackend {
   environment(): Promise<LocalEnvironment>;
   /** Hosted only: removes a Netlify or Cloudflare connection (revoked where possible). */
   disconnect(provider: "netlify" | "cloudflare"): Promise<void>;
+  /** Hosted only: the address on japs.app, whether a name is free, and picking one. */
+  site(): Promise<SiteInfo>;
+  checkHandle(handle: string): Promise<HandleCheck>;
+  saveHandle(handle: string): Promise<SiteInfo>;
 }
 
 export class BackendError extends Error {
@@ -202,5 +222,17 @@ export class HttpBackend implements EditorBackend {
 
   async removeAiKey(): Promise<void> {
     await this.call("/api/connections/llm", { method: "DELETE" });
+  }
+
+  site(): Promise<SiteInfo> {
+    return this.call("/api/site");
+  }
+
+  checkHandle(handle: string): Promise<HandleCheck> {
+    return this.call(`/api/site/check?handle=${encodeURIComponent(handle)}`);
+  }
+
+  saveHandle(handle: string): Promise<SiteInfo> {
+    return this.call("/api/site", { method: "PUT", body: JSON.stringify({ handle }) });
   }
 }

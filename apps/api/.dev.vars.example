@@ -6,3 +6,5 @@ NETLIFY_CLIENT_SECRET=
 SESSION_SECRET=
 ENCRYPTION_KEY=
 OPENAI_API_KEY=
+# Portfolios on <handle>.localhost:8788 (ADR 0013), served by `pnpm dev:sites` next to `pnpm dev`.
+SITES_DOMAIN=localhost:8788

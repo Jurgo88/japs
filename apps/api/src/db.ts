@@ -84,8 +84,11 @@ export type BuildStatus = "building" | "deploying" | "live" | "failed";
 export interface Build {
   id: string;
   status: BuildStatus;
-  /** Netlify site or Cloudflare Pages project (ADR 0012); for Pages, siteId is the project name. */
-  target: "netlify" | "cloudflare";
+  /**
+   * Netlify site or Cloudflare Pages project (ADR 0012), or the user's address on the hosted
+   * domain (ADR 0013). For Pages, siteId is the project name; for japs, the handle.
+   */
+  target: "netlify" | "cloudflare" | "japs";
   accountId: string | null;
   theme: string;
   draft: boolean;
@@ -105,7 +108,7 @@ export type BuildUpdate = Partial<Pick<Build, "status" | "deployId" | "files" | 
 type BuildRow = {
   id: string;
   status: BuildStatus;
-  target: "netlify" | "cloudflare";
+  target: Build["target"];
   account_id: string | null;
   theme: string;
   draft: number;
@@ -138,6 +141,33 @@ const toBuild = (r: BuildRow): Build => ({
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
+
+/** The user's portfolio on <handle>.japs.app (ADR 0013). Builds are ids of the `builds` rows. */
+export interface HostedSite {
+  handle: string;
+  /** Null until the user changes the first address (a free first pick and one change). */
+  handleChangedAt: string | null;
+  liveBuild: string | null;
+  draftBuild: string | null;
+  draftKey: string | null;
+}
+type HostedSiteRow = {
+  handle: string;
+  handle_changed_at: string | null;
+  live_build: string | null;
+  draft_build: string | null;
+  draft_key: string | null;
+};
+const toHostedSite = (r: HostedSiteRow): HostedSite => ({
+  handle: r.handle,
+  handleChangedAt: r.handle_changed_at,
+  liveBuild: r.live_build,
+  draftBuild: r.draft_build,
+  draftKey: r.draft_key,
+});
+
+/** Why another user's claim blocks a handle; never who it is. */
+export type HandleConflict = "taken" | "login" | "retired";
 
 /** What the browser may see about a connection: never a token. */
 export type PublicConnection = Pick<Connection, "provider" | "accountLogin"> & { updatedAt: string };
@@ -206,6 +236,30 @@ export class Store {
   async buildOwner(buildId: string): Promise<string | null> {
     const row = await this.db.prepare("SELECT user_id FROM builds WHERE id = ?").bind(buildId).first<{ user_id: string }>();
     return row?.user_id ?? null;
+  }
+
+  /**
+   * The portfolio served at a handle, for the read-only portfolio Worker (ADR 0013). Handles
+   * are public addresses, so this is a lookup across users like buildOwner.
+   */
+  async hostedSiteByHandle(handle: string): Promise<(HostedSite & { userId: string }) | null> {
+    const row = await this.db
+      .prepare("SELECT user_id, handle, handle_changed_at, live_build, draft_build, draft_key FROM hosted_sites WHERE handle = ?")
+      .bind(handle)
+      .first<HostedSiteRow & { user_id: string }>();
+    return row ? { ...toHostedSite(row), userId: row.user_id } : null;
+  }
+
+  /** A handle given up recently: where its owner is now (null when the account is gone). */
+  async retiredHandle(handle: string): Promise<{ currentHandle: string | null } | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT s.handle AS current FROM retired_handles r LEFT JOIN hosted_sites s ON s.user_id = r.user_id
+         WHERE r.handle = ? AND r.until > ?`,
+      )
+      .bind(handle, this.iso())
+      .first<{ current: string | null }>();
+    return row ? { currentHandle: row.current } : null;
   }
 
   async deleteSession(tokenHash: string): Promise<void> {
@@ -520,6 +574,114 @@ export class UserStore {
       )
       .bind(ok, bad, problem, problem, ok, bad, this.iso(), this.userId, id)
       .run();
+  }
+
+  // --- Address on the hosted domain (ADR 0013) ---
+
+  async githubLogin(): Promise<string | null> {
+    const row = await this.db.prepare("SELECT github_login FROM users WHERE id = ?").bind(this.userId).first<{ github_login: string }>();
+    return row?.github_login ?? null;
+  }
+
+  async getHostedSite(): Promise<HostedSite | null> {
+    const row = await this.db
+      .prepare("SELECT handle, handle_changed_at, live_build, draft_build, draft_key FROM hosted_sites WHERE user_id = ?")
+      .bind(this.userId)
+      .first<HostedSiteRow>();
+    return row ? toHostedSite(row) : null;
+  }
+
+  /**
+   * Whether someone else blocks `handle`: their address, their GitHub login (every JAPS user's
+   * login stays reserved for them), or a name they gave up recently. Own claims never conflict.
+   */
+  async handleConflict(handle: string): Promise<HandleConflict | null> {
+    const site = await this.db
+      .prepare("SELECT 1 AS hit FROM hosted_sites WHERE handle = ? AND user_id != ?")
+      .bind(handle, this.userId)
+      .first();
+    if (site) return "taken";
+    const login = await this.db
+      .prepare("SELECT 1 AS hit FROM users WHERE lower(github_login) = ? AND id != ?")
+      .bind(handle, this.userId)
+      .first();
+    if (login) return "login";
+    const retired = await this.db
+      .prepare("SELECT 1 AS hit FROM retired_handles WHERE handle = ? AND until > ? AND (user_id IS NULL OR user_id != ?)")
+      .bind(handle, this.iso(), this.userId)
+      .first();
+    return retired ? "retired" : null;
+  }
+
+  /** The first address. False when another user got the handle first (it's UNIQUE). */
+  async claimHandle(handle: string): Promise<boolean> {
+    const at = this.iso();
+    await this.db
+      .prepare("INSERT OR IGNORE INTO hosted_sites (user_id, handle, created_at, updated_at) VALUES (?, ?, ?, ?)")
+      .bind(this.userId, handle, at, at)
+      .run();
+    const won = (await this.getHostedSite())?.handle === handle;
+    if (won) await this.db.prepare("DELETE FROM retired_handles WHERE handle = ? AND user_id = ?").bind(handle, this.userId).run();
+    return won;
+  }
+
+  /**
+   * A new address. The old one is retired first, so nobody can grab it in between, and goes
+   * back to normal if the new one turns out to be taken. False in that case.
+   */
+  async changeHandle(handle: string, retireUntil: string): Promise<boolean> {
+    const current = await this.getHostedSite();
+    if (!current) return this.claimHandle(handle);
+    if (current.handle === handle) return true;
+    const at = this.iso();
+    await this.db
+      .prepare(
+        `INSERT INTO retired_handles (handle, user_id, until) VALUES (?, ?, ?)
+         ON CONFLICT(handle) DO UPDATE SET user_id = excluded.user_id, until = excluded.until`,
+      )
+      .bind(current.handle, this.userId, retireUntil)
+      .run();
+    await this.db
+      .prepare("UPDATE OR IGNORE hosted_sites SET handle = ?, handle_changed_at = ?, updated_at = ? WHERE user_id = ?")
+      .bind(handle, at, at, this.userId)
+      .run();
+    if ((await this.getHostedSite())?.handle !== handle) {
+      await this.db.prepare("DELETE FROM retired_handles WHERE handle = ? AND user_id = ?").bind(current.handle, this.userId).run();
+      return false;
+    }
+    // Taking back an own retired name ends its quarantine.
+    await this.db.prepare("DELETE FROM retired_handles WHERE handle = ? AND user_id = ?").bind(handle, this.userId).run();
+    return true;
+  }
+
+  /** What <handle>.japs.app serves from now on, or the latest draft with its secret key. */
+  async setHostedBuild(build: { live: string } | { draft: string; key: string }): Promise<void> {
+    const at = this.iso();
+    const statement =
+      "live" in build
+        ? this.db.prepare("UPDATE hosted_sites SET live_build = ?, updated_at = ? WHERE user_id = ?").bind(build.live, at, this.userId)
+        : this.db
+            .prepare("UPDATE hosted_sites SET draft_build = ?, draft_key = ?, updated_at = ? WHERE user_id = ?")
+            .bind(build.draft, build.key, at, this.userId);
+    await statement.run();
+  }
+
+  /**
+   * Before account deletion: the current address and earlier ones stay blocked until `until`
+   * and show that the portfolio is gone (user_id null), instead of passing to someone at once.
+   */
+  async retireHandlesForDeletion(until: string): Promise<void> {
+    const site = await this.getHostedSite();
+    if (site) {
+      await this.db
+        .prepare(
+          `INSERT INTO retired_handles (handle, user_id, until) VALUES (?, NULL, ?)
+           ON CONFLICT(handle) DO UPDATE SET user_id = NULL, until = excluded.until`,
+        )
+        .bind(site.handle, until)
+        .run();
+    }
+    await this.db.prepare("UPDATE retired_handles SET user_id = NULL WHERE user_id = ?").bind(this.userId).run();
   }
 
   /** Account deletion (#36): the user row cascades to every table. R2 images are deleted by the caller. */

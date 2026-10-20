@@ -34,17 +34,21 @@ import { randomToken } from "./crypto.ts";
 import type { Build, UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
 import { wrapAnalysis, wrapFacts } from "./pipeline.ts";
+import { draftUrl, ensureHostedSite, HandleError, siteUrl } from "./sites/handles.ts";
+import { fileKey, pruneSite, storedFiles, writeManifest } from "./sites/storage.ts";
 import { cloudflareToken, ConnectionError, netlifyToken } from "./tokens.ts";
 
 /**
- * Publishing from the hosted version (#34, ADR 0011, 0012). The Worker prepares portfolio.json
- * and the user's JAPS site (Netlify) or project (Cloudflare Pages), GitHub Actions builds the
- * theme exactly like `japs publish`, and the Worker forwards the built files, so the user's
- * tokens never leave it.
+ * Publishing from the hosted version (#34, ADR 0011, 0012, 0013). The Worker prepares
+ * portfolio.json and the user's JAPS site (Netlify), project (Cloudflare Pages) or address on
+ * japs.app, GitHub Actions builds the theme exactly like `japs publish`, and the Worker forwards
+ * the built files, so the user's tokens never leave it. For japs.app the files go to R2.
  */
 
 /** Netlify allows 3 deploys a minute and 100 a day per account; Pages is similar. */
 export const BUILD_LIMITS = { perDay: 20, minGapMs: 30_000, staleAfterMs: 20 * 60_000 } as const;
+/** Largest file on japs.app, as on Cloudflare Pages. A portfolio's biggest are screenshots. */
+export const MAX_HOSTED_FILE = 25 * 1024 * 1024;
 
 export class PublishError extends Error {
   constructor(
@@ -59,7 +63,7 @@ export class PublishError extends Error {
 export interface BuildInput {
   version: 1;
   buildId: string;
-  /** Netlify wants SHA-1 digests, Cloudflare Pages its own BLAKE3-based hash. */
+  /** Netlify and japs.app key files by SHA-1, Cloudflare Pages by its own BLAKE3-based hash. */
   target: PublishTarget;
   theme: ThemeId;
   siteUrl: string;
@@ -182,6 +186,28 @@ async function cloudflareDestination(user: UserStore, deps: PublishDeps, base: s
   return { siteId: project.name, siteUrl: project.url, accountId: account.id };
 }
 
+/** The sites bucket and domain (ADR 0013); without them the japs.app target isn't offered. */
+function hosting(deps: PublishDeps): { bucket: NonNullable<Env["SITES"]>; APP_URL: string; SITES_DOMAIN: string } {
+  const { SITES, SITES_DOMAIN, APP_URL } = deps.env;
+  if (!SITES || !SITES_DOMAIN) throw new PublishError("japs.app hosting is not configured on this server.", 501);
+  return { bucket: SITES, APP_URL, SITES_DOMAIN };
+}
+
+/** <handle>.japs.app: the user's address, the GitHub login unless they picked another. */
+async function japsDestination(user: UserStore, deps: PublishDeps): Promise<Destination> {
+  const env = hosting(deps);
+  const site = await ensureHostedSite(user).catch((err: unknown) => {
+    throw err instanceof HandleError ? new PublishError(err.message) : err;
+  });
+  return { siteId: site.handle, siteUrl: siteUrl(site.handle, env), accountId: null };
+}
+
+/** 50 bits, base32: the secret part of a draft's address. */
+function draftKey(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+  return [...crypto.getRandomValues(new Uint8Array(10))].map((b) => alphabet[b % 32]).join("");
+}
+
 /** POST /api/publish: checks, portfolio, destination, build input in R2, then the workflow run. */
 export async function startPublish(user: UserStore, userId: string, draft: boolean, deps: PublishDeps): Promise<Build> {
   const { env, now } = deps;
@@ -202,7 +228,12 @@ export async function startPublish(user: UserStore, userId: string, draft: boole
 
   const target = config.publish.target;
   const base = `${slugify(config.profile?.name ?? "my") || "my"}-portfolio`;
-  const destination = target === "cloudflare" ? await cloudflareDestination(user, deps, base) : await netlifyDestination(user, deps, base);
+  const destination =
+    target === "japs"
+      ? await japsDestination(user, deps)
+      : target === "cloudflare"
+        ? await cloudflareDestination(user, deps, base)
+        : await netlifyDestination(user, deps, base);
   const buildId = await user.createBuild({ theme: config.theme, draft, target, ...destination });
 
   const builder = new URL("/builder/builds/", env.APP_URL);
@@ -262,6 +293,8 @@ export async function refreshPublish(user: UserStore, deps: PublishDeps): Promis
     await user.updateBuild(build.id, { status: "failed", message: "The build timed out. Please publish again." });
     return user.getBuild(build.id);
   }
+  // japs.app goes live when the run finishes; there is no provider to ask.
+  if (build.target === "japs") return build;
   if (build.status !== "deploying" || !build.deployId || !build.files) return build;
 
   const state =
@@ -281,7 +314,7 @@ export async function refreshPublish(user: UserStore, deps: PublishDeps): Promis
 
 // --- Builder side: called by the GitHub Actions run, authenticated with OIDC ---
 
-const DIGEST = { netlify: /^[0-9a-f]{40}$/, cloudflare: /^[0-9a-f]{32}$/ } as const;
+const DIGEST = { netlify: /^[0-9a-f]{40}$/, cloudflare: /^[0-9a-f]{32}$/, japs: /^[0-9a-f]{40}$/ } as const;
 const MAX_FILES = 5000;
 
 /** POST /builder/builds/:id/deploy: digests of the built site -> what still has to be uploaded. */
@@ -296,6 +329,14 @@ export async function createBuildDeploy(user: UserStore, build: Build, files: un
     Object.entries(files).every(([path, hash]) => path.startsWith("/") && !path.includes("..") && typeof hash === "string" && pattern.test(hash));
   if (!valid) throw new PublishError('Expected { files: { "/path": "<hash>" } }.');
   const digests = files as Record<string, string>;
+
+  if (build.target === "japs") {
+    // Content the user's storage already has (an earlier publish) isn't uploaded again.
+    const stored = await storedFiles(hosting(deps).bucket, user.userId);
+    const required = [...new Set(Object.values(digests))].filter((sha) => !stored.has(sha));
+    await user.updateBuild(build.id, { status: "deploying", files: digests, required });
+    return required;
+  }
 
   if (build.target === "cloudflare") {
     // Pages: no deployment until every missing asset is in; it's created on finish.
@@ -318,6 +359,12 @@ export async function forwardBuildFile(user: UserStore, build: Build, path: stri
   const hash = build.files[path];
   if (!hash || !build.required.includes(hash)) throw new PublishError(`${path} isn't needed.`);
 
+  if (build.target === "japs") {
+    if (content.byteLength > MAX_HOSTED_FILE) throw new PublishError(`${path} is larger than 25 MB.`);
+    if ((await sha1Hex(content)) !== hash) throw new PublishError(`Content of ${path} doesn't match its digest.`);
+    await hosting(deps).bucket.put(fileKey(user.userId, hash), content);
+    return;
+  }
   if (build.target === "cloudflare") {
     // Pages' hash is BLAKE3 over base64, too costly to recompute per file within the free CPU
     // limit; a wrong file could only spoil this user's own deployment, and the run is OIDC-verified.
@@ -348,6 +395,10 @@ export async function finishBuild(
     await user.updateBuild(build.id, { status: "failed", message: (outcome.message ?? "The build failed.").slice(0, 500) });
     return;
   }
+  if (build.target === "japs" && build.status === "deploying" && build.files) {
+    await goLiveOnJaps(user, userId, build, build.files, deps);
+    return;
+  }
   if (build.target === "cloudflare" && build.status === "deploying" && build.files) {
     const cf = await cloudflareClient(user, deps);
     const jwt = await pagesUploadToken(cf, build.accountId!, build.siteId);
@@ -355,4 +406,36 @@ export async function finishBuild(
     const { id } = await createPagesDeployment(cf, build.accountId!, build.siteId, build.files, build.draft ? PAGES_DRAFT_BRANCH : "main");
     await user.updateBuild(build.id, { deployId: id });
   }
+}
+
+/**
+ * japs.app: every file has arrived, so the manifest is written and the address switches to it
+ * in one update. A draft gets a fresh secret key, so an older draft link stops working. Then
+ * everything neither live nor the latest draft is removed from storage.
+ */
+async function goLiveOnJaps(user: UserStore, userId: string, build: Build, files: Record<string, string>, deps: PublishDeps): Promise<void> {
+  const env = hosting(deps);
+  const stored = await storedFiles(env.bucket, userId);
+  if (Object.values(files).some((sha) => !stored.has(sha))) {
+    await user.updateBuild(build.id, { status: "failed", message: "Some files didn't arrive. Please publish again." });
+    return;
+  }
+  const site = await user.getHostedSite();
+  if (!site) {
+    await user.updateBuild(build.id, { status: "failed", message: "Your japs.app address is gone. Choose one and publish again." });
+    return;
+  }
+  await writeManifest(env.bucket, userId, build.id, files);
+  let url: string;
+  if (build.draft) {
+    const key = draftKey();
+    await user.setHostedBuild({ draft: build.id, key });
+    url = draftUrl(site.handle, key, env);
+  } else {
+    await user.setHostedBuild({ live: build.id });
+    url = siteUrl(site.handle, env);
+  }
+  await recordLive(user, build, url, build.id, deps.now);
+  const after = await user.getHostedSite();
+  await pruneSite(env.bucket, userId, [after?.liveBuild, after?.draftBuild].filter((id): id is string => Boolean(id)));
 }

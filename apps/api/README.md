@@ -9,7 +9,10 @@ cd apps/api
 cp .dev.vars.example .dev.vars        # fill in (see below); never commit .dev.vars
 pnpm db:migrate:local                 # creates the local D1 database
 pnpm dev                              # builds the dashboard, serves it + the API on http://localhost:8787
+pnpm dev:sites                        # published portfolios on http://<handle>.localhost:8788 (ADR 0013)
 ```
+
+`pnpm dev:sites` runs the portfolio Worker from `wrangler.sites.dev.jsonc`, which has no route on purpose: with a route, `wrangler dev` rewrites the visitor's Host to the zone, and every address would look like japs.app. Both Workers share the local D1 and R2 state in `.wrangler/state`. Keep `SITES_DOMAIN=localhost:8788` in `.dev.vars` so the API hands out matching addresses.
 
 Tests run in Node against `node:sqlite` with the same migrations: `pnpm test` from the repo root.
 
@@ -48,7 +51,17 @@ Netlify → User settings → Applications → **OAuth applications** → New OA
 
 In production: `npx wrangler secret put <NAME>` for each. Losing `ENCRYPTION_KEY` makes stored tokens unreadable (users reconnect); leaking it exposes them — treat it like a password.
 
-### 4. Database and deploy
+### 4. Portfolios on japs.app (ADR 0013)
+
+Published portfolios live in an R2 bucket and are served at `<handle>.japs.app` by a second Worker, `japs-sites` (`wrangler.sites.jsonc`). It only reads the database and that bucket, and holds no secrets.
+
+```bash
+npx wrangler r2 bucket create japs-sites    # before the first deploy: both Workers bind it
+```
+
+In the Cloudflare dashboard, add a DNS record to the japs.app zone: type `AAAA`, name `*`, content `100::`, **Proxied**. Routes on a wildcard need a proxied record to receive traffic; Universal SSL already covers `*.japs.app`. `deploy.yml` deploys `japs-sites` after the API Worker; by hand it is `pnpm deploy:sites`.
+
+### 5. Database and deploy
 
 ```bash
 npx wrangler d1 create japs                 # put the database_id into wrangler.jsonc

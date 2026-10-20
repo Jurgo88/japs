@@ -89,7 +89,7 @@ export async function cloudBuild(options: CloudBuildOptions): Promise<void> {
     }
     const files = await collectFiles(dist);
     const digests: Record<string, string> = {};
-    // Netlify keys content by SHA-1, Cloudflare Pages by its own BLAKE3-based hash.
+    // Netlify and japs.app key content by SHA-1, Cloudflare Pages by its own BLAKE3-based hash.
     for (const file of files) {
       digests[file.path] = input.target === "cloudflare" ? pagesFileHash(file.content, file.path) : await sha1Hex(file.content);
     }
@@ -114,7 +114,7 @@ export async function cloudBuild(options: CloudBuildOptions): Promise<void> {
     );
 
     await call("/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) });
-    log(`Done. ${input.target === "cloudflare" ? "Cloudflare Pages" : "Netlify"} is publishing the site.`);
+    log(input.target === "japs" ? "Done. The site is live on japs.app." : `Done. ${input.target === "cloudflare" ? "Cloudflare Pages" : "Netlify"} is publishing the site.`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await call("/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ok: false, message }) }).catch(() => {});

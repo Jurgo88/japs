@@ -76,6 +76,10 @@ export async function publishWorkspace(ws: Workspace, options: PublishOptions): 
   const config = await requireConfig(ws);
   const target = options.target ?? config.publish.target;
   const env = options.env;
+  // <handle>.japs.app lives in the hosted version's storage (ADR 0013); the CLI can't reach it.
+  if (target === "japs") {
+    throw new WorkspaceError("Publishing to japs.app works from the editor at https://japs.app. Locally, use --to netlify or --to cloudflare.");
+  }
   if (target === "netlify" && !env.NETLIFY_TOKEN) throw new WorkspaceError("NETLIFY_TOKEN is not set. Add it to .env (see .env.example).");
   if (target === "cloudflare" && !env.CLOUDFLARE_API_TOKEN) {
     throw new WorkspaceError("CLOUDFLARE_API_TOKEN is not set. Add a token with Cloudflare Pages: Edit to .env (see .env.example).");

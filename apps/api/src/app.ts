@@ -33,6 +33,7 @@ import {
   toStatus,
 } from "./publish.ts";
 import { deleteUserImages, objectKey } from "./screenshots.ts";
+import { chooseHandle, HandleError, handleUnavailable, RETIRED_DAYS, type SitesConfig, siteView } from "./sites/handles.ts";
 import { ConnectionError, githubToken } from "./tokens.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
 
@@ -349,6 +350,9 @@ export function createApp(deps: AppDeps = {}) {
     }
     await revokeCloudflare(c, user.id);
     if (c.env.SHOTS) await deleteUserImages(c.env.SHOTS, user.id);
+    // The portfolio goes offline; its address shows "gone" and stays blocked for a while (ADR 0013).
+    if (c.env.SITES) await deleteUserImages(c.env.SITES, user.id);
+    await store.retireHandlesForDeletion(new Date(now().getTime() + RETIRED_DAYS * 86_400_000).toISOString());
     await store.deleteAccount();
     deleteCookie(c, cookieNames(c.env).session, cookieOptions(c.env));
     return c.json({ ok: true, githubRevoked });
@@ -515,6 +519,41 @@ export function createApp(deps: AppDeps = {}) {
     } catch (err) {
       return publishError(c, err);
     }
+  });
+
+  // --- Address on the hosted domain (ADR 0013) ---
+
+  /** The domain portfolios live on, when this server hosts them. */
+  const sites = (c: AppContext): SitesConfig | null =>
+    c.env.SITES && c.env.SITES_DOMAIN ? { APP_URL: c.env.APP_URL, SITES_DOMAIN: c.env.SITES_DOMAIN } : null;
+
+  app.get("/api/site", async (c) => {
+    const config = sites(c);
+    if (!config) return c.json({ available: false });
+    return c.json({ available: true, ...(await siteView(c.get("store").forUser(c.get("user")!.id), config, now())) });
+  });
+
+  /** As the user types: whether they could have this address. */
+  app.get("/api/site/check", async (c) => {
+    if (!sites(c)) return c.json({ error: "japs.app hosting is not available on this server." }, 501);
+    const handle = c.req.query("handle") ?? "";
+    const problem = await handleUnavailable(c.get("store").forUser(c.get("user")!.id), handle);
+    return c.json({ handle, available: problem === null, problem });
+  });
+
+  app.put("/api/site", async (c) => {
+    const config = sites(c);
+    if (!config) return c.json({ error: "japs.app hosting is not available on this server." }, 501);
+    const { handle } = (await c.req.json().catch(() => ({}))) as { handle?: unknown };
+    if (typeof handle !== "string") return c.json({ error: 'Expected { "handle": "<address>" }.' }, 400);
+    const store = c.get("store").forUser(c.get("user")!.id);
+    try {
+      await chooseHandle(store, handle, now());
+    } catch (err) {
+      if (err instanceof HandleError) return c.json({ error: err.message }, err.status);
+      throw err;
+    }
+    return c.json({ available: true, ...(await siteView(store, config, now())) });
   });
 
   /**
