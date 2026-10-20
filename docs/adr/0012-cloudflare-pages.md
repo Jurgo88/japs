@@ -24,6 +24,7 @@ Vývojári nemajú weby len na Netlify; časť ich má na Cloudflare. JAPS doter
 
 ## Dôsledky
 
+- **Doplnené 2026-10-20:** `publish.target` má aj hodnotu `japs`, portfólio na `<meno>.japs.app` bez ďalšieho účtu ([ADR 0013](0013-japs-app-subdomains.md)).
 - `Site.provider` je `"netlify" | "cloudflare"`, `SiteFacts.provider` je voliteľné a má iba hodnotu `"cloudflare"`.
 - `discover()` berie `netlifyToken` a/alebo `cloudflareToken`; CLI číta `NETLIFY_TOKEN` a/alebo `CLOUDFLARE_API_TOKEN`.
 - Cloud: pripojenie `cloudflare`, OAuth callback a import z oboch zdrojov (samostatný krok).

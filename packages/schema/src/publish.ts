@@ -1,7 +1,10 @@
 import { z } from "zod";
 
-/** Where the portfolio is published (ADR 0008, 0012). */
-export const PublishTarget = z.enum(["netlify", "cloudflare"]);
+/**
+ * Where the portfolio is published (ADR 0008, 0012, 0013). "japs" is <handle>.japs.app, which
+ * only the hosted version offers.
+ */
+export const PublishTarget = z.enum(["netlify", "cloudflare", "japs"]);
 export type PublishTarget = z.infer<typeof PublishTarget>;
 
 const LastDeploy = z

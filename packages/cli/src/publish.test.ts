@@ -238,4 +238,12 @@ describe("publishWorkspace to Cloudflare Pages", () => {
       "CLOUDFLARE_API_TOKEN is not set",
     );
   });
+
+  it("sends japs.app publishing to the hosted editor instead of falling back to Netlify", async () => {
+    const { fetch, calls } = fakeNetlify();
+    await expect(publishWorkspace(ws, { env, target: "japs", fetch, buildTheme: async () => dist })).rejects.toThrow(
+      "Publishing to japs.app works from the editor at https://japs.app",
+    );
+    expect(calls).toEqual([]);
+  });
 });

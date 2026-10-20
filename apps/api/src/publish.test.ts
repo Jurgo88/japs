@@ -7,6 +7,7 @@ import { Store, type UserStore } from "./db.ts";
 import type { Env } from "./env.ts";
 import { resetJwksCache } from "./oidc.ts";
 import type { BuildInput } from "./publish.ts";
+import { serveSite } from "./sites/serve.ts";
 import { fakeBucket } from "./testing/bucket.ts";
 import { fakeIssuer } from "./testing/oidc.ts";
 import { testDb } from "./testing/sqlite.ts";
@@ -220,5 +221,101 @@ describe("publishing to Cloudflare Pages from the cloud", () => {
     const res = await publish();
     expect(res.status).toBe(400);
     expect((await json(res)).error).toBe("Connect Cloudflare first.");
+  });
+});
+
+describe("publishing to japs.app from the cloud (ADR 0013)", () => {
+  let sites: ReturnType<typeof fakeBucket>;
+  const enc = (text: string) => new Uint8Array(new TextEncoder().encode(text));
+  const post = (value: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+  const serve = (url: string) => serveSite(new Request(url), { DB: env.DB, SITES: sites.bucket, SITES_DOMAIN: "japs.example.dev", APP_URL });
+  /** Lets the next publish start at once (publishes are paced half a minute apart). */
+  const later = () => env.DB.prepare("UPDATE builds SET created_at = ?").bind("2026-01-01T00:00:00.000Z").run();
+
+  /** One full run of the workflow: deploy the digests, upload what's required, finish. */
+  async function run(buildId: string, files: Record<string, Uint8Array<ArrayBuffer>>): Promise<string[]> {
+    const base = `/builder/builds/${buildId}`;
+    const digests: Record<string, string> = {};
+    for (const [path, content] of Object.entries(files)) digests[path] = await sha1Hex(content);
+    const { required } = await json(builder(`${base}/deploy`, post({ files: digests })));
+    for (const [path, content] of Object.entries(files)) {
+      if (!required.includes(digests[path])) continue;
+      expect((await builder(`${base}/files${path}`, { method: "PUT", body: content })).status).toBe(200);
+      required.splice(required.indexOf(digests[path]), 1, `uploaded:${path}`);
+    }
+    expect((await builder(`${base}/finish`, post({ ok: true }))).status).toBe(200);
+    return required;
+  }
+
+  beforeEach(async () => {
+    sites = fakeBucket();
+    env.SITES = sites.bucket;
+    env.SITES_DOMAIN = "japs.example.dev";
+    await user.putDocument("config", { version: 1, publish: { target: "japs" }, profile: { name: "Jane Doe", headline: t("Developer"), bio: t("Hi.") } });
+  });
+
+  it("claims the GitHub login as the address, stores the files in R2 and goes live when the run finishes", async () => {
+    const { publish: status } = await json(publish());
+    expect(status).toMatchObject({ target: "japs", status: "building", siteUrl: "https://janedoe.japs.example.dev" });
+    const input = JSON.parse(new TextDecoder().decode([...objects.values()][0]!)) as BuildInput;
+    expect(input).toMatchObject({ target: "japs", siteUrl: "https://janedoe.japs.example.dev" });
+
+    const base = `/builder/builds/${status.id}`;
+    // Only SHA-1 digests, as for Netlify; Pages-style hashes are refused.
+    expect((await builder(`${base}/deploy`, post({ files: { "/index.html": "c".repeat(32) } }))).status).toBe(400);
+    const html = enc("<h1>Jane</h1>");
+    const digests = { "/index.html": await sha1Hex(html), "/about/index.html": await sha1Hex(html) };
+    // The same content under two paths is uploaded once.
+    expect(await json(builder(`${base}/deploy`, post({ files: digests })))).toEqual({ required: [digests["/index.html"]] });
+    expect((await builder(`${base}/files/index.html`, { method: "PUT", body: enc("<h1>Evil</h1>") })).status).toBe(400);
+    expect((await builder(`${base}/files/index.html`, { method: "PUT", body: html })).status).toBe(200);
+    expect((await builder(`${base}/finish`, post({ ok: true }))).status).toBe(200);
+
+    expect((await json(request("/api/publish/latest"))).publish).toMatchObject({ status: "live", url: "https://janedoe.japs.example.dev" });
+    expect(await (await serve("https://janedoe.japs.example.dev/about/")).text()).toBe("<h1>Jane</h1>");
+    // Neither Netlify nor Cloudflare is involved, and the build input is gone.
+    expect(calls.some((c) => /netlify\.com|cloudflare\.com/.test(c.url))).toBe(false);
+    expect(objects.size).toBe(0);
+  });
+
+  it("uploads only new content next time and removes what no publish uses any more", async () => {
+    const first = (await json(publish())).publish;
+    await run(first.id, { "/index.html": enc("<h1>One</h1>"), "/style.css": enc("a{}") });
+    await later();
+    const second = (await json(publish())).publish;
+    expect(await run(second.id, { "/index.html": enc("<h1>Two</h1>"), "/style.css": enc("a{}") })).toEqual(["uploaded:/index.html"]);
+
+    expect(await (await serve("https://janedoe.japs.example.dev/")).text()).toBe("<h1>Two</h1>");
+    const keys = [...sites.objects.keys()];
+    expect(keys.filter((k) => k.includes("/deploys/"))).toEqual([`${user.userId}/deploys/${second.id}.json`]);
+    expect(keys.filter((k) => k.includes("/files/")).sort()).toEqual(
+      [await sha1Hex(enc("<h1>Two</h1>")), await sha1Hex(enc("a{}"))].map((sha) => `${user.userId}/files/${sha}`).sort(),
+    );
+  });
+
+  it("publishes a draft at its own secret address and leaves the live site alone", async () => {
+    await run((await json(publish())).publish.id, { "/index.html": enc("<h1>Live</h1>") });
+    await later();
+    const draft = (await json(publish(true))).publish;
+    await run(draft.id, { "/index.html": enc("<h1>Draft</h1>") });
+
+    const { url } = (await json(request("/api/publish/latest"))).publish;
+    expect(url).toMatch(/^https:\/\/[a-z2-7]{10}--janedoe\.japs\.example\.dev$/);
+    expect(await (await serve(`${url}/`)).text()).toBe("<h1>Draft</h1>");
+    expect(await (await serve("https://janedoe.japs.example.dev/")).text()).toBe("<h1>Live</h1>");
+  });
+
+  it("asks for an address when the GitHub login can't be one", async () => {
+    const store = new Store(env.DB);
+    const john = store.forUser((await store.upsertGithubUser({ githubId: 2, login: "johndoe", name: null, avatarUrl: null })).id);
+    await john.claimHandle("janedoe");
+    const res = await publish();
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toBe("Choose your japs.app address in Settings first.");
+  });
+
+  it("is not available without the sites bucket", async () => {
+    env.SITES = undefined;
+    expect((await publish()).status).toBe(501);
   });
 });

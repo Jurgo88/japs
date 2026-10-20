@@ -11,6 +11,7 @@ import {
   type GenerateSummary,
   HttpBackend,
   type PublishStatus,
+  type SiteInfo,
 } from "./backend.ts";
 
 /** One reactive store: the loaded snapshot, the config draft, and save/build status. */
@@ -107,7 +108,10 @@ export async function load(): Promise<void> {
   if (authError) history.replaceState(null, "", location.pathname);
   try {
     const loaded = await backend.load();
-    if (loaded.mode === "cloud") account.value = await backend.account();
+    if (loaded.mode === "cloud") {
+      account.value = await backend.account();
+      void loadSite();
+    }
     state.value = loaded;
     job.value = loaded.job ?? null;
     if (job.value?.status === "running") void watchJob();
@@ -293,6 +297,23 @@ async function followScreenshots(): Promise<void> {
   }
 }
 
+/** Hosted only: the portfolio's address on japs.app (ADR 0013); null until loaded or locally. */
+export const site = ref<SiteInfo | null>(null);
+
+export async function loadSite(): Promise<void> {
+  try {
+    site.value = await backend.site();
+  } catch {
+    // Older servers without japs.app hosting.
+    site.value = { available: false };
+  }
+}
+
+/** Picks or changes the address; errors (taken, too soon) go to the caller. */
+export async function saveHandle(handle: string): Promise<void> {
+  site.value = await backend.saveHandle(handle);
+}
+
 /** The latest publish (#34); polled while the hosted build runs. */
 export const publishing = ref<PublishStatus | null>(null);
 export const publishRunning = computed(() => publishing.value?.status === "building" || publishing.value?.status === "deploying");
@@ -317,6 +338,8 @@ async function followPublish(): Promise<void> {
       await new Promise((r) => setTimeout(r, 3000));
       publishing.value = await backend.latestPublish();
     }
+    // The first japs.app publish claims the address; show it.
+    if (publishing.value?.target === "japs") await loadSite();
   } catch (err) {
     fail(err);
   } finally {

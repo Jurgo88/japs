@@ -1,0 +1,20 @@
+{
+  // `pnpm dev:sites`: the portfolio Worker (ADR 0013) at http://<handle>.localhost:8788, next to
+  // `pnpm dev`. Production is wrangler.sites.jsonc. No route here on purpose: with one, wrangler
+  // dev rewrites the visitor's Host to the zone and every address looks like japs.app. Local D1
+  // and R2 live in .wrangler/state, shared with `pnpm dev`.
+  "name": "japs-sites",
+  "main": "src/sites/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [{ "binding": "SITES", "bucket_name": "japs-sites" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "japs",
+      "database_id": "2b2cac86-9e2d-4c82-bd80-d1e58a5324ab",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": { "SITES_DOMAIN": "localhost:8788", "APP_URL": "http://localhost:8787" }
+}

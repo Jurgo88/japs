@@ -7,3 +7,4 @@ export * from "./screenshots.ts";
 export * from "./publish.ts";
 export * from "./themes.ts";
 export * from "./urls.ts";
+export * from "./handle.ts";

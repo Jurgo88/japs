@@ -1,0 +1,26 @@
+{
+  // Portfolios on <handle>.japs.app (ADR 0013): a Worker of its own that only reads the database
+  // and the sites bucket. No secrets, no sessions, no dashboard. Deployed after the API Worker
+  // (deploy.yml). Needs a proxied wildcard DNS record "*" in the japs.app zone (README.md).
+  "name": "japs-sites",
+  "main": "src/sites/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "*.japs.app/*", "zone_name": "japs.app" }],
+  "observability": { "enabled": true },
+  // Written by the API Worker when a publish finishes; read here.
+  "r2_buckets": [{ "binding": "SITES", "bucket_name": "japs-sites" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "japs",
+      "database_id": "2b2cac86-9e2d-4c82-bd80-d1e58a5324ab",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "SITES_DOMAIN": "japs.app",
+    // The editor, linked from "no portfolio here" pages.
+    "APP_URL": "https://japs.app"
+  }
+}

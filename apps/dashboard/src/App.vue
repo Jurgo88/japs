@@ -26,6 +26,7 @@ import {
   save,
   saveAndBuild,
   signedOut,
+  site,
   startImport,
   state,
   status,
@@ -64,8 +65,18 @@ const hasNetlify = computed(() => connected("netlify"));
 const hasCloudflare = computed(() => connected("cloudflare"));
 /** Sites come from Netlify, Cloudflare Pages or both (ADR 0012). */
 const hasHosting = computed(() => hasNetlify.value || hasCloudflare.value);
-/** Publish needs the chosen target connected (ADR 0012). */
-const canPublish = computed(() => ((draft.value.publish?.target ?? "netlify") === "cloudflare" ? hasCloudflare.value : hasNetlify.value));
+const target = computed(() => draft.value.publish?.target ?? "netlify");
+/**
+ * Publish needs the chosen target connected (ADR 0012). japs.app needs no account, only an
+ * address: the user's, or the suggested GitHub login, which the first publish claims (ADR 0013).
+ */
+const canPublish = computed(() =>
+  target.value === "japs"
+    ? site.value?.available === true && Boolean(site.value.site ?? site.value.suggestion)
+    : target.value === "cloudflare"
+      ? hasCloudflare.value
+      : hasNetlify.value,
+);
 const jobRunning = computed(() => job.value?.status === "running");
 /** "Importing… 3/16" while it runs; the finished job's outcome afterwards. */
 const jobLabel = computed(() => {
@@ -83,12 +94,17 @@ const startPublish = () => {
   publishedNow.value = true;
   void publish();
 };
-const targetName = computed(() => ((draft.value.publish?.target ?? "netlify") === "cloudflare" ? "Cloudflare Pages" : "Netlify"));
+const TARGET_NAMES = { netlify: "Netlify", cloudflare: "Cloudflare Pages", japs: "japs.app" } as const;
+const targetName = computed(() => TARGET_NAMES[target.value]);
 const publishTitle = computed(() =>
   isCloud.value && !canPublish.value
-    ? `Connect ${targetName.value === "Netlify" ? "Netlify" : "Cloudflare"} in Settings to publish there`
+    ? target.value === "japs"
+      ? "Choose your japs.app address in Design to publish there"
+      : `Connect ${targetName.value === "Netlify" ? "Netlify" : "Cloudflare"} in Settings to publish there`
     : `Build the portfolio with your theme and put it on ${targetName.value}`,
 );
+/** Where a blocked Publish button leads: the address for japs.app, the connections otherwise. */
+const fixPublish = () => (target.value === "japs" ? showTab("design") : openSettings("connections"));
 const showPublish = computed(() => publishing.value !== null && (publishRunning.value || publishedNow.value));
 const issuesTitle = computed(() => draftIssues.value.map((i) => `${i.path}: ${i.message}`).join("\n"));
 
@@ -152,7 +168,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
         class="btn primary"
         :disabled="publishRunning || status.saving || draftIssues.length > 0"
         :title="publishTitle"
-        @click="isCloud && !canPublish ? openSettings('connections') : startPublish()"
+        @click="isCloud && !canPublish ? fixPublish() : startPublish()"
       >
         {{ publishRunning ? "Publishing…" : "Publish" }}
       </button>
@@ -200,7 +216,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       <strong>Building your site…</strong> <span class="muted">This takes a minute or two.</span>
     </template>
     <template v-else-if="publishing.status === 'deploying'">
-      <strong>Uploading to {{ publishing.target === "cloudflare" ? "Cloudflare Pages" : "Netlify" }}…</strong>
+      <strong>Uploading to {{ TARGET_NAMES[publishing.target ?? "netlify"] }}…</strong>
     </template>
     <template v-else-if="publishing.status === 'live' && publishing.draft">
       Draft preview: <a :href="publishing.url ?? publishing.siteUrl" target="_blank" rel="noopener">{{ publishing.url ?? publishing.siteUrl }}</a>

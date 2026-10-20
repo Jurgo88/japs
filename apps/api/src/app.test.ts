@@ -609,3 +609,119 @@ describe("cookies on a shared domain (portfolios on subdomains)", () => {
     expect((await browser.request("/api/me")).status).toBe(401);
   });
 });
+
+describe("japs.app address (ADR 0013)", () => {
+  const twoUsers = () => fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+  const put = (browser: Browser, handle: unknown, origin = APP_URL) =>
+    browser.request("/api/site", { method: "PUT", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ handle }) });
+  const check = (browser: Browser, handle: string) => browser.request(`/api/site/check?handle=${encodeURIComponent(handle)}`);
+
+  beforeEach(() => {
+    env.SITES = fakeBucket().bucket;
+    env.SITES_DOMAIN = "japs.example.dev";
+  });
+
+  it("suggests the GitHub login, then keeps the address the user picks", async () => {
+    const jane = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await jane.signIn();
+    expect(await body(jane.request("/api/site"))).toEqual({ available: true, domain: "japs.example.dev", site: null, suggestion: "janedoe" });
+    expect((await put(jane, "jane")).status).toBe(200);
+    expect(await body(jane.request("/api/site"))).toEqual({
+      available: true,
+      domain: "japs.example.dev",
+      site: { handle: "jane", url: "https://jane.japs.example.dev", live: false, nextChangeAt: null },
+      suggestion: null,
+    });
+  });
+
+  it("keeps users apart: one owner per address, and every user's login stays theirs", async () => {
+    const { fetch } = twoUsers();
+    const jane = new Browser(createApp({ fetch }));
+    const john = new Browser(createApp({ fetch }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+    expect((await put(jane, "jane")).status).toBe(200);
+
+    expect((await body(john.request("/api/site"))).site).toBeNull();
+    expect(await body(check(john, "jane"))).toEqual({ handle: "jane", available: false, problem: "This address is taken." });
+    expect((await put(john, "jane")).status).toBe(409);
+    // Jane uses another address, but her login stays reserved for her.
+    expect((await body(check(john, "janedoe"))).problem).toBe("This address is reserved for the JAPS user with that GitHub username.");
+    expect((await put(john, "janedoe")).status).toBe(409);
+    expect(await body(check(jane, "jane"))).toMatchObject({ available: true });
+    expect((await body(john.request("/api/site"))).site).toBeNull();
+  });
+
+  it("allows the first pick and one change, then waits; a given-up name stays blocked for others", async () => {
+    let clock = new Date("2026-10-20T12:00:00Z");
+    const { fetch } = twoUsers();
+    const jane = new Browser(createApp({ fetch, now: () => clock }));
+    const john = new Browser(createApp({ fetch, now: () => clock }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+
+    expect((await put(jane, "jane")).status).toBe(200);
+    expect((await put(jane, "jane-doe")).status).toBe(200);
+    const wait = await put(jane, "jane-d");
+    expect(wait.status).toBe(429);
+    expect((await body(wait)).error).toBe("You can change your address again on 2026-11-19.");
+    expect((await body(jane.request("/api/site"))).site.nextChangeAt).toBe("2026-11-19T12:00:00.000Z");
+
+    expect((await body(check(john, "jane"))).problem).toBe("This address was given up recently and isn't free yet.");
+    expect((await put(john, "jane")).status).toBe(409);
+
+    // A month later Jane may change again, and takes her old name back.
+    clock = new Date("2026-11-20T12:00:00Z");
+    await jane.signIn("code-jane");
+    expect((await put(jane, "jane")).status).toBe(200);
+    // Two months after that, the name she gave up is free for anyone.
+    clock = new Date("2027-01-20T12:00:00Z");
+    await john.signIn("code-john");
+    expect((await put(john, "jane-doe")).status).toBe(200);
+  });
+
+  it("rejects malformed addresses and needs sign-in and our origin", async () => {
+    const jane = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    expect((await jane.request("/api/site")).status).toBe(401);
+    await jane.signIn();
+    const upper = await put(jane, "Jane");
+    expect(upper.status).toBe(400);
+    expect((await body(upper)).error).toBe("Use lowercase letters and digits, joined by single hyphens.");
+    expect((await put(jane, "www")).status).toBe(400);
+    expect((await put(jane, 42)).status).toBe(400);
+    expect((await put(jane, "jane", "https://jane.japs.example.dev")).status).toBe(403);
+    expect((await body(jane.request("/api/site"))).site).toBeNull();
+  });
+
+  it("isn't offered without the sites bucket", async () => {
+    env.SITES = undefined;
+    const jane = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await jane.signIn();
+    expect(await body(jane.request("/api/site"))).toEqual({ available: false });
+    expect((await put(jane, "jane")).status).toBe(501);
+    expect((await check(jane, "jane")).status).toBe(501);
+  });
+
+  it("takes the portfolio offline on account deletion and keeps the address blocked", async () => {
+    const { bucket, objects } = fakeBucket();
+    env.SITES = bucket;
+    const { fetch } = twoUsers();
+    const jane = new Browser(createApp({ fetch }));
+    const john = new Browser(createApp({ fetch }));
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+    await put(jane, "jane");
+    await put(john, "john");
+    const store = new Store(env.DB);
+    const ids = await Promise.all(
+      [1, 2].map(async (githubId) => (await store.upsertGithubUser({ githubId, login: githubId === 1 ? "janedoe" : "johndoe", name: null, avatarUrl: null })).id),
+    );
+    for (const id of ids) await bucket.put(`${id}/files/${"a".repeat(40)}`, new Uint8Array([1]));
+
+    const res = await jane.request("/api/account", { method: "DELETE", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "janedoe" }) });
+    expect(res.status).toBe(200);
+    expect([...objects.keys()]).toEqual([`${ids[1]}/files/${"a".repeat(40)}`]);
+    expect((await body(check(john, "jane"))).problem).toBe("This address was given up recently and isn't free yet.");
+    expect((await body(john.request("/api/site"))).site.handle).toBe("john");
+  });
+});

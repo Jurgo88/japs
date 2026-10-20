@@ -34,6 +34,10 @@
     <strong>Screenshots</strong> (desktop and mobile) of the live sites of the projects your portfolio shows, taken
     with Cloudflare's browser service. They are only visible to you until you publish.
   </li>
+  <li>
+    <strong>A portfolio on japs.app,</strong> if you publish there: the built site, public at your address, and the
+    address you picked.
+  </li>
   <li><strong>Usage:</strong> how many AI generations and tokens you used per month, to apply the free limit.</li>
 </ul>
 <p>
@@ -49,8 +53,8 @@
     name, description, URLs or README. The provider handles the data under its API terms.
   </li>
   <li>
-    <strong>Cloudflare</strong> hosts JAPS (Workers, D1 database) and processes requests and stored data on JAPS's
-    behalf.
+    <strong>Cloudflare</strong> hosts JAPS (Workers, D1 database, R2 storage, portfolios on japs.app) and processes
+    requests and stored data on JAPS's behalf.
   </li>
   <li>
     <strong>GitHub, Netlify and Cloudflare</strong> receive the requests JAPS makes with your tokens, as they would from any app
@@ -76,7 +80,8 @@
   everything listed above at once and revokes JAPS's GitHub and Cloudflare authorizations. To be thorough, also remove the app on
   <a href="https://github.com/settings/installations">GitHub → Applications</a> and in Netlify under
   <em>User settings → Applications</em>, and on Cloudflare under <em>Profile → Access management → OAuth authorizations</em>. A portfolio you already published stays on your Netlify until you delete
-  that site there.
+  that site there. A portfolio on japs.app goes offline right away; its address then says the portfolio is gone
+  for 60 days, so nobody else can take it over at once, and becomes free after that.
 </p>
 
 <h2>Your rights</h2>

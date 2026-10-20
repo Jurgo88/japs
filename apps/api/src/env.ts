@@ -37,6 +37,13 @@ export interface Env {
   GITHUB_BUILD_TOKEN?: string;
   /** Repo with .github/workflows/publish.yml, e.g. "Jurgo88/japs". */
   JAPS_BUILD_REPO?: string;
+  /**
+   * Portfolios on <handle>.<SITES_DOMAIN> (ADR 0013): the built files in R2. A separate,
+   * read-only Worker serves them; this one writes them. Without both, the target isn't offered.
+   */
+  SITES?: Bucket;
+  /** "japs.app" in production; "localhost:8788" for local development with `pnpm dev:sites`. */
+  SITES_DOMAIN?: string;
 }
 
 export interface ShotJobParams {
