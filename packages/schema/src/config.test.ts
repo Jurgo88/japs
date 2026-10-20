@@ -60,6 +60,24 @@ describe("JapsConfig", () => {
     expect(messages({ version: 1, profile: { ...profile, email: "jane" } })).toEqual(["profile.email: Invalid email"]);
   });
 
+  it("rejects profile links and screenshot pages that would run script", () => {
+    expect(
+      messages({
+        version: 1,
+        profile: {
+          name: "Jane",
+          headline: { en: "Dev" },
+          bio: { en: "Hi" },
+          links: [{ label: "Mail", url: "mailto:jane@example.com" }, { label: "x", url: "javascript:alert(1)" }],
+        },
+        projects: { "repo:jane/a": { screenshotUrl: "javascript:alert(1)" } },
+      }),
+    ).toEqual([
+      "profile.links.1.url: expected an http(s) or mailto: URL",
+      "projects.repo:jane/a.screenshotUrl: expected an http:// or https:// URL",
+    ]);
+  });
+
   it("rejects typos in hand-edited keys", () => {
     expect(messages({ version: 1, projects: { "site:abc": { hiden: true } } })).toEqual([
       "projects.site:abc: Unrecognized key(s) in object: 'hiden'",

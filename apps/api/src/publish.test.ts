@@ -93,7 +93,7 @@ beforeEach(async () => {
   const state = new URL(start.headers.get("Location")!).searchParams.get("state")!;
   const stateCookie = start.headers.getSetCookie()[0]!.split(";")[0]!;
   const done = await app().request(`/auth/github/callback?code=c&state=${state}`, { headers: { Cookie: stateCookie } }, env);
-  cookie = done.headers.getSetCookie().find((c) => c.startsWith("japs_session="))!.split(";")[0]!;
+  cookie = done.headers.getSetCookie().find((c) => c.startsWith("__Host-japs_session="))!.split(";")[0]!;
 
   const store = new Store(env.DB);
   user = store.forUser((await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: "Jane Doe", avatarUrl: null })).id);

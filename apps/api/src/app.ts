@@ -41,8 +41,6 @@ import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
  * `deps` lets tests replace the network and the clock.
  */
 
-const SESSION_COOKIE = "japs_session";
-const STATE_COOKIE = "japs_oauth_state";
 const SESSION_DAYS = 30;
 
 type Vars = { user: User | null; store: Store };
@@ -56,6 +54,18 @@ export interface AppDeps {
 
 const secure = (env: Env) => !env.APP_URL.startsWith("http://localhost") && !env.APP_URL.startsWith("http://127.0.0.1");
 
+/**
+ * Over HTTPS the cookies carry the `__Host-` prefix. Browsers accept such a cookie only with
+ * Secure, Path=/ and no Domain, so no subdomain (a portfolio on *.japs.app) can set or
+ * overwrite it, e.g. to slip its own session or OAuth state in. Plain http on localhost
+ * can't use the prefix and keeps the bare names.
+ */
+const cookieNames = (env: Env) => {
+  const prefix = secure(env) ? "__Host-" : "";
+  return { session: `${prefix}japs_session`, state: `${prefix}japs_oauth_state` };
+};
+const cookieOptions = (env: Env) => ({ httpOnly: true, secure: secure(env), sameSite: "Lax" as const, path: "/" });
+
 export function createApp(deps: AppDeps = {}) {
   const fetchImpl = deps.fetch ?? ((input, init) => fetch(input, init));
   const now = deps.now ?? (() => new Date());
@@ -67,7 +77,7 @@ export function createApp(deps: AppDeps = {}) {
 
     const store = new Store(c.env.DB, now);
     c.set("store", store);
-    const token = getCookie(c, SESSION_COOKIE);
+    const token = getCookie(c, cookieNames(c.env).session);
     c.set("user", token ? await store.sessionUser(await sha256(token)) : null);
     await next();
   });
@@ -88,19 +98,17 @@ export function createApp(deps: AppDeps = {}) {
   /** Random state in a signed, short-lived cookie; the callback must bring the same value back. */
   async function startOAuth(c: AppContext, provider: OAuthProvider): Promise<string> {
     const state = randomToken(16);
-    setCookie(c, STATE_COOKIE, await sign(`${provider}:${state}`, c.env.SESSION_SECRET), {
-      httpOnly: true,
-      secure: secure(c.env),
-      sameSite: "Lax",
-      path: "/auth",
+    setCookie(c, cookieNames(c.env).state, await sign(`${provider}:${state}`, c.env.SESSION_SECRET), {
+      ...cookieOptions(c.env),
       maxAge: 600,
     });
     return state;
   }
 
   async function checkState(c: AppContext, provider: OAuthProvider): Promise<boolean> {
-    const cookie = getCookie(c, STATE_COOKIE);
-    deleteCookie(c, STATE_COOKIE, { path: "/auth" });
+    const name = cookieNames(c.env).state;
+    const cookie = getCookie(c, name);
+    deleteCookie(c, name, cookieOptions(c.env));
     const expected = cookie ? await unsign(cookie, c.env.SESSION_SECRET) : null;
     const state = c.req.query("state");
     return expected !== null && state !== undefined && expected === `${provider}:${state}`;
@@ -145,11 +153,8 @@ export function createApp(deps: AppDeps = {}) {
 
       const session = randomToken();
       await store.createSession(user.id, await sha256(session), SESSION_DAYS);
-      setCookie(c, SESSION_COOKIE, session, {
-        httpOnly: true,
-        secure: secure(c.env),
-        sameSite: "Lax",
-        path: "/",
+      setCookie(c, cookieNames(c.env).session, session, {
+        ...cookieOptions(c.env),
         maxAge: SESSION_DAYS * 86_400,
       });
       return c.redirect("/");
@@ -160,9 +165,10 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   app.post("/auth/logout", async (c) => {
-    const token = getCookie(c, SESSION_COOKIE);
+    const name = cookieNames(c.env).session;
+    const token = getCookie(c, name);
     if (token) await c.get("store").deleteSession(await sha256(token));
-    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    deleteCookie(c, name, cookieOptions(c.env));
     return c.json({ ok: true });
   });
 
@@ -344,7 +350,7 @@ export function createApp(deps: AppDeps = {}) {
     await revokeCloudflare(c, user.id);
     if (c.env.SHOTS) await deleteUserImages(c.env.SHOTS, user.id);
     await store.deleteAccount();
-    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    deleteCookie(c, cookieNames(c.env).session, cookieOptions(c.env));
     return c.json({ ok: true, githubRevoked });
   });
 

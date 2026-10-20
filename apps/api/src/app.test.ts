@@ -96,7 +96,9 @@ describe("GitHub sign-in", () => {
     expect(location.searchParams.get("client_id")).toBe("gh-client");
     expect(location.searchParams.get("redirect_uri")).toBe(`${APP_URL}/auth/github/callback`);
     expect(location.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{22}$/);
-    expect(res.headers.get("Set-Cookie")).toMatch(/japs_oauth_state=.*HttpOnly.*Secure.*SameSite=Lax/i);
+    const cookie = res.headers.get("Set-Cookie")!;
+    expect(cookie).toMatch(/^__Host-japs_oauth_state=.*Path=\/;.*HttpOnly.*Secure.*SameSite=Lax/i);
+    expect(cookie).not.toMatch(/Domain=/i);
   });
 
   it("signs in, stores tokens encrypted, and serves /api/me", async () => {
@@ -104,7 +106,7 @@ describe("GitHub sign-in", () => {
     const browser = new Browser(createApp({ fetch }));
     const res = await browser.signIn();
     expect(res.headers.get("Location")).toBe("/");
-    expect(browser.cookies.get("japs_session")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(browser.cookies.get("__Host-japs_session")).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const me = await body(browser.request("/api/me"));
     expect(me).toMatchObject({ user: { login: "janedoe" }, connections: [{ provider: "github", accountLogin: "janedoe" }] });
@@ -136,7 +138,7 @@ describe("GitHub sign-in", () => {
     const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
     const res = await browser.signIn("code-wrong");
     expect(decodeURIComponent(res.headers.get("Location")!)).toContain("The code passed is incorrect or expired.");
-    expect(browser.cookies.has("japs_session")).toBe(false);
+    expect(browser.cookies.has("__Host-japs_session")).toBe(false);
   });
 });
 
@@ -554,5 +556,56 @@ describe("Cloudflare connect (ADR 0012)", () => {
     expect(res.status).toBe(200);
     expect(calls).toContain("POST https://dash.cloudflare.com/oauth2/revoke");
     expect((await body(browser.request("/api/me"))).connections.map((c: { provider: string }) => c.provider)).not.toContain("cloudflare");
+  });
+});
+
+describe("cookies on a shared domain (portfolios on subdomains)", () => {
+  it("sets the session as a __Host- cookie, which no subdomain can set or overwrite", async () => {
+    const res = await new Browser(createApp({ fetch: fakeProviders().fetch })).signIn();
+    const session = res.headers.getSetCookie().find((c) => c.startsWith("__Host-japs_session="));
+    expect(session).toMatch(/Path=\/;.*HttpOnly.*Secure.*SameSite=Lax/i);
+    expect(session).not.toMatch(/Domain=/i);
+  });
+
+  it("ignores a session under the unprefixed name, as a subdomain could plant it", async () => {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const token = browser.cookies.get("__Host-japs_session")!;
+    const planted = await createApp().request("/api/me", { headers: { Cookie: `japs_session=${token}` } }, env);
+    expect(planted.status).toBe(401);
+  });
+
+  it("ignores an unprefixed OAuth state cookie, so a planted state can't complete a callback", async () => {
+    const { fetch, calls } = fakeProviders();
+    const browser = new Browser(createApp({ fetch }));
+    const start = await browser.request("/auth/github/login");
+    const state = new URL(start.headers.get("Location")!).searchParams.get("state")!;
+    const signed = browser.cookies.get("__Host-japs_oauth_state")!;
+    const res = await createApp({ fetch }).request(
+      `/auth/github/callback?code=code-jane&state=${state}`,
+      { headers: { Cookie: `japs_oauth_state=${signed}` } },
+      env,
+    );
+    expect(res.headers.get("Location")).toMatch(/^\/\?auth_error=Sign-in%20expired/);
+    expect(calls).toEqual([]);
+  });
+
+  it("uses the plain names on http://localhost, where browsers refuse __Host- cookies", async () => {
+    env.APP_URL = "http://localhost:8787";
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    const res = await browser.signIn();
+    const session = res.headers.getSetCookie().find((c) => c.startsWith("japs_session="));
+    expect(session).toMatch(/Path=\/;.*HttpOnly/i);
+    expect(session).not.toMatch(/Secure/i);
+    expect((await browser.request("/api/me")).status).toBe(200);
+  });
+
+  it("logs out by expiring the __Host- session cookie", async () => {
+    const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
+    await browser.signIn();
+    const res = await browser.request("/auth/logout", { method: "POST", headers: { Origin: APP_URL } });
+    expect(res.headers.getSetCookie().find((c) => c.startsWith("__Host-japs_session="))).toMatch(/Max-Age=0.*Path=\/;.*Secure/i);
+    expect(browser.cookies.has("__Host-japs_session")).toBe(false);
+    expect((await browser.request("/api/me")).status).toBe(401);
   });
 });
