@@ -99,22 +99,24 @@ const home = `${localePrefix(locale, portfolio)}/`;
     </dl>
 
     {
-      desktop && (
-        <figure class="shot" data-curtain>
-          <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
-        </figure>
+      (desktop || mobile) && (
+        <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="shot" data-curtain>
+              <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+            </figure>
+          )}
+          {mobile && (
+            <figure class="phone">
+              <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+            </figure>
+          )}
+        </div>
       )
     }
 
-    <div class:list={["body", { "with-phone": mobile }]}>
+    <div class="body">
       <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
-      {
-        mobile && (
-          <figure class="phone">
-            <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" />
-          </figure>
-        )
-      }
     </div>
 
     {
@@ -194,8 +196,18 @@ const home = `${localePrefix(locale, portfolio)}/`;
   .actions a:hover {
     color: var(--accent);
   }
-  .shot {
+  .devices {
+    display: grid;
+    gap: 16px;
     margin: 48px var(--pad) 0;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+    align-items: stretch;
+  }
+  .shot {
+    margin: 0;
     overflow: hidden;
     border-radius: 3px;
     background: var(--paper-2);
@@ -211,10 +223,6 @@ const home = `${localePrefix(locale, portfolio)}/`;
     display: grid;
     gap: 48px;
     padding: 72px var(--pad);
-  }
-  .body.with-phone {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
-    align-items: start;
   }
   .description {
     max-width: 62ch;
@@ -233,17 +241,22 @@ const home = `${localePrefix(locale, portfolio)}/`;
     color: var(--accent);
   }
   .phone {
-    position: sticky;
-    top: 80px;
+    position: relative;
+    min-height: 0;
     margin: 0;
-    padding: 10px;
-    border-radius: 34px;
+    padding: 6px;
+    border-radius: 24px;
     background: var(--ink);
   }
+  /* Out of flow so the phone never stretches the row; the desktop shot sets its height. */
   .phone img {
-    width: 100%;
-    height: auto;
-    border-radius: 26px;
+    position: absolute;
+    inset: 6px;
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
+    object-fit: cover;
+    object-position: top;
+    border-radius: 18px;
   }
   .next {
     display: grid;
@@ -267,12 +280,19 @@ const home = `${localePrefix(locale, portfolio)}/`;
     color: var(--accent);
   }
   @media (max-width: 760px) {
-    .body.with-phone {
-      grid-template-columns: minmax(0, 1fr);
+    .devices.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 10px;
     }
     .phone {
-      position: static;
-      max-width: 240px;
+      padding: 3px;
+      border-radius: 14px;
+    }
+    .phone img {
+      inset: 3px;
+      width: calc(100% - 6px);
+      height: calc(100% - 6px);
+      border-radius: 11px;
     }
   }
 </style>

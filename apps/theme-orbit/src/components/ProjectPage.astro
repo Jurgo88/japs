@@ -23,9 +23,14 @@ const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordere
   <article class="project-record">
     <a class="back mono" href={`${home}#work`}>← {tt(locale, "constellation")}</a>
     <div class="record-heading"><span class="eyebrow">{tt(locale, "signal")} / {String(index + 1).padStart(2, "0")}</span><h1>{title}</h1><p>{text(project.summary, locale)}</p></div>
-    {desktop && <figure class="record-shot"><img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" /></figure>}
+    {(desktop || mobile) && (
+      <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+        {desktop && <figure class="record-shot"><img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" /></figure>}
+        {mobile && <figure class="mobile-shot"><img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" /></figure>}
+      </div>
+    )}
     <div class="record-body">
-      <aside class="record-facts"><div><span class="mono">{tt(locale, "role")}</span><p>{project.role ? text(project.role, locale) : "—"}</p></div><div><span class="mono">{tt(locale, "period")}</span><p>{period}</p></div><div><span class="mono">{tt(locale, "stack")}</span><p>{project.tags.join(" · ") || "—"}</p></div>{project.client.isClient && <div><span class="mono">{tt(locale, "clientWork")}</span><p>{project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")}</p></div>}<div class="record-links">{project.links.live && <a href={project.links.live} rel="noopener">{tt(locale, "live")} ↗</a>}{project.links.repo && <a href={project.links.repo} rel="noopener">{tt(locale, "source")} ↗</a>}</div>{mobile && <figure class="mobile-shot"><img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" loading="lazy" /></figure>}</aside>
+      <aside class="record-facts"><div><span class="mono">{tt(locale, "role")}</span><p>{project.role ? text(project.role, locale) : "—"}</p></div><div><span class="mono">{tt(locale, "period")}</span><p>{period}</p></div><div><span class="mono">{tt(locale, "stack")}</span><p>{project.tags.join(" · ") || "—"}</p></div>{project.client.isClient && <div><span class="mono">{tt(locale, "clientWork")}</span><p>{project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")}</p></div>}<div class="record-links">{project.links.live && <a href={project.links.live} rel="noopener">{tt(locale, "live")} ↗</a>}{project.links.repo && <a href={project.links.repo} rel="noopener">{tt(locale, "source")} ↗</a>}</div></aside>
       <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
     </div>
     {next && <a class="next-project" href={projectUrl(next, locale, portfolio)}><span class="eyebrow">{tt(locale, "next")}</span><span>{text(next.title, locale)} <i aria-hidden="true">↗</i></span></a>}
@@ -40,6 +45,9 @@ const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordere
   .eyebrow { color: var(--teal); }
   h1 { margin: 10px 0 0; font-size: clamp(42px, 7vw, 88px); line-height: .98; font-weight: 500; overflow-wrap: anywhere; }
   .record-heading p { max-width: 58ch; margin: 14px 0 0; color: var(--muted); font-size: 20px; }
+  .devices { display: grid; gap: 14px; margin: 0; }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone { grid-template-columns: minmax(0, 1fr) minmax(0, .3fr); align-items: stretch; }
   .record-shot { margin: 0; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
   .record-shot img { width: 100%; max-height: 700px; object-fit: cover; object-position: top; }
   .record-body { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(0, 1.35fr); gap: 64px; align-items: start; padding-top: 48px; }
@@ -50,8 +58,9 @@ const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordere
   .record-links { display: flex; flex-wrap: wrap; gap: 12px 20px; }
   .record-links a { color: var(--teal); font: 10px/1.4 var(--mono); }
   .record-links a:hover { color: var(--coral); }
-  .mobile-shot { width: min(100%, 240px); margin: 18px 0 0; padding: 6px; border: 1px solid var(--line); background: var(--surface); }
-  .mobile-shot img { width: 100%; }
+  .mobile-shot { position: relative; min-height: 0; margin: 0; padding: 6px; border: 1px solid var(--line); background: var(--surface); }
+  /* Out of flow so the phone never stretches the row; the desktop shot sets its height. */
+  .mobile-shot img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: cover; object-position: top; }
   .description { max-width: 66ch; font-size: 18px; line-height: 1.7; }
   .description :global(h2), .description :global(h3) { margin: 1.8em 0 .55em; font-weight: 500; line-height: 1.15; }
   .description :global(h2) { font-size: 30px; }
@@ -63,5 +72,9 @@ const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordere
   .next-project > span:last-child { font-size: 42px; line-height: 1.05; }
   .next-project i { color: var(--coral); font-style: normal; }
   .next-project:hover > span:last-child { color: var(--teal); }
-  @media (max-width: 700px) { .record-body { grid-template-columns: 1fr; gap: 28px; padding-top: 34px; } .record-heading { padding-top: 42px; } }
+  @media (max-width: 700px) {
+    .devices.with-phone { grid-template-columns: minmax(0, 1fr) minmax(0, .34fr); gap: 10px; }
+    .mobile-shot { padding: 3px; }
+    .mobile-shot img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); }
+    .record-body { grid-template-columns: 1fr; gap: 28px; padding-top: 34px; } .record-heading { padding-top: 42px; } }
 </style>
