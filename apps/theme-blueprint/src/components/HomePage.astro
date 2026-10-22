@@ -1,0 +1,438 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Callout from "./Callout.astro";
+import Dim from "./Dim.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stats = portfolioStats(portfolio);
+const tags = tagCounts(portfolio);
+const present = tt(locale, "present");
+const pad = (n: number) => String(n).padStart(2, "0");
+const sheetNo = (i: number) => `P-${pad(i + 1)}`;
+const years = projects.flatMap((p) => [p.period.from, p.period.to]).filter((m): m is string => Boolean(m)).map((m) => m.slice(0, 4)).sort();
+const span = years.length ? `${years[0]} — ${new Date(portfolio.generatedAt).getUTCFullYear()}` : profile.name.toUpperCase();
+const notes = [
+  `${stats.projects} ${plural(locale, "projects", stats.projects)}`,
+  `${stats.technologies} ${plural(locale, "technologies", stats.technologies)}`,
+  ...(stats.years !== null ? [`${stats.years} ${plural(locale, "years", stats.years)} ${tt(locale, "inService")}`] : []),
+  ...(profile.location ? [profile.location] : []),
+];
+const first = projects[0];
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+  sheet="A-000"
+  sheetTitle={tt(locale, "cover")}
+  next={first ? { href: projectUrl(first, locale, portfolio), label: `P-01 ${text(first.title, locale)}` } : null}
+>
+  <section class="cover">
+    <div class="cover-main">
+      <p class="sheet-label"><Callout top="01" bottom="A-000" size={40} /><span class="label">{tt(locale, "cover")}</span></p>
+      <div class="name-block">
+        <Dim label={span} />
+        <h1>{profile.name}</h1>
+      </div>
+      <p class="headline">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+    </div>
+
+    <aside class="notes" aria-labelledby="notes-title">
+      <h2 id="notes-title" class="label">{tt(locale, "notes")}</h2>
+      <ol>{notes.map((note) => <li>{note}</li>)}</ol>
+      {
+        profile.available !== null && (
+          <p class:list={["hand", "availability", { off: !profile.available }]}>
+            <svg viewBox="0 0 60 40" width="54" height="36" aria-hidden="true">
+              <path d="M56 4C40 6 22 12 12 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M6 22l6 9 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {tt(locale, profile.available ? "available" : "unavailable")}!
+          </p>
+        )
+      }
+    </aside>
+  </section>
+
+  <section class="index" id="index" aria-labelledby="index-title">
+    <header class="section-head">
+      <Callout top="02" bottom="A-000" size={40} />
+      <h2 id="index-title">{tt(locale, "index")}</h2>
+      <span class="label">{projects.length > 0 ? `P-01 — ${sheetNo(projects.length - 1)}` : "—"}</span>
+    </header>
+    <table class="schedule">
+      <thead>
+        <tr>
+          <th scope="col">{tt(locale, "sheet")}</th>
+          <th scope="col">{tt(locale, "title")}</th>
+          <th scope="col" class="stack-col">{tt(locale, "stack")}</th>
+          <th scope="col">{tt(locale, "period")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          projects.map((project, i) => (
+            <tr>
+              <td class="sheet-no">{sheetNo(i)}</td>
+              <td>
+                <a href={projectUrl(project, locale, portfolio)}>{text(project.title, locale)}</a>
+              </td>
+              <td class="stack-col">{project.tags.slice(0, 4).join(" · ") || "—"}</td>
+              <td>{projectYears(project, present)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="details" aria-labelledby="details-title">
+    <header class="section-head">
+      <Callout top="03" bottom="A-000" size={40} />
+      <h2 id="details-title">{tt(locale, "details")}</h2>
+      <span class="label">1 : 1</span>
+    </header>
+    <ul class="detail-grid">
+      {
+        projects.map((project, i) => {
+          const shot = coverShot(project);
+          const width = shot?.viewport === "mobile" ? 390 : 1440;
+          return (
+            <li>
+              <a class="detail" href={projectUrl(project, locale, portfolio)}>
+                <figure class="plate">
+                  {shot ? (
+                    <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading={i < 4 ? "eager" : "lazy"} width={width} height={shot.viewport === "mobile" ? 844 : 900} />
+                  ) : (
+                    <span class="hatch">{tt(locale, "noDrawing")}</span>
+                  )}
+                </figure>
+                <Dim label={shot ? `${width} px` : "—"} />
+                <span class="detail-head">
+                  <Callout top={pad(i + 1)} bottom={sheetNo(i)} size={42} />
+                  <span>
+                    <span class="detail-title">{text(project.title, locale)}</span>
+                    <span class="label">{projectYears(project, present)}{project.client.isClient ? ` · ${tt(locale, "clientWork")}` : ""}</span>
+                  </span>
+                </span>
+                <span class="detail-summary">{text(project.summary, locale)}</span>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+
+  {
+    tags.length > 0 && (
+      <section class="legend" aria-labelledby="legend-title">
+        <header class="section-head">
+          <Callout top="04" bottom="A-000" size={40} />
+          <h2 id="legend-title">{tt(locale, "legend")}</h2>
+          <span class="label">{stats.technologies} {plural(locale, "technologies", stats.technologies)}</span>
+        </header>
+        <ul class="legend-list">
+          {tags.map(({ tag, count }, i) => (
+            <li>
+              <span class={`swatch sw-${i % 6}`} aria-hidden="true" />
+              <span class="legend-name">{tag}</span>
+              <span class="legend-count">×{count}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .cover {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 330px);
+    gap: 40px 56px;
+    align-items: end;
+    padding: 56px 0 72px;
+  }
+  .sheet-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 44px;
+  }
+  .name-block {
+    display: inline-grid;
+    gap: 6px;
+    max-width: 100%;
+  }
+  h1 {
+    margin: 0;
+    font: 700 clamp(60px, 10.5vw, 176px) / 0.86 var(--display);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .headline {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 60ch;
+    margin: 26px 0 0;
+    font: 600 clamp(20px, 2.2vw, 30px) / 1.1 var(--display);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  /* A leader line from the edge to the headline. */
+  .headline::before {
+    flex: none;
+    width: 46px;
+    height: 1px;
+    content: "";
+    background: var(--line);
+  }
+  .bio {
+    max-width: 60ch;
+    margin: 16px 0 0 60px;
+    color: var(--soft);
+  }
+  .notes {
+    position: relative;
+    padding: 16px 18px 18px;
+    border: 1px solid var(--line);
+    background: rgb(14 55 102 / 0.6);
+  }
+  .notes ol {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding-left: 1.6em;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .notes li::marker {
+    color: var(--soft);
+  }
+  .availability {
+    position: absolute;
+    left: -10px;
+    bottom: -64px;
+    display: flex;
+    align-items: start;
+    gap: 4px;
+    margin: 0;
+    font-size: 27px;
+    rotate: -3deg;
+  }
+  .availability.off {
+    color: var(--soft);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--line);
+  }
+  .section-head h2 {
+    margin: 0;
+    font: 700 clamp(30px, 3.6vw, 48px) / 1 var(--display);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .section-head .label {
+    margin-left: auto;
+  }
+  .index,
+  .details,
+  .legend {
+    margin-top: 96px;
+  }
+
+  .schedule {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .schedule th {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--line);
+    color: var(--soft);
+    font: 500 11px/1.3 var(--mono);
+    letter-spacing: 0.12em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .schedule td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--faint);
+    vertical-align: top;
+  }
+  .schedule td + td,
+  .schedule th + th {
+    border-left: 1px solid var(--faint);
+  }
+  .schedule tr:hover td {
+    background: rgb(232 241 255 / 0.07);
+  }
+  .sheet-no {
+    width: 7em;
+    color: var(--soft);
+  }
+  .schedule a {
+    font: 600 19px/1.2 var(--display);
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .schedule a:hover {
+    color: var(--red);
+  }
+  .stack-col {
+    color: var(--soft);
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 48px 32px;
+    margin: 0;
+    padding: 32px 0 0;
+    list-style: none;
+  }
+  .detail {
+    display: grid;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .detail .plate {
+    aspect-ratio: 16 / 10;
+  }
+  .detail-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+  }
+  .detail-head > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  .detail-title {
+    font: 700 24px/1 var(--display);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .detail-summary {
+    color: var(--soft);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .detail:hover .detail-title,
+  .detail:focus-visible .detail-title {
+    color: var(--red);
+  }
+
+  .legend-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px 28px;
+    margin: 0;
+    padding: 24px 0 0;
+    list-style: none;
+  }
+  .legend-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+  }
+  .legend-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .legend-count {
+    margin-left: auto;
+    color: var(--soft);
+  }
+  .swatch {
+    flex: none;
+    width: 34px;
+    height: 20px;
+    border: 1px solid var(--line);
+  }
+  .sw-0 {
+    background: repeating-linear-gradient(45deg, var(--line) 0 1px, transparent 1px 6px);
+  }
+  .sw-1 {
+    background: repeating-linear-gradient(-45deg, var(--line) 0 1px, transparent 1px 6px), repeating-linear-gradient(45deg, var(--line) 0 1px, transparent 1px 6px);
+  }
+  .sw-2 {
+    background: radial-gradient(var(--line) 1px, transparent 1.5px) 0 0 / 5px 5px;
+  }
+  .sw-3 {
+    background: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 5px);
+  }
+  .sw-4 {
+    background: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 5px);
+  }
+  .sw-5 {
+    background: var(--soft);
+  }
+
+  @media (max-width: 1100px) {
+    .detail-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 860px) {
+    .cover {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 36px 0 90px;
+    }
+    .sheet-label {
+      margin-bottom: 28px;
+    }
+    .bio {
+      margin-left: 0;
+    }
+    .index,
+    .details,
+    .legend {
+      margin-top: 72px;
+    }
+    .stack-col {
+      display: none;
+    }
+    .schedule td,
+    .schedule th {
+      padding-inline: 8px;
+    }
+    .sheet-no {
+      width: auto;
+    }
+    .detail-grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 40px;
+    }
+  }
+</style>
