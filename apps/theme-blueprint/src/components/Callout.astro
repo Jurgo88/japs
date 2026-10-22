@@ -1,0 +1,43 @@
+---
+/** A section/detail marker: a circle split by a line, number on top, sheet below. */
+interface Props {
+  top: string;
+  bottom: string;
+  size?: number;
+}
+
+const { top, bottom, size = 44 } = Astro.props;
+---
+
+<span class="callout" style={`--s: ${size}px`} aria-hidden="true">
+  <b>{top}</b>
+  <i>{bottom}</i>
+</span>
+
+<style>
+  .callout {
+    flex: none;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    width: var(--s);
+    height: var(--s);
+    border: 1.5px solid var(--line);
+    border-radius: 50%;
+    overflow: hidden;
+    text-align: center;
+    font-family: var(--mono);
+    line-height: 1;
+  }
+  b {
+    align-self: end;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--line);
+    font-size: calc(var(--s) * 0.3);
+    font-weight: 500;
+  }
+  i {
+    padding-top: 3px;
+    font-size: calc(var(--s) * 0.19);
+    font-style: normal;
+  }
+</style>

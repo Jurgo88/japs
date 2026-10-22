@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Metro theme preview">
+  <rect width="640" height="400" fill="#f4f2ec"/>
+  <rect width="640" height="30" fill="#14235c"/>
+  <path d="M16 15h28" stroke="#e1251b" stroke-width="5"/><rect x="24" y="8" width="13" height="13" rx="6.5" fill="#fff" stroke="#1c1c1c" stroke-width="2.5"/>
+  <text x="52" y="20" fill="#fff" font-family="Arial,sans-serif" font-size="11" font-weight="800">Jane Example</text>
+  <rect x="24" y="48" width="380" height="56" rx="4" fill="#14235c"/>
+  <text x="38" y="88" fill="#fff" font-family="Arial,sans-serif" font-size="32" font-weight="800">Jane Example</text>
+  <rect x="24" y="104" width="95" height="12" fill="#e1251b"/><rect x="119" y="104" width="95" height="12" fill="#0b6fbd"/><rect x="214" y="104" width="95" height="12" fill="#00a14b"/><rect x="309" y="104" width="95" height="12" fill="#f6b500"/>
+  <rect x="430.5" y="48.5" width="186" height="86" rx="4" fill="#fff" stroke="#1c1c1c" stroke-width="1.5"/>
+  <rect x="431" y="49" width="185" height="16" fill="#1c1c1c"/>
+  <rect x="431" y="68" width="80" height="13" fill="#e1251b"/><rect x="431" y="84" width="80" height="13" fill="#0b6fbd"/><rect x="431" y="100" width="80" height="13" fill="#00a14b"/>
+  <g font-family="Arial,sans-serif" font-size="8" fill="#1c1c1c"><text x="518" y="78">Good service</text><text x="518" y="94">Good service</text><text x="518" y="110">Good service</text></g>
+  <g fill="none" stroke-width="7">
+    <path d="M90 180H560" stroke="#e1251b"/><path d="M150 206H500" stroke="#0b6fbd"/><path d="M210 232H560" stroke="#00a14b"/><path d="M90 258H380" stroke="#f6b500"/>
+  </g>
+  <g fill="#fff" stroke="#1c1c1c">
+    <rect x="146" y="180" width="8" height="26" stroke-width="2"/><circle cx="150" cy="180" r="7" stroke-width="3"/><circle cx="150" cy="206" r="7" stroke-width="3"/>
+    <rect x="266" y="180" width="8" height="78" stroke-width="2"/><circle cx="270" cy="180" r="7" stroke-width="3"/><circle cx="270" cy="232" r="7" stroke-width="3"/><circle cx="270" cy="258" r="7" stroke-width="3"/>
+    <rect x="436" y="180" width="8" height="52" stroke-width="2"/><circle cx="440" cy="180" r="7" stroke-width="3"/><circle cx="440" cy="206" r="7" stroke-width="3"/><circle cx="440" cy="232" r="7" stroke-width="3"/>
+  </g>
+  <g font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#1c1c1c">
+    <text transform="translate(152 166) rotate(-40)">Shop</text><text transform="translate(272 166) rotate(-40)">Trails</text><text transform="translate(442 166) rotate(-40)">Bakery</text>
+  </g>
+  <rect x="24" y="290" width="592" height="96" rx="6" fill="#121212" stroke="#2a2a2a" stroke-width="5"/>
+  <g font-family="monospace" font-weight="700" fill="#ffb627">
+    <text x="40" y="314" font-size="15">DEPARTURES</text>
+    <text x="40" y="340" font-size="11">2026</text><text x="110" y="340" font-size="11">Example Shop</text>
+    <text x="40" y="362" font-size="11">2025</text><text x="110" y="362" font-size="11">Trail Planner</text>
+  </g>
+  <g font-family="monospace" font-size="11" font-weight="700" fill="#7dff9b" text-anchor="end"><text x="596" y="340">Live</text><text x="596" y="362">Live</text></g>
+</svg>
