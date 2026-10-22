@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Swiss theme preview">
+  <rect width="640" height="400" fill="#f3f2ee"/>
+  <g stroke="#e3001b" stroke-opacity=".18">
+    <path d="M20 0v400M70 0v400M120 0v400M170 0v400M220 0v400M270 0v400M320 0v400M370 0v400M420 0v400M470 0v400M520 0v400M570 0v400M620 0v400"/>
+  </g>
+  <text x="20" y="24" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="9" font-weight="700">Jane Example</text>
+  <text x="320" y="24" fill="#6e6d68" font-family="Helvetica,Arial,sans-serif" font-size="9">Work</text>
+  <text x="620" y="24" fill="#6e6d68" font-family="Helvetica,Arial,sans-serif" font-size="9" text-anchor="end">EN SK  Grid</text>
+  <path d="M20 34h600" stroke="#111110"/>
+  <text x="16" y="118" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="92" font-weight="700" letter-spacing="-6">Jane</text>
+  <text x="16" y="194" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="92" font-weight="700" letter-spacing="-6">Example</text>
+  <rect x="570" y="52" width="50" height="50" fill="#e3001b"/>
+  <text x="170" y="228" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="13" font-weight="700">Web developer</text>
+  <text x="320" y="228" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="9">Sample portfolio bundled with</text>
+  <text x="320" y="240" fill="#111110" font-family="Helvetica,Arial,sans-serif" font-size="9">the JAPS themes.</text>
+  <path d="M20 262h600" stroke="#111110"/>
+  <text x="20" y="300" fill="#e3001b" font-family="Helvetica,Arial,sans-serif" font-size="40" font-weight="700" letter-spacing="-3">01</text>
+  <rect x="170" y="272" width="450" height="128" fill="#111110"/>
+  <rect x="186" y="290" width="160" height="10" fill="#6e6d68"/>
+  <rect x="186" y="310" width="300" height="5" fill="#3a3a38"/>
+  <rect x="186" y="322" width="250" height="5" fill="#3a3a38"/>
+  <rect x="186" y="344" width="130" height="56" fill="#2a2a28"/>
+  <rect x="330" y="344" width="130" height="56" fill="#2a2a28"/>
+  <rect x="474" y="344" width="130" height="56" fill="#e3001b"/>
+</svg>

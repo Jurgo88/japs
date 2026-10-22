@@ -1,0 +1,375 @@
+---
+import "@fontsource-variable/inter-tight/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#f3f2ee" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23e3001b'/><rect x='13' y='6' width='6' height='20' fill='%23fff'/><rect x='6' y='13' width='20' height='6' fill='%23fff'/></svg>`} />
+    <script is:inline>
+      // Restore the grid overlay before paint; storage may be unavailable.
+      try {
+        if (localStorage.getItem("japs-swiss-grid") === "on") document.documentElement.dataset.grid = "on";
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div class="grid-overlay" aria-hidden="true">{Array.from({ length: 12 }, () => <span />)}</div>
+
+    <header class="masthead grid">
+      <a class="who" href={homeHref}>
+        <b>{profile.name}</b>
+        <span>{tt(locale, "index")}</span>
+      </a>
+      <nav class="sections" aria-label={tt(locale, "index")}>
+        <a href={`${homeHref}#work`}>{tt(locale, "work")}</a>
+        <a href="#contact">{tt(locale, "contact")}</a>
+      </nav>
+      <div class="tools">
+        {
+          alternates.length > 1 && (
+            <nav class="languages" aria-label={tt(locale, "language")}>
+              {alternates.map((a) => (
+                <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                  {a.locale.toUpperCase()}
+                </a>
+              ))}
+            </nav>
+          )
+        }
+        <button class="grid-toggle" type="button" aria-pressed="false" title={`${tt(locale, "grid")} (G)`}>
+          <span aria-hidden="true" class="grid-icon"></span>{tt(locale, "grid")}
+        </button>
+      </div>
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="footer" id="contact">
+      <div class="grid footer-lead">
+        <p class="label">{tt(locale, "contact")}</p>
+        <div class="footer-cta">
+          <p>{tt(locale, "lead")}</p>
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+        </div>
+      </div>
+      <div class="grid footer-bottom">
+        <span>© {new Date().getFullYear()} {profile.name}</span>
+        <span>{profile.location ?? ""}</span>
+        <ul>
+          {profile.links.map((link) => (
+            <li>
+              <a href={link.url} rel="me noopener">{link.label} ↗</a>
+            </li>
+          ))}
+        </ul>
+        <span class="colophon">Inter Tight · 12 col</span>
+      </div>
+    </footer>
+
+    <script>
+      const root = document.documentElement;
+      const button = document.querySelector<HTMLButtonElement>(".grid-toggle");
+      const sync = () => button?.setAttribute("aria-pressed", String(root.dataset.grid === "on"));
+      const toggle = () => {
+        const on = root.dataset.grid !== "on";
+        if (on) root.dataset.grid = "on";
+        else delete root.dataset.grid;
+        try {
+          localStorage.setItem("japs-swiss-grid", on ? "on" : "off");
+        } catch {}
+        sync();
+      };
+      sync();
+      button?.addEventListener("click", toggle);
+      document.addEventListener("keydown", (e) => {
+        const target = e.target as HTMLElement | null;
+        if (e.key !== "g" || e.metaKey || e.ctrlKey || e.altKey || target?.closest("input, textarea, [contenteditable]")) return;
+        toggle();
+      });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --paper: #f3f2ee;
+    --ink: #111110;
+    --red: #e3001b;
+    --muted: #6e6d68;
+    --line: #111110;
+    --font: "Inter Tight Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --pad: 32px;
+    --gap: 20px;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    background: var(--paper);
+    font: 400 16px/1.45 var(--font);
+    font-feature-settings: "tnum" 1, "ss01" 1;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--red);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 3px;
+  }
+  /* The 12-column grid every block sits on. */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--gap);
+    padding-inline: var(--pad);
+  }
+  .label {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .grid-overlay {
+    position: fixed;
+    inset: 0 var(--pad);
+    z-index: 50;
+    display: none;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--gap);
+    pointer-events: none;
+  }
+  .grid-overlay span {
+    background: rgb(227 0 27 / 0.07);
+    border-inline: 1px solid rgb(227 0 27 / 0.35);
+  }
+  [data-grid="on"] .grid-overlay {
+    display: grid;
+  }
+
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    align-items: start;
+    padding-block: 18px 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  .who {
+    grid-column: 1 / span 3;
+    display: grid;
+  }
+  .who b {
+    font-weight: 700;
+  }
+  .who span,
+  .sections a:not(:hover) {
+    color: var(--muted);
+  }
+  .sections {
+    grid-column: 7 / span 3;
+    display: grid;
+  }
+  .sections a:hover,
+  .languages a:hover,
+  .footer-bottom a:hover {
+    color: var(--red);
+  }
+  .tools {
+    grid-column: 10 / span 3;
+    display: flex;
+    justify-content: flex-end;
+    align-items: start;
+    gap: 18px;
+  }
+  .languages {
+    display: flex;
+    gap: 10px;
+  }
+  .languages a {
+    color: var(--muted);
+  }
+  .languages a[aria-current="page"] {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .grid-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .grid-toggle:hover,
+  .grid-toggle[aria-pressed="true"] {
+    color: var(--red);
+  }
+  .grid-icon {
+    width: 11px;
+    height: 11px;
+    background: linear-gradient(90deg, currentColor 1px, transparent 1px) 0 0 / 3.67px 100%;
+    border-right: 1px solid currentColor;
+  }
+
+  .footer {
+    margin-top: 160px;
+    padding-top: 28px;
+    background: var(--red);
+    color: #fff;
+  }
+  .footer-lead {
+    min-height: 340px;
+    align-content: space-between;
+  }
+  .footer-lead .label {
+    grid-column: 1 / span 3;
+  }
+  .footer-cta {
+    grid-column: 4 / -1;
+    display: grid;
+    gap: 14px;
+    padding-bottom: 56px;
+  }
+  .footer-cta p {
+    margin: 0;
+    font-size: clamp(40px, 6.4vw, 112px);
+    font-weight: 700;
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+  }
+  .footer-cta a {
+    justify-self: start;
+    font-size: clamp(20px, 2.4vw, 36px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    border-bottom: 2px solid #fff;
+  }
+  .footer-cta a:hover {
+    border-bottom-color: transparent;
+  }
+  .footer-bottom {
+    padding-block: 16px 22px;
+    border-top: 1px solid rgb(255 255 255 / 0.6);
+    font-size: 13px;
+  }
+  .footer-bottom > :nth-child(1) {
+    grid-column: 1 / span 3;
+  }
+  .footer-bottom > :nth-child(2) {
+    grid-column: 4 / span 3;
+  }
+  .footer-bottom ul {
+    grid-column: 7 / span 3;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .footer-bottom a:hover {
+    color: var(--ink);
+  }
+  .colophon {
+    grid-column: 10 / span 3;
+    text-align: right;
+  }
+
+  @media (max-width: 760px) {
+    :root {
+      --pad: 18px;
+      --gap: 12px;
+    }
+    .who {
+      grid-column: 1 / span 6;
+    }
+    .sections {
+      display: none;
+    }
+    .tools {
+      grid-column: 7 / -1;
+    }
+    .footer {
+      margin-top: 100px;
+    }
+    .footer-lead {
+      min-height: 200px;
+      row-gap: 40px;
+    }
+    .footer-lead .label,
+    .footer-cta {
+      grid-column: 1 / -1;
+    }
+    .footer-bottom {
+      row-gap: 8px;
+    }
+    .footer-bottom > :nth-child(1),
+    .footer-bottom > :nth-child(2),
+    .footer-bottom ul {
+      grid-column: 1 / span 6;
+    }
+    .footer-bottom ul {
+      grid-row: 1 / span 2;
+      grid-column: 7 / -1;
+    }
+    .colophon {
+      grid-column: 1 / -1;
+      text-align: left;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
