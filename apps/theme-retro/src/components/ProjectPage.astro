@@ -1,0 +1,274 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Icon from "./Icon.astro";
+import Window from "./Window.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const { previous, next } = neighbours(project, portfolio);
+const info: [string, string][] = [
+  [tt(locale, "kind"), project.client.isClient ? (project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")) : tt(locale, "project")],
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+];
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <div class="page">
+    <Window id="doc" title={title} heading="h1" closeLabel={tt(locale, "back")} closeHref={`${home}#projects`} class="doc active">
+      <div slot="toolbar" class="toolbar">
+        <a class="btn" href={`${home}#projects`}>← {tt(locale, "folder")}</a>
+        {
+          project.links.live && (
+            <a class="btn default" href={project.links.live} rel="noopener">
+              {tt(locale, "live")} ↗
+            </a>
+          )
+        }
+        {
+          project.links.repo && (
+            <a class="btn" href={project.links.repo} rel="noopener">
+              {tt(locale, "source")} ↗
+            </a>
+          )
+        }
+        <span class="spacer">{index + 1} {tt(locale, "of")} {ordered.length}</span>
+      </div>
+
+      <div class="doc-body">
+        <div class="main">
+          {
+            (desktop || mobile) && (
+              <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+                {desktop && (
+                  <figure class="screen">
+                    <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+                  </figure>
+                )}
+                {mobile && (
+                  <figure class="screen phone">
+                    <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+                  </figure>
+                )}
+              </div>
+            )
+          }
+          <p class="summary">{text(project.summary, locale)}</p>
+          <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+        </div>
+
+        <aside class="info" aria-labelledby="info-title">
+          <h2 id="info-title"><Icon kind="doc" size={28} />{tt(locale, "getInfo")}</h2>
+          <dl>
+            {
+              info.map(([label, value]) => (
+                <div>
+                  <dt>{label}:</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+          {
+            project.tags.length > 0 && (
+              <>
+                <h3>{tt(locale, "stack")}</h3>
+                <ul class="chips">
+                  {project.tags.map((tag) => (
+                    <li>{tag}</li>
+                  ))}
+                </ul>
+              </>
+            )
+          }
+        </aside>
+      </div>
+
+      <nav slot="status" class="statusbar" aria-label={`${tt(locale, "previous")} / ${tt(locale, "next")}`}>
+        {previous && <a href={projectUrl(previous, locale, portfolio)}>◂ {text(previous.title, locale)}</a>}
+        {next && <a class="spacer" href={projectUrl(next, locale, portfolio)}>{text(next.title, locale)} ▸</a>}
+      </nav>
+    </Window>
+  </div>
+</Base>
+
+<style>
+  .page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 26px 22px 60px;
+  }
+  /* The document scrolls with the page, so the info panel can stick. */
+  :global(.doc .window-body) {
+    overflow: visible;
+  }
+  .toolbar .spacer {
+    color: var(--muted);
+  }
+  .doc-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: start;
+  }
+  .main {
+    min-width: 0;
+    padding: 20px 24px 28px;
+  }
+  .devices {
+    display: grid;
+    gap: 12px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .screen {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+    box-shadow: 3px 3px 0 rgb(0 0 0 / 0.2);
+  }
+  .phone img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .summary {
+    max-width: 62ch;
+    margin: 24px 0 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .description {
+    max-width: 66ch;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.4em;
+    font-family: var(--pixel);
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .description :global(h2) {
+    font-size: 24px;
+  }
+  .description :global(h3) {
+    font-size: 19px;
+  }
+  .description :global(a) {
+    color: var(--select);
+  }
+  .description :global(code) {
+    padding: 0 3px;
+    background: #eee;
+    font-size: 0.92em;
+  }
+  .info {
+    position: sticky;
+    top: 40px;
+    margin: 20px 20px 20px 0;
+    padding: 14px 14px 16px;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+    box-shadow:
+      inset 1px 1px var(--plat-hi),
+      inset -1px -1px var(--plat-lo);
+  }
+  .info h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font: 700 17px/1 var(--pixel);
+  }
+  .info dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+  .info dl div {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    gap: 8px;
+  }
+  .info dt {
+    font: 600 14px/1.45 var(--pixel);
+    text-align: right;
+  }
+  .info dd {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .info h3 {
+    margin: 16px 0 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--plat-lo);
+    font: 600 14px/1 var(--pixel);
+  }
+  .statusbar a {
+    padding: 2px 4px;
+    text-decoration: none;
+  }
+  .statusbar a:hover,
+  .statusbar a:focus-visible {
+    background: var(--select);
+    color: #fff;
+    outline: none;
+  }
+
+  @media (max-width: 860px) {
+    .page {
+      padding: 12px 8px 40px;
+    }
+    .doc-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .main {
+      padding: 14px 14px 20px;
+    }
+    .devices.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 8px;
+    }
+    .info {
+      position: static;
+      margin: 0 14px 16px;
+    }
+    .summary {
+      font-size: 17px;
+    }
+  }
+</style>

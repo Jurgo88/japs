@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Retro OS theme preview" shape-rendering="crispEdges">
+  <defs>
+    <pattern id="d" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#6170bd"/><rect width="2" height="2" fill="#5866b3"/><rect x="2" y="2" width="2" height="2" fill="#5866b3"/></pattern>
+    <pattern id="s" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="1" fill="#8c8c8c"/><rect y="1" width="2" height="1" fill="#f6f6f6"/></pattern>
+  </defs>
+  <rect width="640" height="400" fill="url(#d)"/>
+  <rect width="640" height="18" fill="#f6f6f6"/><path d="M0 18.5h640" stroke="#000"/>
+  <text x="30" y="13" font-family="monospace" font-size="10" font-weight="700">Jane Example</text>
+  <text x="120" y="13" font-family="monospace" font-size="10">Projects</text>
+  <text x="600" y="13" font-family="monospace" font-size="10" text-anchor="end">12:04</text>
+  <rect x="20.5" y="34.5" width="170" height="150" fill="#ddd" stroke="#000"/>
+  <text x="105" y="47" font-family="monospace" font-size="9" fill="#8c8c8c" text-anchor="middle">About me.txt</text>
+  <rect x="24.5" y="53.5" width="162" height="127" fill="#fff" stroke="#000"/>
+  <text x="32" y="74" font-family="monospace" font-size="14" font-weight="700">Jane Example</text>
+  <text x="32" y="90" font-family="sans-serif" font-size="8" font-weight="700">Web developer</text>
+  <rect x="32" y="100" width="140" height="4" fill="#ccc"/><rect x="32" y="108" width="120" height="4" fill="#ccc"/><rect x="32" y="116" width="130" height="4" fill="#ccc"/>
+  <rect x="32.5" y="130.5" width="146" height="14" fill="#f1f1f1" stroke="#000"/>
+  <rect x="210.5" y="52.5" width="330" height="240" fill="#ddd" stroke="#000"/>
+  <rect x="216" y="58" width="319" height="8" fill="url(#s)"/>
+  <rect x="345" y="55" width="62" height="14" fill="#ddd"/>
+  <text x="376" y="65" font-family="monospace" font-size="9" font-weight="700" text-anchor="middle">Projects</text>
+  <rect x="214.5" y="88.5" width="322" height="200" fill="#fff" stroke="#000"/>
+  <g stroke="#000">
+    <rect x="230.5" y="100.5" width="60" height="40" fill="#2b3b6e"/><rect x="305.5" y="100.5" width="60" height="40" fill="#f3efe4"/><rect x="380.5" y="100.5" width="60" height="40" fill="#1d4d2b"/><rect x="455.5" y="100.5" width="60" height="40" fill="#e9e9e9"/>
+    <rect x="230.5" y="170.5" width="60" height="40" fill="#7b4bd1"/><rect x="305.5" y="170.5" width="60" height="40" fill="#111"/><rect x="380.5" y="170.5" width="60" height="40" fill="#5fa6e8"/><rect x="455.5" y="170.5" width="60" height="40" fill="#f6f6f6"/>
+  </g>
+  <g font-family="monospace" font-size="8" text-anchor="middle"><text x="260" y="153">Shop</text><text x="335" y="153">Trails</text><text x="410" y="153">Bakery</text><text x="485" y="153">Habits</text></g>
+  <rect x="300.5" y="210.5" width="200" height="130" fill="#ddd" stroke="#000"/>
+  <rect x="306" y="216" width="189" height="8" fill="url(#s)"/>
+  <rect x="304.5" y="229.5" width="192" height="107" fill="#fff" stroke="#000"/>
+  <rect x="312.5" y="237.5" width="128" height="72" fill="#2b3b6e" stroke="#000"/><rect x="446.5" y="237.5" width="42" height="72" fill="#3d5294" stroke="#000"/>
+  <rect x="446.5" y="315.5" width="42" height="15" rx="4" fill="#eee" stroke="#000"/>
+  <g transform="translate(588 40)"><path d="M6.5 2.5h14l6 6v21h-20z" fill="#fff" stroke="#000"/></g>
+  <g transform="translate(588 90)"><path d="M2.5 7.5h10l3 3h14v18h-27z" fill="#a9b8ff" stroke="#000"/></g>
+  <g transform="translate(588 350)"><path d="M8.5 9.5h15l-2 20h-11z" fill="#ccc" stroke="#000"/><path d="M5.5 6.5h21v3h-21z" fill="#e6e6e6" stroke="#000"/></g>
+</svg>

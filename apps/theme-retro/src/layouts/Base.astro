@@ -1,0 +1,375 @@
+---
+import "@fontsource-variable/pixelify-sans/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import Icon from "../components/Icon.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#dddddd" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' shape-rendering='crispEdges'><path d='M5.5 2.5h21v22h-21z' fill='%23e6e6e6' stroke='%23000'/><path d='M8.5 5.5h15v11h-15z' fill='%235f6fc2' stroke='%23000'/><path d='M13 9h1v2h-1zM18 9h1v2h-1zM12 12h1v1h-1zM19 12h1v1h-1zM13 13h6v1h-6z' fill='%23fff'/><path d='M7.5 26.5h17v3h-17z' fill='%23ccc' stroke='%23000'/></svg>`} />
+    <script is:inline>
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <header class="menubar">
+      <a class="menu-logo" href={homeHref} aria-label={tt(locale, "desktop")}><Icon kind="computer" size={18} /></a>
+      <a class="menu-name" href={homeHref}>{profile.name}</a>
+      <nav class="menu-items" aria-label={tt(locale, "desktop")}>
+        <a href={`${homeHref}#projects`}>{tt(locale, "projects")}</a>
+        {profile.email && <a href={`mailto:${profile.email}`}>{tt(locale, "contact")}</a>}
+      </nav>
+      <div class="menu-right">
+        {
+          alternates.length > 1 && (
+            <nav class="languages" aria-label={tt(locale, "language")}>
+              {alternates.map((a) => (
+                <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                  {a.locale.toUpperCase()}
+                </a>
+              ))}
+            </nav>
+          )
+        }
+        <span class="clock" data-locale={locale}></span>
+      </div>
+    </header>
+
+    <main class="desktop"><slot /></main>
+
+    <script>
+      const clock = document.querySelector<HTMLElement>(".clock");
+      if (clock) {
+        const format = new Intl.DateTimeFormat(clock.dataset.locale, { hour: "2-digit", minute: "2-digit" });
+        const tick = () => (clock.textContent = format.format(new Date()));
+        tick();
+        setInterval(tick, 20_000);
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --desk: #6170bd;
+    --desk-dot: #5866b3;
+    --plat: #dddddd;
+    --plat-hi: #f6f6f6;
+    --plat-lo: #8c8c8c;
+    --ink: #000;
+    --text: #1d1d1d;
+    --muted: #5b5b5b;
+    --select: #3a3acf;
+    --pixel: "Pixelify Sans Variable", "Chicago", "Geneva", monospace;
+    --sans: Geneva, Verdana, "DejaVu Sans", system-ui, sans-serif;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    background: var(--desk);
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100svh;
+    overflow-x: clip;
+    background-color: var(--desk);
+    background-image: conic-gradient(var(--desk-dot) 25%, transparent 0 50%, var(--desk-dot) 0 75%, transparent 0);
+    background-size: 4px 4px;
+    font: 14px/1.5 var(--sans);
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--select);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px dotted var(--ink);
+    outline-offset: 2px;
+  }
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Menu bar */
+  .menubar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--ink);
+    background: var(--plat-hi);
+    font: 500 15px/1 var(--pixel);
+    white-space: nowrap;
+  }
+  .menubar a {
+    padding: 6px 9px;
+    text-decoration: none;
+  }
+  .menubar a:hover,
+  .menubar a:focus-visible {
+    background: var(--select);
+    color: #fff;
+    outline: none;
+  }
+  .menu-logo {
+    display: grid;
+    padding: 4px 8px !important;
+  }
+  .menu-name {
+    font-weight: 700;
+  }
+  .menu-items {
+    display: flex;
+    overflow: hidden;
+  }
+  .menu-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .languages {
+    display: flex;
+  }
+  .languages a[aria-current="page"] {
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .clock {
+    min-width: 46px;
+    padding-left: 8px;
+    text-align: right;
+  }
+
+  /* Windows */
+  .window {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+    box-shadow:
+      inset 1px 1px var(--plat-hi),
+      inset -1px -1px var(--plat-lo),
+      2px 2px 0 rgb(0 0 0 / 0.45);
+  }
+  .window:focus {
+    outline: none;
+  }
+  .titlebar {
+    position: relative;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) 20px;
+    align-items: center;
+    height: 24px;
+    padding: 0 6px;
+    user-select: none;
+    touch-action: none;
+  }
+  /* The pinstripes of an active title bar. */
+  .titlebar::before {
+    position: absolute;
+    inset: 5px 6px;
+    content: "";
+    background: repeating-linear-gradient(var(--plat-lo) 0 1px, var(--plat-hi) 1px 2px);
+  }
+  .js .window:not(.active) .titlebar::before {
+    opacity: 0;
+  }
+  .js .window:not(.active) .title {
+    color: var(--plat-lo);
+  }
+  .title {
+    position: relative;
+    justify-self: center;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 10px;
+    overflow: hidden;
+    background: var(--plat);
+    font: 600 15px/24px var(--pixel);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .box {
+    position: relative;
+    z-index: 1;
+    width: 13px;
+    height: 13px;
+    padding: 0;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+    box-shadow:
+      inset 1px 1px var(--plat-hi),
+      inset -1px -1px var(--plat-lo),
+      0 0 0 2px var(--plat);
+    cursor: pointer;
+  }
+  .box:active {
+    background: var(--plat-lo);
+  }
+  .zoom {
+    justify-self: end;
+    cursor: default;
+  }
+  .zoom::after {
+    position: absolute;
+    inset: 1px 4px 4px 1px;
+    border: 1px solid var(--ink);
+    content: "";
+  }
+  .window-body {
+    flex: 1;
+    min-height: 0;
+    margin: 0 5px 5px;
+    overflow: auto;
+    border: 1px solid var(--ink);
+    background: #fff;
+    box-shadow: inset 1px 1px var(--plat-lo);
+  }
+  .toolbar,
+  .statusbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 2px 8px 6px;
+    font: 500 14px/1.3 var(--pixel);
+  }
+  .statusbar {
+    padding: 0 8px 5px;
+  }
+  .spacer {
+    margin-left: auto;
+  }
+
+  /* Platinum buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 2px 12px;
+    border: 1px solid var(--ink);
+    border-radius: 5px;
+    background: linear-gradient(var(--plat-hi), #d2d2d2);
+    box-shadow:
+      inset 1px 1px #fff,
+      inset -1px -1px var(--plat-lo);
+    color: var(--ink);
+    font: 500 14px/1 var(--pixel);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: linear-gradient(#fff, #dcdcdc);
+  }
+  .btn:active,
+  .btn[aria-pressed="true"] {
+    background: var(--plat-lo);
+    box-shadow: inset 1px 1px #555;
+    color: #fff;
+  }
+  /* The default button wears the extra ring. */
+  .btn.default {
+    box-shadow:
+      inset 1px 1px #fff,
+      inset -1px -1px var(--plat-lo),
+      0 0 0 2px var(--plat),
+      0 0 0 3px var(--ink);
+    margin: 3px;
+  }
+
+  /* Platinum scrollbars */
+  .window-body {
+    scrollbar-color: #bdbdbd #e8e8e8;
+  }
+  .window-body::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+  }
+  .window-body::-webkit-scrollbar-track {
+    border-left: 1px solid var(--ink);
+    background: conic-gradient(#cfcfcf 25%, #ececec 0 50%, #cfcfcf 0 75%, #ececec 0) 0 0 / 2px 2px;
+  }
+  .window-body::-webkit-scrollbar-thumb {
+    border: 1px solid var(--ink);
+    background: #c9c9ff;
+    box-shadow:
+      inset 1px 1px #fff,
+      inset -1px -1px #7777bb;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chips li {
+    padding: 1px 7px;
+    border: 1px solid var(--ink);
+    background: #f1f1f1;
+    font: 500 13px/1.5 var(--pixel);
+  }
+
+  @media (max-width: 640px) {
+    .menu-items,
+    .menu-logo {
+      display: none;
+    }
+    .menubar a {
+      padding-inline: 6px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>

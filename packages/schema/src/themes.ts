@@ -14,6 +14,7 @@ export const THEMES = [
   { id: "orbit", label: "Orbit", description: "An interactive project constellation with GSAP motion and a live case-file display." },
   { id: "reel", label: "Reel", description: "Cinematic and dark: projects spin on a 3D carousel, the showcase filters by technology with duotone spotlight screenshots." },
   { id: "swiss", label: "Swiss", description: "International Typographic Style: a strict 12-column grid, huge grotesque type, black and signal red, with a grid overlay to toggle." },
+  { id: "retro", label: "Retro OS", description: "A classic desktop OS: draggable platinum windows, a projects folder in icon or list view, quick-look previews and a startup screen." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];
