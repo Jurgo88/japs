@@ -1,0 +1,48 @@
+---
+/**
+ * A classic platinum window. On the home page windows can be dragged, focused and closed
+ * (see the desktop script); without JavaScript they are plain sections in the page flow.
+ */
+interface Props {
+  id: string;
+  title: string;
+  closeLabel: string;
+  /** The close box navigates instead of closing in place (project pages). */
+  closeHref?: string;
+  heading?: "h1" | "h2";
+  class?: string;
+  style?: string;
+  hidden?: boolean;
+  /** Hidden on the desktop until opened from an icon; visible in the page flow without JS. */
+  startClosed?: boolean;
+}
+
+const { id, title, closeLabel, closeHref, heading = "h2", class: className, style, hidden, startClosed } = Astro.props;
+const Heading = heading;
+---
+
+<section
+  id={id}
+  class:list={["window", className]}
+  aria-labelledby={`${id}-title`}
+  style={style}
+  hidden={hidden}
+  tabindex="-1"
+  data-window
+  data-start-closed={startClosed ? "" : undefined}
+>
+  <header class="titlebar" data-drag>
+    {
+      closeHref ? (
+        <a class="box close" href={closeHref} aria-label={closeLabel} title={closeLabel} />
+      ) : (
+        <button class="box close" type="button" aria-label={closeLabel} title={closeLabel} data-close />
+      )
+    }
+    <Heading id={`${id}-title`} class="title"><span>{title}</span></Heading>
+    <span class="box zoom" aria-hidden="true"></span>
+  </header>
+  <slot name="toolbar" />
+  <div class="window-body"><slot /></div>
+  <slot name="status" />
+</section>

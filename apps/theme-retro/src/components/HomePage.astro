@@ -1,0 +1,744 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Icon from "./Icon.astro";
+import Window from "./Window.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stats = portfolioStats(portfolio);
+const tags = tagCounts(portfolio);
+const maxTag = Math.max(1, ...tags.map((t) => t.count));
+const firstName = profile.name.trim().split(/\s+/)[0] ?? profile.name;
+const present = tt(locale, "present");
+const close = tt(locale, "closeWindow");
+const qlId = (slug: string) => `ql-${slug.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+const statLine = [
+  `${stats.projects} ${plural(locale, "projects", stats.projects)}`,
+  `${stats.technologies} ${plural(locale, "technologies", stats.technologies)}`,
+  ...(stats.years !== null ? [`${stats.years} ${plural(locale, "years", stats.years)}`] : []),
+].join(" · ");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <script is:inline>
+    // A short startup screen once per session; storage may be unavailable.
+    try {
+      if (!sessionStorage.getItem("japs-retro-booted") && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        sessionStorage.setItem("japs-retro-booted", "1");
+        document.documentElement.classList.add("booting");
+        setTimeout(() => document.documentElement.classList.remove("booting"), 1400);
+      }
+    } catch {}
+  </script>
+  <div class="boot" aria-hidden="true">
+    <div class="boot-box">
+      <Icon kind="computer" size={64} />
+      <p>{tt(locale, "welcome")} <b>{firstName} OS</b></p>
+      <span class="boot-bar"><i></i></span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <nav class="desk-icons" aria-label={tt(locale, "desktop")}>
+      <a class="desk-icon" href="#about" data-opens="about"><Icon kind="doc" /><span>{tt(locale, "about")}</span></a>
+      <a class="desk-icon" href="#projects" data-opens="projects"><Icon kind="folder" /><span>{tt(locale, "folder")}</span></a>
+      {tags.length > 0 && <a class="desk-icon" href="#tools" data-opens="tools"><Icon kind="tools" /><span>{tt(locale, "tools")}</span></a>}
+      {profile.email && <a class="desk-icon" href={`mailto:${profile.email}`}><Icon kind="mail" /><span>{tt(locale, "mail")}</span></a>}
+      <a class="desk-icon trash-icon" href="#trash" data-opens="trash"><Icon kind="trash" /><span>{tt(locale, "trash")}</span></a>
+    </nav>
+
+    <Window id="about" title={`${tt(locale, "about")}.txt`} closeLabel={close} class="about-window" style="--x: 24px; --y: 24px; --w: 350px">
+      <div class="about">
+        <h1>{profile.name}</h1>
+        <p class="headline">{text(profile.headline, locale)}</p>
+        {text(profile.bio, locale) && <p>{text(profile.bio, locale)}</p>}
+        {
+          profile.available !== null && (
+            <p class="status">
+              <i class:list={{ on: profile.available }} aria-hidden="true" />
+              {tt(locale, profile.available ? "available" : "unavailable")}
+            </p>
+          )
+        }
+        <p class="stat-line">{statLine}</p>
+        <ul class="about-links">
+          {profile.email && (
+            <li>
+              <a href={`mailto:${profile.email}`}>{profile.email}</a>
+            </li>
+          )}
+          {profile.links.map((link) => (
+            <li>
+              <a href={link.url} rel="me noopener">{link.label} ↗</a>
+            </li>
+          ))}
+          {profile.location && <li class="muted">{profile.location}</li>}
+        </ul>
+      </div>
+    </Window>
+
+    <Window
+      id="projects"
+      title={tt(locale, "folder")}
+      closeLabel={close}
+      class="projects-window active"
+      style="--x: 400px; --y: 56px; --w: min(780px, calc(100% - 540px))"
+    >
+      <div slot="toolbar" class="toolbar">
+        <span>{projects.length} {tt(locale, "items")}</span>
+        <span class="spacer view-switch">
+          <button class="btn" type="button" data-view="icons" aria-pressed="true">{tt(locale, "icons")}</button>
+          <button class="btn" type="button" data-view="list" aria-pressed="false">{tt(locale, "list")}</button>
+        </span>
+      </div>
+      <ul class="files">
+        {
+          projects.map((project, i) => {
+            const shot = coverShot(project);
+            return (
+              <li>
+                <a class="file" href={projectUrl(project, locale, portfolio)} data-quicklook={qlId(project.slug)}>
+                  <span class="thumb">
+                    {shot ? (
+                      <img src={`/${shot.src}`} alt="" loading={i < 12 ? "eager" : "lazy"} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                    ) : (
+                      <Icon kind="doc" size={44} />
+                    )}
+                  </span>
+                  <span class="file-name">{text(project.title, locale)}</span>
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+      <table class="list-view">
+        <thead>
+          <tr>
+            <th scope="col">{tt(locale, "name")}</th>
+            <th scope="col">{tt(locale, "year")}</th>
+            <th scope="col">{tt(locale, "kind")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            projects.map((project) => (
+              <tr>
+                <td>
+                  <a href={projectUrl(project, locale, portfolio)} data-quicklook={qlId(project.slug)}>
+                    <Icon kind="doc" size={16} />
+                    {text(project.title, locale)}
+                  </a>
+                </td>
+                <td>{projectYears(project, present)}</td>
+                <td>{project.client.isClient ? tt(locale, "clientWork") : tt(locale, "project")}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </Window>
+
+    {
+      tags.length > 0 && (
+        <Window id="tools" title={tt(locale, "tools")} closeLabel={close} class="tools-window" style="--x: 120px; --y: 40px; --w: 420px" startClosed>
+          <div class="tools">
+            <p class="tools-head">
+              <Icon kind="tools" size={32} />
+              <span>
+                <b>{stats.technologies}</b> {plural(locale, "technologies", stats.technologies)}
+              </span>
+            </p>
+            <ul class="meters">
+              {tags.map(({ tag, count }) => (
+                <li>
+                  <span class="meter-name">{tag}</span>
+                  <span class="meter" aria-hidden="true">
+                    <i style={`width: ${Math.round((count / maxTag) * 100)}%`} />
+                  </span>
+                  <span class="meter-count">{count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Window>
+      )
+    }
+
+    <Window id="trash" title={tt(locale, "trash")} closeLabel={close} class="trash-window" style="--x: calc(100% - 470px); --y: calc(100% - 260px); --w: 320px" hidden>
+      <div class="trash">
+        <Icon kind="trash" size={48} />
+        <p>{tt(locale, "trashEmpty")}</p>
+      </div>
+    </Window>
+
+    {
+      projects.map((project) => {
+        const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+        const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+        return (
+          <Window id={qlId(project.slug)} title={text(project.title, locale)} closeLabel={close} class="quicklook" hidden>
+            <div class="ql">
+              {(desktop || mobile) && (
+                <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+                  {desktop && (
+                    <figure class="screen">
+                      <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} loading="lazy" width="1440" height="900" />
+                    </figure>
+                  )}
+                  {mobile && (
+                    <figure class="screen phone">
+                      <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} loading="lazy" width="390" height="844" />
+                    </figure>
+                  )}
+                </div>
+              )}
+              <p class="ql-meta">
+                {projectYears(project, present)} · {project.client.isClient ? tt(locale, "clientWork") : tt(locale, "project")}
+              </p>
+              <p>{text(project.summary, locale)}</p>
+              {project.tags.length > 0 && (
+                <ul class="chips">
+                  {project.tags.map((tag) => (
+                    <li>{tag}</li>
+                  ))}
+                </ul>
+              )}
+              <p class="ql-actions">
+                {project.links.live && (
+                  <a class="btn" href={project.links.live} rel="noopener">
+                    {tt(locale, "live")} ↗
+                  </a>
+                )}
+                <a class="btn default" href={projectUrl(project, locale, portfolio)}>
+                  {tt(locale, "open")}
+                </a>
+              </p>
+            </div>
+          </Window>
+        );
+      })
+    }
+  </div>
+</Base>
+
+<script>
+  const desk = matchMedia("(min-width: 900px)");
+  const stage = document.querySelector<HTMLElement>(".stage")!;
+  const projectsWindow = document.getElementById("projects");
+  let top = 10;
+  let cascade = 0;
+
+  const focusWindow = (win: HTMLElement) => {
+    for (const w of document.querySelectorAll<HTMLElement>(".window.active")) if (w !== win) w.classList.remove("active");
+    win.classList.add("active");
+    win.style.zIndex = String(++top);
+  };
+
+  const openWindow = (win: HTMLElement) => {
+    if (win.hidden || (win.hasAttribute("data-start-closed") && !win.classList.contains("is-open"))) {
+      win.hidden = false;
+      win.classList.add("is-open");
+      if (win.classList.contains("quicklook") && !win.style.left) {
+        const step = cascade++ % 7;
+        win.style.left = `${Math.min(180 + step * 26, stage.clientWidth - 420)}px`;
+        win.style.top = `${40 + step * 26}px`;
+      }
+    }
+    focusWindow(win);
+    win.focus({ preventScroll: true });
+  };
+
+  const closeWindow = (win: HTMLElement) => {
+    win.hidden = true;
+    win.classList.remove("is-open", "active");
+  };
+
+  // Desktop icons and project files open windows in place; on small screens they stay links.
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const closer = target.closest<HTMLElement>("[data-close]");
+    if (closer) {
+      const win = closer.closest<HTMLElement>("[data-window]");
+      if (win) closeWindow(win);
+      return;
+    }
+    if (!desk.matches || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    const link = target.closest<HTMLAnchorElement>("[data-opens], [data-quicklook]");
+    if (!link) return;
+    const id = link.dataset.opens ?? link.dataset.quicklook;
+    const win = id ? document.getElementById(id) : null;
+    if (!win) return;
+    e.preventDefault();
+    for (const selected of document.querySelectorAll(".selected")) selected.classList.remove("selected");
+    link.classList.add("selected");
+    openWindow(win);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !desk.matches) return;
+    const active = document.querySelector<HTMLElement>(".window.active:not([hidden])");
+    if (active && active.id !== "projects" && active.id !== "about") closeWindow(active);
+  });
+
+  // Dragging by the title bar, kept inside the desktop.
+  for (const win of document.querySelectorAll<HTMLElement>(".stage > [data-window]")) {
+    const bar = win.querySelector<HTMLElement>("[data-drag]")!;
+    win.addEventListener("pointerdown", () => desk.matches && focusWindow(win));
+    bar.addEventListener("pointerdown", (e) => {
+      if (!desk.matches || (e.target as HTMLElement).closest("button, a")) return;
+      const startX = e.clientX - win.offsetLeft;
+      const startY = e.clientY - win.offsetTop;
+      bar.setPointerCapture(e.pointerId);
+      const move = (ev: PointerEvent) => {
+        const x = Math.min(Math.max(ev.clientX - startX, 80 - win.offsetWidth), stage.clientWidth - 80);
+        const y = Math.min(Math.max(ev.clientY - startY, 0), stage.clientHeight - 24);
+        win.style.left = `${x}px`;
+        win.style.top = `${y}px`;
+      };
+      const up = () => {
+        bar.removeEventListener("pointermove", move);
+        bar.removeEventListener("pointerup", up);
+      };
+      bar.addEventListener("pointermove", move);
+      bar.addEventListener("pointerup", up);
+    });
+  }
+
+  // Icon or list view of the projects folder, remembered per browser.
+  const setView = (view: string) => {
+    if (!projectsWindow) return;
+    projectsWindow.dataset.view = view;
+    for (const b of projectsWindow.querySelectorAll<HTMLButtonElement>("[data-view]")) b.setAttribute("aria-pressed", String(b.dataset.view === view));
+  };
+  try {
+    setView(localStorage.getItem("japs-retro-view") === "list" ? "list" : "icons");
+  } catch {
+    setView("icons");
+  }
+  projectsWindow?.addEventListener("click", (e) => {
+    const button = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-view]");
+    if (!button?.dataset.view) return;
+    setView(button.dataset.view);
+    try {
+      localStorage.setItem("japs-retro-view", button.dataset.view);
+    } catch {}
+  });
+
+  document.documentElement.addEventListener("click", () => document.documentElement.classList.remove("booting"), { once: true });
+</script>
+
+<style>
+  /* Startup screen */
+  .boot {
+    display: none;
+  }
+  :global(.booting) .boot {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    background: inherit;
+    background-color: var(--desk);
+  }
+  .boot-box {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding: 28px 44px 30px;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+    box-shadow:
+      inset 1px 1px var(--plat-hi),
+      inset -1px -1px var(--plat-lo),
+      3px 3px 0 rgb(0 0 0 / 0.45);
+    font: 500 18px/1.2 var(--pixel);
+  }
+  .boot-box p {
+    margin: 0;
+  }
+  .boot-bar {
+    width: 220px;
+    height: 12px;
+    border: 1px solid var(--ink);
+    background: #fff;
+  }
+  .boot-bar i {
+    display: block;
+    height: 100%;
+    background: var(--select);
+    animation: load 1.2s steps(14) forwards;
+  }
+  @keyframes load {
+    from {
+      width: 0;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  /* Small screens and no JavaScript: icons on top, windows in the page flow. */
+  .stage {
+    display: grid;
+    gap: 22px;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 18px 14px 60px;
+  }
+  .desk-icons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .desk-icon {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    width: 86px;
+    padding: 4px 2px;
+    text-decoration: none;
+  }
+  .desk-icon span,
+  .file-name {
+    max-width: 100%;
+    padding: 0 4px;
+    background: #fff;
+    color: var(--ink);
+    font: 500 14px/1.25 var(--pixel);
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .desk-icon:focus-visible,
+  .file:focus-visible {
+    outline: none;
+  }
+  .desk-icon:focus-visible span,
+  .desk-icon.selected span,
+  .file:focus-visible .file-name,
+  .file.selected .file-name {
+    background: var(--select);
+    color: #fff;
+  }
+  .desk-icon.selected :global(.icon),
+  .file.selected .thumb {
+    filter: brightness(0.7) sepia(1) hue-rotate(190deg) saturate(3);
+  }
+  .trash-icon {
+    display: none;
+  }
+
+  /* Desktop with JavaScript: free-floating windows and a column of icons on the right. */
+  @media (min-width: 900px) {
+    :global(.js) .stage {
+      position: relative;
+      display: block;
+      max-width: none;
+      height: calc(100svh - 28px);
+      min-height: 620px;
+      padding: 0;
+      overflow: hidden;
+    }
+    :global(.js) .stage > :global(.window) {
+      position: absolute;
+      left: var(--x, 160px);
+      top: var(--y, 60px);
+      width: var(--w, 560px);
+      max-height: calc(100% - 40px);
+    }
+    :global(.js) .stage > :global([data-start-closed]:not(.is-open)) {
+      display: none;
+    }
+    :global(.js) .desk-icons {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      bottom: 14px;
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(auto-fill, 92px);
+      direction: rtl;
+      align-content: start;
+      gap: 6px 4px;
+    }
+    :global(.js) .desk-icon {
+      direction: ltr;
+    }
+    :global(.js) .desk-icon span {
+      background: transparent;
+      color: #fff;
+      text-shadow: 1px 1px 0 #000;
+    }
+    :global(.js) .desk-icon:focus-visible span,
+    :global(.js) .desk-icon.selected span {
+      background: var(--select);
+      text-shadow: none;
+    }
+    :global(.js) .trash-icon {
+      display: grid;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+    }
+  }
+
+  /* About me */
+  .about {
+    padding: 16px 18px 18px;
+  }
+  .about h1 {
+    margin: 0;
+    font: 700 30px/1 var(--pixel);
+  }
+  .headline {
+    margin: 6px 0 12px;
+    font-weight: 700;
+  }
+  .about p {
+    margin-block: 0 10px;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font: 500 14px/1.3 var(--pixel);
+  }
+  .status i {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    background: #9a9a9a;
+  }
+  .status i.on {
+    background: #3bd16f;
+    box-shadow: 0 0 6px #3bd16f;
+  }
+  .stat-line {
+    padding: 6px 8px;
+    border: 1px solid var(--ink);
+    background: #f1f1f1;
+    font: 500 14px/1.3 var(--pixel);
+  }
+  .about-links {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-wrap: anywhere;
+  }
+  .about-links a {
+    color: var(--select);
+  }
+  .muted {
+    color: var(--muted);
+  }
+
+  /* Projects folder */
+  .view-switch {
+    display: none;
+    gap: 6px;
+  }
+  :global(.js) .view-switch {
+    display: inline-flex;
+  }
+  .files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: 18px 8px;
+    margin: 0;
+    padding: 16px 12px 20px;
+    list-style: none;
+  }
+  .file {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .thumb {
+    display: grid;
+    place-items: center;
+    width: 104px;
+    height: 70px;
+    overflow: hidden;
+    border: 1px solid var(--ink);
+    background: #f1f1f1;
+    box-shadow: 2px 2px 0 rgb(0 0 0 / 0.25);
+  }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .file:hover .thumb {
+    box-shadow: 2px 2px 0 var(--select);
+  }
+  .file-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .list-view {
+    display: none;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  :global(.projects-window[data-view="list"]) .files {
+    display: none;
+  }
+  :global(.projects-window[data-view="list"]) .list-view {
+    display: table;
+  }
+  .list-view th {
+    position: sticky;
+    top: 0;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--ink);
+    background: var(--plat);
+    font: 600 14px/1.3 var(--pixel);
+    text-align: left;
+  }
+  .list-view td {
+    padding: 3px 8px;
+    border-bottom: 1px solid #e4e4e4;
+    white-space: nowrap;
+  }
+  .list-view tr:nth-child(even) td {
+    background: #f5f5ff;
+  }
+  .list-view td a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+  }
+  .list-view tr:hover td {
+    background: var(--select);
+    color: #fff;
+  }
+
+  /* Tools */
+  .tools {
+    padding: 14px 16px 16px;
+  }
+  .tools-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    font: 500 16px/1.2 var(--pixel);
+  }
+  .meters {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .meters li {
+    display: grid;
+    grid-template-columns: minmax(0, 9em) minmax(0, 1fr) 2.2em;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .meter-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .meter {
+    height: 11px;
+    border: 1px solid var(--ink);
+    background: #fff;
+  }
+  .meter i {
+    display: block;
+    height: 100%;
+    background: repeating-linear-gradient(90deg, var(--select) 0 6px, #6c6cf0 6px 8px);
+  }
+  .meter-count {
+    font: 500 13px/1 var(--pixel);
+    text-align: right;
+  }
+
+  /* Trash */
+  .trash {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+  }
+  .trash p {
+    margin: 0;
+  }
+
+  /* Quick look */
+  :global(.quicklook) {
+    --w: 580px;
+  }
+  .ql {
+    padding: 14px 16px 12px;
+  }
+  .ql > p {
+    margin: 10px 0;
+  }
+  .ql-meta {
+    color: var(--muted);
+    font: 500 14px/1.3 var(--pixel);
+  }
+  .ql-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px !important;
+  }
+  .devices {
+    display: grid;
+    gap: 10px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .screen {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--ink);
+    background: var(--plat);
+  }
+  .phone img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+</style>
