@@ -1,0 +1,533 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+// Featured projects get full-width rows; without any, the first two with a screenshot lead.
+const lead = projects.some((p) => p.featured)
+  ? projects.filter((p) => p.featured)
+  : projects.filter((p) => coverShot(p)).slice(0, 2);
+const rest = projects.filter((p) => !lead.includes(p));
+// Numbers follow the overall order, as on the project pages.
+const no = (project: (typeof projects)[number]) => pad(projects.indexOf(project) + 1);
+const stats = portfolioStats(portfolio);
+const tags = tagCounts(portfolio);
+const nameLines = profile.name.trim().split(/\s+/);
+const pad = (n: number) => String(n).padStart(2, "0");
+const present = tt(locale, "present");
+const statItems = [
+  { value: stats.projects, label: plural(locale, "projects", stats.projects) },
+  { value: stats.technologies, label: plural(locale, "technologies", stats.technologies) },
+  ...(stats.years !== null ? [{ value: stats.years, label: plural(locale, "years", stats.years) }] : []),
+];
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero grid">
+    <h1 class="name">
+      {nameLines.map((line) => <span>{line}</span>)}
+    </h1>
+    <span class="square" aria-hidden="true"></span>
+    <p class="label hero-no">(01)</p>
+    <p class="headline">{text(profile.headline, locale)}</p>
+    <div class="intro">
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+      {
+        profile.available !== null && (
+          <p class="label status">
+            <i class:list={{ on: profile.available }} aria-hidden="true" />
+            {tt(locale, profile.available ? "available" : "unavailable")}
+          </p>
+        )
+      }
+    </div>
+    <ul class="hero-links label">
+      {profile.email && (
+        <li>
+          <a href={`mailto:${profile.email}`}>{profile.email}</a>
+        </li>
+      )}
+      {profile.links.map((link) => (
+        <li>
+          <a href={link.url} rel="me noopener">{link.label} ↗</a>
+        </li>
+      ))}
+      {profile.location && <li class="muted">{profile.location}</li>}
+    </ul>
+  </section>
+
+  <ul class="stats grid">
+    {
+      statItems.map((s) => (
+        <li>
+          <b>{s.value}</b>
+          <span class="label">{s.label}</span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <section class="work" id="work" aria-labelledby="work-title">
+    <header class="section-head grid">
+      <p class="label">(02)</p>
+      <h2 id="work-title">{tt(locale, "selected")}</h2>
+      <p class="label count">{pad(projects.length)}</p>
+    </header>
+
+    {
+      lead.map((project) => {
+        const shot = coverShot(project);
+        return (
+          <a class="lead grid" href={projectUrl(project, locale, portfolio)}>
+            <span class="no">{no(project)}</span>
+            <span class="label lead-year">{projectYears(project, present)}</span>
+            <span class="frame lead-frame">
+              {shot ? (
+                <img src={`/${shot.src}`} alt={text(shot.alt, locale)} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+              ) : (
+                <span class="blank" aria-hidden="true">{text(project.title, locale)}</span>
+              )}
+            </span>
+            <h3>{text(project.title, locale)}</h3>
+            <p class="lead-summary">{text(project.summary, locale)}</p>
+            <span class="label lead-tags">{project.tags.slice(0, 5).join(" / ")}</span>
+          </a>
+        );
+      })
+    }
+
+    {
+      rest.length > 0 && (
+        <div class="cards grid">
+          {rest.map((project) => {
+            const shot = coverShot(project);
+            return (
+              <a class="card" href={projectUrl(project, locale, portfolio)}>
+                <span class="frame">
+                  {shot ? (
+                    <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading="lazy" width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                  ) : (
+                    <span class="blank" aria-hidden="true">{text(project.title, locale)}</span>
+                  )}
+                </span>
+                <span class="card-meta label">
+                  <span class="card-no">{no(project)}</span>
+                  <span>{projectYears(project, present)}</span>
+                </span>
+                <h3>{text(project.title, locale)}</h3>
+                <p>{text(project.summary, locale)}</p>
+              </a>
+            );
+          })}
+        </div>
+      )
+    }
+  </section>
+
+  {
+    tags.length > 0 && (
+      <section class="toolset grid" aria-labelledby="tools-title">
+        <p class="label">(03)</p>
+        <h2 id="tools-title">{tt(locale, "tools")}</h2>
+        <ol class="tag-list">
+          {tags.map(({ tag, count }) => (
+            <li>
+              <span>{tag}</span>
+              <span class="tag-count">{pad(count)}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .hero {
+    padding-block: 48px 72px;
+    row-gap: 40px;
+    align-items: start;
+  }
+  .name {
+    grid-column: 1 / span 11;
+    display: grid;
+    margin: 0;
+    font-size: clamp(64px, 14.2vw, 260px);
+    font-weight: 700;
+    line-height: 0.82;
+    letter-spacing: -0.06em;
+    overflow-wrap: anywhere;
+  }
+  .square {
+    grid-column: 12;
+    width: 100%;
+    aspect-ratio: 1;
+    margin-top: 0.6vw;
+    background: var(--red);
+  }
+  .hero-no {
+    grid-column: 1 / span 3;
+  }
+  .headline {
+    grid-column: 4 / span 3;
+    margin: 0;
+    font-size: clamp(20px, 2vw, 30px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+  .intro {
+    grid-column: 7 / span 3;
+    display: grid;
+    gap: 18px;
+  }
+  .bio {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.4;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status i.on {
+    background: var(--red);
+  }
+  .hero-links {
+    grid-column: 10 / span 3;
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-wrap: anywhere;
+  }
+  .hero-links a:hover {
+    color: var(--red);
+  }
+  .muted {
+    color: var(--muted);
+  }
+
+  .stats {
+    margin: 0;
+    padding-block: 0;
+    list-style: none;
+  }
+  .stats li {
+    grid-column: span 4;
+    display: grid;
+    gap: 6px;
+    padding-block: 14px 26px;
+    border-top: 1px solid var(--line);
+  }
+  .stats b {
+    font-size: clamp(64px, 10vw, 168px);
+    font-weight: 300;
+    line-height: 0.85;
+    letter-spacing: -0.06em;
+  }
+
+  .work {
+    padding-top: 120px;
+  }
+  .section-head {
+    align-items: baseline;
+    padding-block: 14px 0;
+    border-top: 1px solid var(--line);
+    margin-inline: var(--pad);
+    padding-inline: 0;
+  }
+  .section-head .label:first-child {
+    grid-column: 1 / span 3;
+  }
+  .section-head h2,
+  .toolset h2 {
+    grid-column: 4 / span 7;
+    margin: 0;
+    font-size: clamp(40px, 5.6vw, 96px);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+  }
+  .count {
+    grid-column: 11 / span 2;
+    text-align: right;
+  }
+
+  .frame {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 10;
+    background: var(--ink);
+  }
+  .frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    filter: grayscale(1) contrast(1.06);
+    transition:
+      filter 0.35s,
+      scale 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  a:hover .frame img,
+  a:focus-visible .frame img {
+    filter: none;
+    scale: 1.02;
+  }
+  /* Projects without a screenshot get a typographic plate instead. */
+  .blank {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 6%;
+    color: var(--paper);
+    font-size: clamp(28px, 4vw, 72px);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.05em;
+    overflow-wrap: anywhere;
+  }
+  a:hover .blank {
+    color: var(--red);
+  }
+
+  .lead {
+    row-gap: 18px;
+    padding-block: 56px 0;
+    padding-inline: 0;
+    margin-inline: var(--pad);
+  }
+  .lead + .lead {
+    margin-top: 56px;
+    border-top: 1px solid var(--line);
+  }
+  .no {
+    grid-column: 1 / span 3;
+    grid-row: 1 / span 2;
+    color: var(--red);
+    font-size: clamp(56px, 8vw, 140px);
+    font-weight: 700;
+    line-height: 0.8;
+    letter-spacing: -0.06em;
+  }
+  .lead-year {
+    grid-column: 1 / span 3;
+    grid-row: 2;
+    align-self: end;
+  }
+  .lead-frame {
+    grid-column: 4 / -1;
+    grid-row: 1 / span 2;
+  }
+  .lead h3 {
+    grid-column: 4 / span 5;
+    margin: 6px 0 0;
+    font-size: clamp(32px, 3.6vw, 60px);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+  }
+  .lead-summary {
+    grid-column: 9 / span 4;
+    margin: 8px 0 0;
+    font-size: 17px;
+    line-height: 1.4;
+  }
+  .lead-tags {
+    grid-column: 4 / -1;
+    color: var(--muted);
+  }
+  .lead:hover h3,
+  .card:hover h3 {
+    color: var(--red);
+  }
+
+  .cards {
+    row-gap: 64px;
+    margin-top: 96px;
+  }
+  .card {
+    grid-column: span 4;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .card .frame {
+    aspect-ratio: 4 / 3;
+  }
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .card-no {
+    color: var(--red);
+    font-weight: 700;
+  }
+  .card h3 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+  .card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .toolset {
+    row-gap: 32px;
+    margin: 140px var(--pad) 0;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--line);
+  }
+  .toolset .label {
+    grid-column: 1 / span 3;
+  }
+  .tag-list {
+    grid-column: 4 / -1;
+    columns: 3;
+    column-gap: var(--gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tag-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgb(17 17 16 / 0.18);
+    break-inside: avoid;
+    font-size: 17px;
+  }
+  .tag-count {
+    color: var(--muted);
+  }
+
+  @media (max-width: 1000px) {
+    .card {
+      grid-column: span 6;
+    }
+    .headline {
+      grid-column: 1 / span 6;
+    }
+    .hero-no {
+      display: none;
+    }
+    .intro {
+      grid-column: 7 / -1;
+    }
+    .hero-links {
+      grid-column: 7 / -1;
+    }
+    .tag-list {
+      columns: 2;
+    }
+  }
+  @media (max-width: 760px) {
+    .hero {
+      padding-block: 28px 48px;
+      row-gap: 28px;
+    }
+    .name {
+      grid-column: 1 / span 10;
+      font-size: clamp(52px, 17vw, 120px);
+    }
+    .square {
+      grid-column: 11 / -1;
+    }
+    .headline,
+    .intro,
+    .hero-links {
+      grid-column: 1 / -1;
+    }
+    .stats b {
+      font-size: 48px;
+    }
+    .work {
+      padding-top: 80px;
+    }
+    .section-head .label:first-child {
+      display: none;
+    }
+    .section-head h2,
+    .toolset h2 {
+      grid-column: 1 / span 10;
+    }
+    .count {
+      grid-column: 11 / -1;
+    }
+    .lead {
+      padding-top: 32px;
+      row-gap: 12px;
+    }
+    .no {
+      grid-column: 1 / span 6;
+      grid-row: auto;
+      font-size: 56px;
+    }
+    .lead-year {
+      grid-column: 7 / -1;
+      grid-row: auto;
+      text-align: right;
+    }
+    .lead-frame,
+    .lead h3,
+    .lead-summary,
+    .lead-tags {
+      grid-column: 1 / -1;
+      grid-row: auto;
+    }
+    .cards {
+      row-gap: 40px;
+      margin-top: 56px;
+    }
+    .card {
+      grid-column: 1 / -1;
+    }
+    .toolset {
+      margin-top: 90px;
+      row-gap: 20px;
+    }
+    .toolset .label {
+      display: none;
+    }
+    .tag-list {
+      grid-column: 1 / -1;
+      columns: 2;
+    }
+    .tag-list li {
+      font-size: 15px;
+    }
+  }
+</style>
