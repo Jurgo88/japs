@@ -1,0 +1,529 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { buildNetwork, lineNeighbours } from "../lib/network.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const network = buildNetwork(portfolio);
+const title = text(project.title, locale);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const lineName = (tag: string | null) => tag ?? tt(locale, "other");
+const journeys = lineNeighbours(network, project.slug);
+// Along the journey (oldest first); the last station leads back to the first.
+const at = network.stations.findIndex((s) => s.project.slug === project.slug);
+const nextStation = network.stations[at + 1]?.project ?? (network.stations.length > 1 ? network.stations[0]!.project : null);
+const facts: [string, string][] = [
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+];
+if (project.client.isClient) facts.push([tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"]);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <article>
+    <header class="head">
+      <a class="back" href={`${home}#map`}>← {tt(locale, "network")}</a>
+      <span class="sign-label">{tt(locale, "station")}</span>
+      <h1 class="station-sign">{title}</h1>
+      <ul class="line-strip" aria-label={tt(locale, "linesHere")}>
+        {
+          journeys.map(({ line }) => (
+            <li style={`--c: ${line.color}`}>{lineName(line.tag)}</li>
+          ))
+        }
+      </ul>
+      <p class="summary">{text(project.summary, locale)}</p>
+    </header>
+
+    <section class="journeys" aria-labelledby="journey-title">
+      <h2 id="journey-title" class="section-title">{tt(locale, "journey")}</h2>
+      <ul>
+        {
+          journeys.map(({ line, previous, next }) => (
+            <li class="journey" style={`--c: ${line.color}`}>
+              <span class="journey-line">{lineName(line.tag)}</span>
+              <span class="journey-track">
+                {previous ? (
+                  <a class="stop prev" href={projectUrl(previous, locale, portfolio)}>
+                    ← {text(previous.title, locale)}
+                  </a>
+                ) : (
+                  <span class="stop prev end">{tt(locale, "terminus")}</span>
+                )}
+                <span class="here" aria-current="page">
+                  <i aria-hidden="true" />
+                  {title}
+                </span>
+                {next ? (
+                  <a class="stop next" href={projectUrl(next, locale, portfolio)}>
+                    {text(next.title, locale)} →
+                  </a>
+                ) : (
+                  <span class="stop next end">{tt(locale, "terminus")}</span>
+                )}
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    {
+      (desktop || mobile) && (
+        <div class:list={["posters", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="poster">
+              <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+            </figure>
+          )}
+          {mobile && (
+            <figure class="poster phone">
+              <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+            </figure>
+          )}
+        </div>
+      )
+    }
+
+    <div class="body">
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+
+      <aside class="ticket" aria-labelledby="ticket-title">
+        <h2 id="ticket-title" class="ticket-head">
+          <span>{tt(locale, "ticket")}</span>
+          <span class="ticket-no">№ {String(at + 1).padStart(3, "0")}</span>
+        </h2>
+        <dl>
+          {
+            facts.map(([label, value]) => (
+              <div>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+        {
+          project.tags.length > 0 && (
+            <>
+              <p class="ticket-label">{tt(locale, "stack")}</p>
+              <ul class="tags">
+                {project.tags.map((tag) => {
+                  const line = network.lines.find((l) => l.tag === tag);
+                  return <li style={line ? `--c: ${line.color}` : undefined}>{tag}</li>;
+                })}
+              </ul>
+            </>
+          )
+        }
+        {
+          (project.links.live || project.links.repo) && (
+            <p class="ticket-actions">
+              {project.links.live && (
+                <a class="btn primary" href={project.links.live} rel="noopener">
+                  {tt(locale, "live")} ↗
+                </a>
+              )}
+              {project.links.repo && (
+                <a class="btn" href={project.links.repo} rel="noopener">
+                  {tt(locale, "source")} ↗
+                </a>
+              )}
+            </p>
+          )
+        }
+      </aside>
+    </div>
+
+    {
+      nextStation && (
+        <a class="next-display" href={projectUrl(nextStation, locale, portfolio)}>
+          <span class="next-label">{tt(locale, "nextStation")}</span>
+          <span class="next-name">{text(nextStation.title, locale)}</span>
+        </a>
+      )
+    }
+  </article>
+</Base>
+
+<style>
+  .head {
+    padding: 28px var(--pad) 0;
+  }
+  .back {
+    display: block;
+    width: fit-content;
+    margin-bottom: 28px;
+    color: var(--muted);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .back:hover {
+    color: var(--accent);
+  }
+  .station-sign {
+    margin: 0;
+    padding: 18px 26px 12px;
+    border-radius: 6px 6px 0 0;
+    background: var(--navy);
+    color: #fff;
+    font: 800 clamp(40px, 6.6vw, 100px) / 1 var(--sans);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .line-strip {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .line-strip li {
+    flex: 1 1 auto;
+    padding: 7px 14px 5px;
+    background: var(--c);
+    color: #fff;
+    font: 800 14px/1.2 var(--sans);
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
+  }
+  .summary {
+    max-width: 62ch;
+    margin: 24px 0 0;
+    font: 700 clamp(19px, 2vw, 25px) / 1.35 var(--sans);
+  }
+
+  .journeys {
+    margin-top: 56px;
+    padding: 0 var(--pad);
+  }
+  .journeys ul {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .journey {
+    display: grid;
+    grid-template-columns: 9em minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+  }
+  .journey-line {
+    padding: 6px 10px 4px;
+    border-radius: 4px;
+    background: var(--c);
+    color: #fff;
+    font: 800 14px/1.2 var(--sans);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* A coloured track through three stops: previous, here, next. */
+  .journey-track {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+  .journey-track::before {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 8px;
+    margin-top: -4px;
+    content: "";
+    background: var(--c);
+  }
+  .stop,
+  .here {
+    position: relative;
+    padding: 4px 10px 2px;
+    background: var(--paper);
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .stop {
+    justify-self: start;
+    text-decoration: none;
+  }
+  .stop.next {
+    justify-self: end;
+  }
+  .stop.end {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  a.stop:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .here {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    background: #fff;
+    font-weight: 800;
+  }
+  .here i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+
+  .posters {
+    display: grid;
+    gap: 16px;
+    margin-top: 56px;
+    padding: 0 var(--pad);
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .posters.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .poster {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 8px solid #2c2c2c;
+    border-radius: 6px;
+    background: #2c2c2c;
+    box-shadow: 0 18px 40px -24px rgb(0 0 0 / 0.6);
+  }
+  .poster img {
+    width: 100%;
+    height: auto;
+  }
+  /* Out of flow so the phone never stretches the row; the desktop poster sets its height. */
+  .posters.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .posters:not(.with-phone) .phone {
+    max-width: 320px;
+  }
+
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    gap: 48px;
+    align-items: start;
+    margin-top: 56px;
+    padding: 0 var(--pad);
+  }
+  .description {
+    max-width: 68ch;
+    font-size: 17px;
+    line-height: 1.7;
+  }
+  .description > :global(:first-child) {
+    margin-top: 0;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.5em;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .description :global(a) {
+    color: var(--accent);
+  }
+
+  /* A ticket with a perforated stub edge. */
+  .ticket {
+    position: sticky;
+    top: 84px;
+    padding: 0 0 18px;
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at 0 64px, var(--paper) 9px, transparent 9.5px),
+      radial-gradient(circle at 100% 64px, var(--paper) 9px, transparent 9.5px),
+      #fffdf6;
+    box-shadow: 0 1px 0 var(--rule), 0 12px 30px -18px rgb(0 0 0 / 0.35);
+  }
+  .ticket-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    height: 64px;
+    margin: 0 0 14px;
+    padding: 22px 20px 0;
+    border-bottom: 2px dashed var(--rule);
+    font: 800 20px/1 var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .ticket-no {
+    color: var(--muted);
+    font: 700 15px/1 var(--sans);
+    letter-spacing: 0.04em;
+  }
+  .ticket dl {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0 20px;
+  }
+  .ticket dt,
+  .ticket-label {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ticket dd {
+    margin: 0;
+    font-weight: 700;
+  }
+  .ticket-label {
+    padding: 16px 20px 6px;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0 20px;
+    list-style: none;
+  }
+  .tags li {
+    padding: 3px 9px 1px;
+    border-left: 6px solid var(--c, #9aa0a6);
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px var(--rule);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .ticket-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 0;
+    padding: 0 20px;
+  }
+  .btn {
+    padding: 9px 16px 7px;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+  .btn.primary {
+    background: var(--ink);
+    color: #fff;
+  }
+  .btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* The in-train "next station" display. */
+  .next-display {
+    display: grid;
+    gap: 6px;
+    margin: 96px var(--pad) 0;
+    padding: 22px 28px 20px;
+    border-radius: 8px;
+    background: var(--board);
+    color: var(--amber);
+    text-decoration: none;
+  }
+  .next-label {
+    color: rgb(255 182 39 / 0.65);
+    font: 700 13px/1 var(--sans);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .next-name {
+    font: 800 clamp(30px, 5vw, 64px) / 1.05 var(--dots);
+    text-shadow: 0 0 12px rgb(255 182 39 / 0.45);
+    overflow-wrap: anywhere;
+  }
+  .next-display:hover .next-name,
+  .next-display:focus-visible .next-name {
+    color: #fff;
+  }
+
+  @media (max-width: 900px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .ticket {
+      position: static;
+    }
+  }
+  @media (max-width: 640px) {
+    .station-sign {
+      padding: 14px 16px 8px;
+    }
+    .journey {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+    .journey-line {
+      justify-self: start;
+    }
+    .journey-track {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas: "here here" "prev next";
+      row-gap: 8px;
+    }
+    .journey-track::before {
+      top: 22px;
+    }
+    .here {
+      grid-area: here;
+      justify-self: center;
+      max-width: 100%;
+    }
+    .stop {
+      font-size: 13px;
+    }
+    .stop.prev {
+      grid-area: prev;
+    }
+    .stop.next {
+      grid-area: next;
+    }
+    .posters.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 8px;
+    }
+    .poster {
+      border-width: 4px;
+    }
+  }
+</style>

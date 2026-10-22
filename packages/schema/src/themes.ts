@@ -16,6 +16,7 @@ export const THEMES = [
   { id: "swiss", label: "Swiss", description: "International Typographic Style: a strict 12-column grid, huge grotesque type, black and signal red, with a grid overlay to toggle." },
   { id: "retro", label: "Retro OS", description: "A classic desktop OS: draggable platinum windows, a projects folder in icon or list view, quick-look previews and a startup screen." },
   { id: "blueprint", label: "Blueprint", description: "A technical drawing set on blue paper: dimension lines, detail callouts, a title block and screenshots drawn as linework." },
+  { id: "metro", label: "Metro", description: "A transit network: technologies are coloured lines, projects are stations on a generated map, with a departures board and station pages." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];
