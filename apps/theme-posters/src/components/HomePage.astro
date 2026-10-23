@@ -1,0 +1,261 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import PosterArt from "./PosterArt.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const present = tt(locale, "present");
+const pad = (n: number) => String(n).padStart(2, "0");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="intro">
+    <h1>{profile.name}</h1>
+    <div class="intro-side">
+      <p class="headline">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+      {
+        profile.available !== null && (
+          <p class:list={["status", { off: !profile.available }]}>{tt(locale, profile.available ? "available" : "unavailable")}</p>
+        )
+      }
+      <p class="label">{tt(locale, "series").replace("{n}", String(projects.length))}</p>
+    </div>
+  </section>
+
+  <p class="hint label">{tt(locale, "hover")}</p>
+  <ol class="wall">
+    {
+      projects.map((project, i) => {
+        const shot = coverShot(project);
+        return (
+          <li style={`--tilt: ${((i * 37) % 7) - 3}deg`}>
+            <a class="print" href={projectUrl(project, locale, portfolio)}>
+              <span class="sheet">
+                <span class="plate">
+                  <PosterArt project={project} />
+                  {shot && <img class="reveal" src={`/${shot.src}`} alt={text(shot.alt, locale)} loading="lazy" width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />}
+                </span>
+                <span class="sheet-text">
+                  <span class="sheet-title">{text(project.title, locale)}</span>
+                  <span class="sheet-meta">
+                    <span>{projectYears(project, present)}</span>
+                    <span>
+                      {pad(i + 1)}/{pad(projects.length)}
+                    </span>
+                  </span>
+                </span>
+              </span>
+              <span class="caption">
+                <span class="caption-summary">{text(project.summary, locale)}</span>
+                <span class="caption-tags">{project.tags.slice(0, 4).join(" · ")}</span>
+              </span>
+            </a>
+          </li>
+        );
+      })
+    }
+  </ol>
+
+  <section class="how" aria-labelledby="how-title">
+    <h2 id="how-title">{tt(locale, "howTitle")}</h2>
+    <p>{tt(locale, "how")}</p>
+  </section>
+</Base>
+
+<style>
+  .intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+    align-items: end;
+    gap: 32px clamp(32px, 6vw, 96px);
+    padding: clamp(48px, 8vw, 110px) var(--pad) 56px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(56px, 10vw, 160px);
+    font-weight: 900;
+    line-height: 0.86;
+    letter-spacing: -0.05em;
+    overflow-wrap: anywhere;
+  }
+  .intro-side {
+    display: grid;
+    gap: 12px;
+  }
+  .headline {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .bio {
+    margin: 0;
+    color: var(--muted);
+  }
+  .status {
+    justify-self: start;
+    margin: 0;
+    padding: 0 0 2px;
+    border-bottom: 3px solid var(--red);
+    font-weight: 700;
+  }
+  .status.off {
+    border-color: var(--line);
+    color: var(--muted);
+  }
+  .hint {
+    padding: 0 var(--pad);
+  }
+
+  /* Prints pinned to the wall, each very slightly askew. */
+  .wall {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 56px clamp(24px, 3vw, 44px);
+    margin: 0;
+    padding: 28px var(--pad) 0;
+    list-style: none;
+  }
+  .print {
+    display: grid;
+    gap: 14px;
+    text-decoration: none;
+  }
+  .sheet {
+    display: grid;
+    padding: 12px 12px 0;
+    background: var(--paper);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.06),
+      0 18px 30px -18px rgb(0 0 0 / 0.45);
+    transform: rotate(calc(var(--tilt) * 0.3));
+    transition:
+      transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 0.4s;
+  }
+  .print:hover .sheet,
+  .print:focus-visible .sheet {
+    transform: rotate(0) translateY(-6px) scale(1.02);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.06),
+      0 34px 50px -24px rgb(0 0 0 / 0.5);
+  }
+  .plate {
+    position: relative;
+    display: block;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+  }
+  /* The work behind the print, revealed on hover. */
+  .reveal {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    opacity: 0;
+    clip-path: circle(0% at 50% 50%);
+    transition:
+      clip-path 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 0.3s;
+  }
+  .print:hover .reveal,
+  .print:focus-visible .reveal {
+    opacity: 1;
+    clip-path: circle(75% at 50% 50%);
+  }
+  .sheet-text {
+    display: grid;
+    gap: 2px;
+    padding: 12px 2px 14px;
+  }
+  .sheet-title {
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .sheet-meta {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .caption {
+    display: grid;
+    gap: 4px;
+    padding: 0 4px;
+    font-size: 14px;
+  }
+  .caption-tags {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .how {
+    max-width: 760px;
+    margin: 120px var(--pad) 0;
+    padding: 28px 0 0;
+    border-top: 3px solid var(--ink);
+  }
+  .how h2 {
+    margin: 0;
+    font-size: clamp(26px, 3vw, 38px);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+  }
+  .how p {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+
+  @media (max-width: 760px) {
+    .intro {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .wall {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 32px 16px;
+    }
+    .sheet {
+      padding: 7px 7px 0;
+    }
+    .sheet-title {
+      font-size: 16px;
+    }
+    .caption {
+      display: none;
+    }
+    .hint {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet,
+    .reveal {
+      transition: none;
+    }
+  }
+</style>

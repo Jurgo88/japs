@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Posters theme preview">
+  <rect width="640" height="400" fill="#e9e6df"/>
+  <text x="30" y="64" fill="#151515" font-family="Arial Black,Arial,sans-serif" font-size="40" font-weight="900" letter-spacing="-2">Jane Example</text>
+  <text x="30" y="86" fill="#6f6a61" font-family="Arial,sans-serif" font-size="8" letter-spacing="2">A SERIES OF 4 GENERATIVE PRINTS</text>
+  <g>
+    <rect x="30" y="110" width="132" height="190" fill="#f7f4ee"/>
+    <rect x="38" y="118" width="116" height="150" fill="#f1ebe0"/>
+    <circle cx="96" cy="190" r="56" fill="#e4402f"/><circle cx="96" cy="190" r="38" fill="#1f4fbf"/><circle cx="96" cy="190" r="18" fill="#f2b632"/>
+    <text x="40" y="286" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900">SHOP</text>
+  </g>
+  <g>
+    <rect x="180" y="114" width="132" height="190" fill="#f7f4ee" transform="rotate(1 246 209)"/>
+    <g transform="rotate(1 246 209)">
+      <rect x="188" y="122" width="116" height="150" fill="#151515"/>
+      <path d="M188 122h18l-18 40zM216 122h22l-50 110v-40zM248 122h22l-82 150h-0v-10zM282 122h22v14l-62 136h-22z" fill="#ff6b4a"/>
+      <path d="M232 272l72-150v40l-52 110z" fill="#5ad0c4"/><path d="M270 272l34-70v70z" fill="#f6d34f"/>
+      <text x="190" y="290" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900">TRAILS</text>
+    </g>
+  </g>
+  <g>
+    <rect x="330" y="110" width="132" height="190" fill="#f7f4ee"/>
+    <rect x="338" y="118" width="116" height="150" fill="#e9e4f7"/>
+    <path d="M338 160q29-20 58 0t58 0v108h-116z" fill="#6a3cf0"/><path d="M338 190q29-20 58 0t58 0v78h-116z" fill="#ff6aa8"/><path d="M338 220q29-20 58 0t58 0v48h-116z" fill="#ffd25a"/>
+    <text x="340" y="286" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900">BAKERY</text>
+  </g>
+  <g>
+    <rect x="480" y="114" width="132" height="190" fill="#f7f4ee" transform="rotate(-1.5 546 209)"/>
+    <g transform="rotate(-1.5 546 209)">
+      <rect x="488" y="122" width="116" height="150" fill="#f1ebe0"/>
+      <rect x="496" y="134" width="60" height="70" fill="#f2b632"/><rect x="530" y="170" width="66" height="80" fill="#1f4fbf"/><circle cx="530" cy="196" r="28" fill="#e4402f" opacity=".9"/><rect x="488" y="232" width="116" height="6" fill="#151515"/>
+      <text x="490" y="290" font-family="Arial Black,Arial,sans-serif" font-size="11" font-weight="900">HABITS</text>
+    </g>
+  </g>
+</svg>
