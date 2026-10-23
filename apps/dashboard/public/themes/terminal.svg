@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Terminal theme preview">
+  <defs>
+    <pattern id="sl" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="#000" fill-opacity=".25"/></pattern>
+    <filter id="g"><feGaussianBlur stdDeviation="1.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="640" height="400" fill="#050b06"/>
+  <rect x="20" y="16" width="600" height="368" rx="10" fill="#07110a" stroke="#3dff7a" stroke-opacity=".15"/>
+  <g fill="none" stroke="#20a352"><circle cx="38" cy="32" r="4"/><circle cx="52" cy="32" r="4"/><circle cx="66" cy="32" r="4"/></g>
+  <text x="320" y="35" fill="#20a352" font-family="monospace" font-size="9" text-anchor="middle">jane@portfolio: ~</text>
+  <path d="M20 46h600" stroke="#3dff7a" stroke-opacity=".15"/>
+  <g font-family="monospace" fill="#3dff7a" filter="url(#g)">
+    <text x="40" y="72" font-size="10"><tspan fill="#c4ffd5" font-weight="700">jane@portfolio</tspan>:~$ whoami</text>
+    <text x="40" y="108" font-size="30" font-weight="800" fill="#c4ffd5">Jane Example</text>
+    <text x="40" y="126" font-size="11">Web developer</text>
+    <text x="40" y="154" font-size="10"><tspan fill="#c4ffd5" font-weight="700">jane@portfolio</tspan>:~$ ls -l ~/projects</text>
+    <text x="40" y="172" font-size="9"><tspan fill="#20a352">drwxr-xr-x [01] 2026  </tspan><tspan text-decoration="underline">example-shop/</tspan>   Example Shop</text>
+    <text x="40" y="186" font-size="9"><tspan fill="#20a352">drwxr-xr-x [02] 2025  </tspan><tspan text-decoration="underline">trail-planner/</tspan>  Trail Planner</text>
+    <text x="40" y="200" font-size="9"><tspan fill="#20a352">drwxr-xr-x [03] 2024  </tspan><tspan text-decoration="underline">bakery-orders/</tspan>  Bakery Orders</text>
+    <text x="40" y="228" font-size="10"><tspan fill="#c4ffd5" font-weight="700">jane@portfolio</tspan>:~$ stack --top</text>
+    <text x="40" y="246" font-size="9">Vue         ████████████░░░░ 3</text>
+    <text x="40" y="260" font-size="9">TypeScript  ████████░░░░░░░░ 2</text>
+    <text x="40" y="274" font-size="9">Astro       ████░░░░░░░░░░░░ 1</text>
+    <text x="40" y="302" font-size="10"><tspan fill="#c4ffd5" font-weight="700">jane@portfolio</tspan>:~$ help█</text>
+  </g>
+  <rect x="20" y="16" width="600" height="368" rx="10" fill="url(#sl)"/>
+</svg>

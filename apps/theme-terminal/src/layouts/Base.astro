@@ -1,0 +1,265 @@
+---
+import "@fontsource-variable/jetbrains-mono/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { host, user } from "../lib/shell.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+  /** The working directory shown in the title bar, e.g. "~" or "~/projects/shop". */
+  cwd: string;
+}
+
+const { locale, title, description, alternates, homeHref, cwd } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale} data-crt="green">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#050b06" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23050b06'/><path d='M7 10l6 6-6 6' fill='none' stroke='%233dff7a' stroke-width='3'/><path d='M16 23h9' stroke='%233dff7a' stroke-width='3'/></svg>`} />
+    <script is:inline>
+      // Restore the colour scheme before paint; storage may be unavailable.
+      try {
+        const crt = localStorage.getItem("japs-terminal-crt");
+        if (crt === "amber" || crt === "white") document.documentElement.dataset.crt = crt;
+        // Print the transcript block by block on the first page of a session.
+        if (!sessionStorage.getItem("japs-terminal-booted")) {
+          sessionStorage.setItem("japs-terminal-booted", "1");
+          document.documentElement.classList.add("boot");
+        }
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div class="term" data-term>
+      <header class="titlebar">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <a class="title" href={homeHref}>{user(profile.name)}@{host}: {cwd}</a>
+        {
+          alternates.length > 1 && (
+            <nav class="languages" aria-label={tt(locale, "language")}>
+              {alternates.map((a) => (
+                <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                  {a.locale}
+                </a>
+              ))}
+            </nav>
+          )
+        }
+      </header>
+      <main class="screen"><slot /></main>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", monospace;
+    --pad: clamp(16px, 3vw, 36px);
+  }
+  [data-crt="green"] {
+    --bg: #050b06;
+    --panel: #07110a;
+    --fg: #3dff7a;
+    --dim: #20a352;
+    --faint: rgb(61 255 122 / 0.14);
+    --glow: rgb(61 255 122 / 0.45);
+    --accent: #c4ffd5;
+    --img: grayscale(1) sepia(1) hue-rotate(68deg) saturate(2.6) brightness(0.85) contrast(1.1);
+  }
+  [data-crt="amber"] {
+    --bg: #0c0802;
+    --panel: #120c03;
+    --fg: #ffb43a;
+    --dim: #b0731f;
+    --faint: rgb(255 180 58 / 0.14);
+    --glow: rgb(255 180 58 / 0.42);
+    --accent: #ffe2b0;
+    --img: grayscale(1) sepia(1) saturate(2.6) hue-rotate(-10deg) brightness(0.9) contrast(1.1);
+  }
+  [data-crt="white"] {
+    --bg: #070a10;
+    --panel: #0b0f17;
+    --fg: #e4eeff;
+    --dim: #8494ab;
+    --faint: rgb(228 238 255 / 0.12);
+    --glow: rgb(200 220 255 / 0.3);
+    --accent: #ffffff;
+    --img: grayscale(1) brightness(0.95) contrast(1.05);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100svh;
+    padding: clamp(0px, 2.4vw, 32px);
+    overflow-x: clip;
+    background:
+      radial-gradient(ellipse at 50% 0, var(--faint), transparent 60%),
+      var(--bg);
+    font: 400 15px/1.6 var(--mono);
+  }
+  a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--dim);
+    text-underline-offset: 3px;
+  }
+  a:hover,
+  a:focus-visible {
+    background: var(--fg);
+    color: var(--bg);
+    outline: none;
+    text-decoration: none;
+    text-shadow: none;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  /* The terminal window: a CRT with scanlines, glow and a vignette. */
+  .term {
+    position: relative;
+    max-width: 1180px;
+    min-height: calc(100svh - 2 * clamp(0px, 2.4vw, 32px));
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--faint);
+    border-radius: 12px;
+    background: var(--panel);
+    box-shadow:
+      0 0 0 1px #000,
+      0 30px 80px -30px #000,
+      inset 0 0 120px rgb(0 0 0 / 0.65);
+    text-shadow: 0 0 6px var(--glow);
+  }
+  .term::after {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    content: "";
+    background: repeating-linear-gradient(rgb(0 0 0 / 0.22) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+  }
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--faint);
+    color: var(--dim);
+    font-size: 13px;
+  }
+  .dots {
+    display: flex;
+    gap: 7px;
+  }
+  .dots i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 1px solid var(--dim);
+  }
+  .titlebar .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--dim);
+    text-align: center;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .languages {
+    display: flex;
+    gap: 4px;
+  }
+  .languages a {
+    padding: 0 6px;
+    color: var(--dim);
+    text-decoration: none;
+  }
+  .languages a[aria-current="page"] {
+    color: var(--fg);
+    outline: 1px solid var(--dim);
+  }
+  .screen {
+    padding: var(--pad);
+  }
+
+  /* Transcript building blocks. */
+  .block {
+    margin: 0 0 26px;
+  }
+  .ps1 {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .ps1 .who {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .ps1 .where {
+    color: var(--dim);
+  }
+  .out {
+    margin: 6px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .muted {
+    color: var(--dim);
+  }
+  /* Blocks print one after another on the first visit of a session. */
+  .boot .block {
+    animation: print 0.25s steps(4) both;
+    animation-delay: calc(var(--i, 0) * 0.32s);
+  }
+  @keyframes print {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .boot .block {
+      animation: none;
+    }
+  }
+  @media (max-width: 600px) {
+    body {
+      font-size: 13.5px;
+    }
+    .term {
+      border-radius: 0;
+      border-inline: 0;
+    }
+  }
+</style>

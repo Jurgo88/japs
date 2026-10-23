@@ -1,0 +1,303 @@
+---
+/**
+ * The interactive prompt at the end of the transcript. Without JavaScript it is hidden and the
+ * transcript above already holds every link.
+ */
+import { loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import { host, safeJson, user, type ShellData } from "../lib/shell.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  cwd: string;
+  alternates: { locale: string; href: string }[];
+}
+
+const { locale, cwd, alternates } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const keys = [
+  "statusOn", "statusOff", "hint", "helpTitle", "helpWhoami", "helpAbout", "helpLs", "helpOpen", "helpStack", "helpContact",
+  "helpTheme", "helpLang", "helpClear", "notFound", "tryHelp", "noSuchProject", "opening", "sudo", "exit", "themeSet",
+  "themeUnknown", "langUnknown", "total",
+] as const;
+const data: ShellData = {
+  user: user(profile.name),
+  host,
+  cwd,
+  home: `${localePrefix(locale, portfolio)}/`,
+  locale,
+  alternates,
+  profile: {
+    name: profile.name,
+    headline: text(profile.headline, locale),
+    bio: text(profile.bio, locale),
+    email: profile.email,
+    location: profile.location,
+    available: profile.available,
+    links: profile.links.map((l) => ({ label: l.label, url: l.url })),
+  },
+  projects: orderedProjects(portfolio).map((p, i) => ({
+    n: i + 1,
+    slug: p.slug,
+    title: text(p.title, locale),
+    url: projectUrl(p, locale, portfolio),
+    year: projectYears(p, tt(locale, "present")),
+    tags: p.tags,
+  })),
+  stack: tagCounts(portfolio),
+  s: Object.fromEntries(keys.map((k) => [k, tt(locale, k)])),
+};
+---
+
+<section class="shell" data-shell hidden>
+  <div class="shell-output" aria-live="polite"></div>
+  <form class="shell-line" autocomplete="off">
+    <label class="ps1" for="shell-input">
+      <span class="who">{data.user}@{host}</span>:<span class="where">{cwd}</span>$
+    </label>
+    <input id="shell-input" name="cmd" type="text" spellcheck="false" autocapitalize="off" aria-label={tt(locale, "prompt")} />
+  </form>
+  <p class="shell-hint muted">{tt(locale, "hint")}</p>
+</section>
+
+<script type="application/json" id="shell-data" set:html={safeJson(data)} />
+
+<script>
+  import type { ShellData } from "../lib/shell.ts";
+  import { bar } from "../lib/shell.ts";
+
+  const root = document.querySelector<HTMLElement>("[data-shell]");
+  const raw = document.getElementById("shell-data")?.textContent;
+  if (root && raw) {
+    const d = JSON.parse(raw) as ShellData;
+    const s = d.s;
+    const out = root.querySelector<HTMLElement>(".shell-output")!;
+    const form = root.querySelector<HTMLFormElement>("form")!;
+    const input = root.querySelector<HTMLInputElement>("input")!;
+    const history: string[] = [];
+    let cursor = 0;
+    root.hidden = false;
+
+    const el = (tag: string, cls?: string, txt?: string) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (txt !== undefined) node.textContent = txt;
+      return node;
+    };
+    const print = (...parts: (string | Node)[]) => {
+      const line = el("p", "out");
+      line.append(...parts);
+      out.append(line);
+      return line;
+    };
+    const link = (label: string, href: string) => {
+      const a = el("a", undefined, label) as HTMLAnchorElement;
+      a.href = href;
+      if (/^https?:/.test(href)) a.rel = "noopener";
+      return a;
+    };
+    const echoPrompt = (cmd: string) => {
+      const p = el("p", "ps1");
+      p.append(el("span", "who", `${d.user}@${d.host}`), ":", el("span", "where", d.cwd), "$ ", el("span", "cmd", cmd));
+      out.append(p);
+    };
+    const findProject = (arg: string) => {
+      const q = arg.replace(/\/$/, "").toLowerCase();
+      if (/^\d+$/.test(q)) return d.projects.find((p) => p.n === Number(q));
+      return d.projects.find((p) => p.slug.toLowerCase() === q) ?? d.projects.find((p) => p.title.toLowerCase() === q) ?? d.projects.find((p) => p.slug.startsWith(q));
+    };
+    const setTheme = (name: string) => {
+      document.documentElement.dataset.crt = name;
+      try {
+        localStorage.setItem("japs-terminal-crt", name);
+      } catch {}
+    };
+
+    const commands: Record<string, { help?: string; run: (args: string[]) => void }> = {
+      help: {
+        run: () => {
+          print(s.helpTitle!);
+          for (const [name, c] of Object.entries(commands)) if (c.help) print(`  ${name.padEnd(9)} ${c.help}`);
+        },
+      },
+      whoami: { help: s.helpWhoami, run: () => print(`${d.profile.name} — ${d.profile.headline}`) },
+      about: {
+        help: s.helpAbout,
+        run: () => {
+          if (d.profile.bio) print(d.profile.bio);
+          if (d.profile.available !== null) print(`status: ${d.profile.available ? s.statusOn : s.statusOff}`);
+          if (d.profile.location) print(`location: ${d.profile.location}`);
+        },
+      },
+      ls: {
+        help: s.helpLs,
+        run: () => {
+          print(`${s.total} ${d.projects.length}`);
+          for (const p of d.projects) print(`[${String(p.n).padStart(2, "0")}] ${p.year.padEnd(12)} `, link(`${p.slug}/`, p.url), `  ${p.title}`);
+        },
+      },
+      open: {
+        help: s.helpOpen,
+        run: (args) => {
+          const p = args[0] ? findProject(args.join(" ")) : undefined;
+          if (!p) return void print(`open: ${args.join(" ") || "?"}: ${s.noSuchProject}`);
+          print(`${s.opening} ${p.slug}/ …`);
+          setTimeout(() => (location.href = p.url), 250);
+        },
+      },
+      stack: {
+        help: s.helpStack,
+        run: () => {
+          const top = d.stack.slice(0, 15);
+          const max = top[0]?.count ?? 1;
+          const w = Math.max(...top.map((t) => t.tag.length), 4);
+          for (const t of top) print(`${t.tag.padEnd(w)}  ${bar(t.count, max, 16)} ${t.count}`);
+        },
+      },
+      contact: {
+        help: s.helpContact,
+        run: () => {
+          const keys = [...(d.profile.email ? ["email"] : []), ...d.profile.links.map((l) => l.label.toLowerCase())];
+          const w = Math.max(0, ...keys.map((k) => k.length)) + 2;
+          if (d.profile.email) print("email:".padEnd(w), link(d.profile.email, `mailto:${d.profile.email}`));
+          for (const l of d.profile.links) print(`${l.label.toLowerCase()}:`.padEnd(w), link(l.url.replace(/^https?:\/\//, ""), l.url));
+        },
+      },
+      theme: {
+        help: s.helpTheme,
+        run: (args) => {
+          const name = args[0] ?? "";
+          if (!["green", "amber", "white"].includes(name)) return void print(`theme: ${s.themeUnknown}`);
+          setTheme(name);
+          print(`${s.themeSet}: ${name}`);
+        },
+      },
+      lang: {
+        help: s.helpLang,
+        run: (args) => {
+          const target = d.alternates.find((a) => a.locale === args[0]);
+          if (!target) return void print(`lang: ${s.langUnknown}: ${d.alternates.map((a) => a.locale).join(", ")}`);
+          location.href = target.href;
+        },
+      },
+      clear: {
+        help: s.helpClear,
+        run: () => {
+          out.textContent = "";
+          document.querySelectorAll(".transcript").forEach((t) => t.remove());
+        },
+      },
+      cd: {
+        run: (args) => {
+          const arg = args[0] ?? "~";
+          if (arg === "~" || arg === "/" || arg === ".." && d.cwd.split("/").length <= 3) return void (location.href = d.home);
+          commands.open!.run(args.map((a) => a.replace(/^(~\/)?projects\//, "").replace(/^\.\.\//, "")));
+        },
+      },
+      cat: { run: (args) => (/about/.test(args[0] ?? "") ? commands.about!.run([]) : commands.open!.run(args)) },
+      pwd: { run: () => print(d.cwd.replace("~", `/home/${d.user}`)) },
+      date: { run: () => print(new Date().toString()) },
+      echo: { run: (args) => print(args.join(" ")) },
+      history: { run: () => history.forEach((h, i) => print(`${String(i + 1).padStart(4)}  ${h}`)) },
+      hire: { run: () => commands.contact!.run([]) },
+      sudo: { run: () => print(s.sudo!) },
+      exit: { run: () => print(s.exit!) },
+    };
+
+    const run = (line: string) => {
+      echoPrompt(line);
+      const [name = "", ...args] = line.trim().split(/\s+/);
+      if (!name) return;
+      const cmd = commands[name.toLowerCase()];
+      if (cmd) cmd.run(args);
+      else print(`${name}: ${s.notFound}. ${s.tryHelp}`);
+    };
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const line = input.value;
+      input.value = "";
+      if (line.trim()) history.push(line);
+      cursor = history.length;
+      run(line);
+      input.scrollIntoView({ block: "nearest" });
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp" && cursor > 0) {
+        e.preventDefault();
+        input.value = history[--cursor] ?? "";
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        cursor = Math.min(history.length, cursor + 1);
+        input.value = history[cursor] ?? "";
+      } else if (e.key === "Tab") {
+        // Complete command names, then project slugs, schemes and languages.
+        const parts = input.value.split(" ");
+        const last = parts[parts.length - 1] ?? "";
+        const pool =
+          parts.length === 1
+            ? Object.keys(commands)
+            : parts[0] === "theme"
+              ? ["green", "amber", "white"]
+              : parts[0] === "lang"
+                ? d.alternates.map((a) => a.locale)
+                : d.projects.map((p) => p.slug);
+        const hits = pool.filter((x) => x.startsWith(last));
+        if (!last && parts.length === 1) return;
+        e.preventDefault();
+        if (hits.length === 1) {
+          parts[parts.length - 1] = hits[0]!;
+          input.value = parts.join(" ") + (parts.length === 1 ? " " : "");
+        } else if (hits.length > 1) {
+          echoPrompt(input.value);
+          print(hits.join("  "));
+        }
+      } else if (e.key === "l" && e.ctrlKey) {
+        e.preventDefault();
+        commands.clear!.run([]);
+      }
+    });
+
+    // Clicking the screen focuses the prompt, unless the click selects text or follows a link.
+    document.querySelector("[data-term]")?.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest("a, button, input") || getSelection()?.toString()) return;
+      input.focus({ preventScroll: true });
+    });
+  }
+</script>
+
+<style>
+  .shell-line {
+    display: flex;
+    align-items: baseline;
+    gap: 1ch;
+    margin: 6px 0 0;
+  }
+  .shell-line .ps1 {
+    flex: none;
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+    caret-color: var(--fg);
+    font: inherit;
+    text-shadow: inherit;
+    outline: none;
+  }
+  .shell-hint {
+    margin: 10px 0 0;
+    font-size: 13px;
+  }
+  .shell-output :global(.ps1) {
+    margin-top: 10px;
+  }
+  .shell-output :global(.out) {
+    margin: 0;
+  }
+</style>

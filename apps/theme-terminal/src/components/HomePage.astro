@@ -1,0 +1,178 @@
+---
+import { loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { bar } from "../lib/shell.ts";
+import { tt } from "../lib/strings.ts";
+import Prompt from "./Prompt.astro";
+import Shell from "./Shell.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const alternates = portfolio.locales.map((l) => ({ locale: l, href: home(l) }));
+const projects = orderedProjects(portfolio);
+const stack = tagCounts(portfolio).slice(0, 12);
+const maxTag = stack[0]?.count ?? 1;
+const tagWidth = Math.max(4, ...stack.map((t) => t.tag.length));
+const present = tt(locale, "present");
+const pad = (n: number) => String(n).padStart(2, "0");
+// Contact labels padded to one column, like aligned shell output.
+const contactKeys = [...(profile.email ? ["email"] : []), ...profile.links.map((l) => l.label.toLowerCase())];
+const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
+---
+
+<Base locale={locale} title={`${profile.name} — ${text(profile.headline, locale)}`} description={text(profile.headline, locale)} alternates={alternates} homeHref={home(locale)} cwd="~">
+  <div class="transcript">
+    <section class="block" style="--i: 0">
+      <Prompt cmd="whoami" />
+      <h1 class="name">{profile.name}</h1>
+      <p class="out headline">{text(profile.headline, locale)}</p>
+    </section>
+
+    <section class="block" style="--i: 1">
+      <Prompt cmd="cat about.txt" />
+      {text(profile.bio, locale) && <p class="out">{text(profile.bio, locale)}</p>}
+      {
+        profile.available !== null && (
+          <p class="out">
+            <span class="muted">status:</span> <span class:list={["status", { off: !profile.available }]}>{profile.available ? "●" : "○"} {tt(locale, profile.available ? "statusOn" : "statusOff")}</span>
+          </p>
+        )
+      }
+      {profile.location && <p class="out"><span class="muted">location:</span> {profile.location}</p>}
+    </section>
+
+    <section class="block" style="--i: 2" aria-labelledby="ls-title">
+      <Prompt cmd="ls -l ~/projects" />
+      <h2 id="ls-title" class="out muted">{tt(locale, "total")} {projects.length}</h2>
+      <ol class="ls">
+        {
+          projects.map((project, i) => (
+            <li>
+              <span class="muted perms">drwxr-xr-x</span>
+              <span class="num">[{pad(i + 1)}]</span>
+              <span class="year">{projectYears(project, present)}</span>
+              <a href={projectUrl(project, locale, portfolio)}>{project.slug}/</a>
+              <span class="ls-title">{text(project.title, locale)}</span>
+              <span class="muted tags">{project.tags.slice(0, 3).join(",")}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    {
+      stack.length > 0 && (
+        <section class="block" style="--i: 3">
+          <Prompt cmd="stack --top" />
+          <pre class="out bars">{stack.map((t) => `${t.tag.padEnd(tagWidth)}  ${bar(t.count, maxTag, 20)} ${t.count}`).join("\n")}</pre>
+        </section>
+      )
+    }
+
+    <section class="block" style="--i: 4">
+      <Prompt cmd="contact" />
+      {
+        profile.email && (
+          <p class="out">
+            <span class="muted">{"email:".padEnd(keyWidth)}</span><a href={`mailto:${profile.email}`}>{profile.email}</a>
+          </p>
+        )
+      }
+      {
+        profile.links.map((link) => (
+          <p class="out">
+            <span class="muted">{`${link.label.toLowerCase()}:`.padEnd(keyWidth)}</span>
+            <a href={link.url} rel="me noopener">
+              {link.url.replace(/^https?:\/\//, "")}
+            </a>
+          </p>
+        ))
+      }
+    </section>
+  </div>
+
+  <div class="block" style="--i: 5">
+    <Shell locale={locale} cwd="~" alternates={alternates} />
+  </div>
+</Base>
+
+<style>
+  .name {
+    margin: 10px 0 0;
+    color: var(--accent);
+    font-size: clamp(34px, 6.4vw, 84px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-shadow:
+      0 0 10px var(--glow),
+      0 0 30px var(--glow);
+    overflow-wrap: anywhere;
+  }
+  .headline {
+    font-size: clamp(16px, 1.8vw, 20px);
+  }
+  .status {
+    color: var(--accent);
+  }
+  .status.off {
+    color: var(--dim);
+  }
+  h2.out {
+    font: inherit;
+  }
+  .ls {
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ls li {
+    display: grid;
+    grid-template-columns: 11ch 5ch 12ch minmax(0, 22ch) minmax(0, 1fr) minmax(0, 24ch);
+    gap: 1.5ch;
+    align-items: baseline;
+    white-space: nowrap;
+  }
+  .ls li > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ls a {
+    justify-self: start;
+    max-width: 100%;
+  }
+  .num {
+    color: var(--dim);
+  }
+  .bars {
+    font: inherit;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  @media (max-width: 900px) {
+    .ls li {
+      grid-template-columns: 5ch 12ch minmax(0, 1fr);
+    }
+    .perms,
+    .tags,
+    .ls-title {
+      display: none;
+    }
+  }
+  @media (max-width: 480px) {
+    .ls li {
+      grid-template-columns: 5ch minmax(0, 1fr);
+    }
+    .year {
+      display: none;
+    }
+  }
+</style>
