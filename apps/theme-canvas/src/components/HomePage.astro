@@ -1,0 +1,599 @@
+---
+import { loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { ABOUT, STICKIES, boardSize, projectBoxes } from "../lib/layout.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const boxes = projectBoxes(projects.length);
+const board = boardSize(projects.length);
+const present = tt(locale, "present");
+const top = tagCounts(portfolio).slice(0, 5);
+const firstName = profile.name.trim().split(/\s+/)[0] ?? profile.name;
+const pad = (n: number) => String(n).padStart(2, "0");
+const place = (b: { x: number; y: number; w: number }) => `--x: ${b.x}px; --y: ${b.y}px; --w: ${b.w}px`;
+const stickies = [
+  profile.available !== null ? { title: tt(locale, profile.available ? "available" : "unavailable"), body: "" } : null,
+  profile.location ? { title: "📍 " + profile.location, body: "" } : null,
+  top.length ? { title: tt(locale, "stackNote"), body: top.map((t) => `${t.tag} ×${t.count}`).join("\n") } : null,
+].filter((s): s is { title: string; body: string } => s !== null);
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+  zoom
+>
+  <div class="viewport dots-bg" data-viewport tabindex="0" aria-label={tt(locale, "hint")}>
+    <div class="world" data-world style={`--bw: ${board.w}px; --bh: ${board.h}px`}>
+      <section class="item about" style={place(ABOUT)} data-item>
+        <p class="frame-label">{tt(locale, "about")}</p>
+        <div class="about-frame">
+          <h1>{profile.name}</h1>
+          <p class="headline">{text(profile.headline, locale)}</p>
+          {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+          <ul class="contact">
+            {profile.email && (
+              <li>
+                <a href={`mailto:${profile.email}`}>{profile.email}</a>
+              </li>
+            )}
+            {profile.links.map((link) => (
+              <li>
+                <a href={link.url} rel="me noopener">{link.label} ↗</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {
+        stickies.map((note, i) => {
+          const s = STICKIES[i]!;
+          return (
+            <aside class="item sticky" style={`${place(s)}; --tilt: ${s.tilt}deg; --paper: ${s.color}`} data-item>
+              <p class="sticky-title">{note.title}</p>
+              {note.body && <p class="sticky-body">{note.body}</p>}
+            </aside>
+          );
+        })
+      }
+
+      {
+        projects.map((project, i) => {
+          const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+          const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+          return (
+            <article class="item group" style={place(boxes[i]!)} data-item data-focusable>
+              <a class="frame-label" href={projectUrl(project, locale, portfolio)}>
+                {pad(i + 1)} — {text(project.title, locale)} <span class="open">{tt(locale, "open")} ↗</span>
+              </a>
+              <div class:list={["frames", { "with-phone": desktop && mobile }]}>
+                {desktop || mobile ? (
+                  <>
+                    {desktop && (
+                      <div class="frame">
+                        <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} loading={i < 3 ? "eager" : "lazy"} width="1440" height="900" />
+                      </div>
+                    )}
+                    {mobile && (
+                      <div class="frame phone">
+                        <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} loading={i < 3 ? "eager" : "lazy"} width="390" height="844" />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div class="frame empty">
+                    <span>{text(project.title, locale)}</span>
+                  </div>
+                )}
+              </div>
+              <p class="caption">
+                <span>{text(project.summary, locale)}</span>
+                <span class="meta">
+                  {projectYears(project, present)}
+                  {project.tags.length > 0 && ` · ${project.tags.slice(0, 4).join(", ")}`}
+                </span>
+              </p>
+            </article>
+          );
+        })
+      }
+
+      <div class="cursor" aria-hidden="true">
+        <svg viewBox="0 0 16 18" width="18" height="20"><path d="M1 1l13 7-6 1.5L5 16z" fill="#f24e1e" stroke="#fff" stroke-width="1.2" /></svg>
+        <span>{firstName}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="minimap" data-minimap hidden aria-label={tt(locale, "minimap")}>
+    <svg viewBox={`0 0 ${board.w} ${board.h}`} preserveAspectRatio="xMidYMid meet" data-map-svg>
+      <rect class="mm-about" x={ABOUT.x} y={ABOUT.y} width={ABOUT.w} height="520" />
+      {boxes.map((b) => <rect class="mm-item" x={b.x} y={b.y} width={b.w + 260} height="560" />)}
+      <rect class="mm-view" data-map-view x="0" y="0" width="100" height="100" />
+    </svg>
+  </div>
+  <p class="hint" data-hint hidden>{tt(locale, "hint")}</p>
+</Base>
+
+<script>
+  const desk = matchMedia("(min-width: 900px)");
+  const viewport = document.querySelector<HTMLElement>("[data-viewport]");
+  const world = document.querySelector<HTMLElement>("[data-world]");
+  const minimap = document.querySelector<HTMLElement>("[data-minimap]");
+  const mapSvg = document.querySelector<SVGSVGElement>("[data-map-svg]");
+  const mapView = document.querySelector<SVGRectElement>("[data-map-view]");
+  const zoomBox = document.querySelector<HTMLElement>("[data-zoom]");
+  const zoomValue = document.querySelector<HTMLElement>("[data-zoom-fit]");
+  const hint = document.querySelector<HTMLElement>("[data-hint]");
+
+  if (viewport && world && desk.matches) {
+    document.documentElement.classList.add("canvas-mode");
+    if (zoomBox) zoomBox.hidden = false;
+    if (minimap) minimap.hidden = false;
+    if (hint) hint.hidden = false;
+    const W = world.offsetWidth;
+    const H = world.offsetHeight;
+    const view = { x: 0, y: 0, k: 1 };
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let anim = 0;
+
+    const apply = () => {
+      world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+      viewport.style.backgroundSize = `${24 * view.k}px ${24 * view.k}px`;
+      viewport.style.backgroundPosition = `${view.x}px ${view.y}px`;
+      if (zoomValue) zoomValue.textContent = `${Math.round(view.k * 100)}%`;
+      if (mapView) {
+        mapView.setAttribute("x", String(-view.x / view.k));
+        mapView.setAttribute("y", String(-view.y / view.k));
+        mapView.setAttribute("width", String(viewport.clientWidth / view.k));
+        mapView.setAttribute("height", String(viewport.clientHeight / view.k));
+      }
+    };
+    const clampK = (k: number) => Math.min(2.5, Math.max(0.12, k));
+    const tween = (to: { x: number; y: number; k: number }) => {
+      cancelAnimationFrame(anim);
+      if (reduce) return void (Object.assign(view, to), apply());
+      const from = { ...view };
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / 480);
+        const e = 1 - Math.pow(1 - t, 3);
+        view.x = from.x + (to.x - from.x) * e;
+        view.y = from.y + (to.y - from.y) * e;
+        view.k = from.k + (to.k - from.k) * e;
+        apply();
+        if (t < 1) anim = requestAnimationFrame(step);
+      };
+      anim = requestAnimationFrame(step);
+    };
+    // Fit a world rectangle into the viewport with some padding.
+    const fitTo = (x: number, y: number, w: number, h: number, pad = 60, animate = true) => {
+      const vw = viewport.clientWidth;
+      const vh = viewport.clientHeight;
+      const k = clampK(Math.min((vw - pad * 2) / w, (vh - pad * 2) / h));
+      const to = { k, x: (vw - w * k) / 2 - x * k, y: (vh - h * k) / 2 - y * k };
+      if (animate) tween(to);
+      else Object.assign(view, to), apply();
+    };
+    const zoomAt = (factor: number, px: number, py: number) => {
+      const k = clampK(view.k * factor);
+      view.x = px - ((px - view.x) * k) / view.k;
+      view.y = py - ((py - view.y) * k) / view.k;
+      view.k = k;
+      apply();
+    };
+    const itemRect = (el: HTMLElement) => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
+
+    // Start on the intro and its notes.
+    fitTo(-40, -40, 1500, 760, 40, false);
+
+    // Drag to pan; a drag never counts as a click on a link or frame.
+    let drag: { id: number; sx: number; sy: number; x: number; y: number; moved: boolean } | null = null;
+    viewport.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: view.x, y: view.y, moved: false };
+    });
+    viewport.addEventListener("pointermove", (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      const dx = e.clientX - drag.sx;
+      const dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        viewport.setPointerCapture(e.pointerId);
+        viewport.classList.add("dragging");
+        cancelAnimationFrame(anim);
+      }
+      view.x = drag.x + dx;
+      view.y = drag.y + dy;
+      apply();
+    });
+    const endDrag = () => {
+      viewport.classList.remove("dragging");
+      setTimeout(() => (drag = null), 0);
+    };
+    viewport.addEventListener("pointerup", endDrag);
+    viewport.addEventListener("pointercancel", endDrag);
+    viewport.addEventListener(
+      "click",
+      (e) => {
+        if (drag?.moved) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const target = e.target as HTMLElement;
+        if (target.closest("a")) return;
+        const group = target.closest<HTMLElement>("[data-focusable]");
+        if (group) {
+          const r = itemRect(group);
+          fitTo(r.x, r.y, r.w, r.h, 80);
+        }
+      },
+      true,
+    );
+
+    // Wheel zooms around the pointer (pinch on a trackpad arrives as a ctrl+wheel).
+    viewport.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        cancelAnimationFrame(anim);
+        const r = viewport.getBoundingClientRect();
+        const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        zoomAt(Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+      },
+      { passive: false },
+    );
+
+    const center = () => ({ x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 });
+    document.querySelector("[data-zoom-in]")?.addEventListener("click", () => zoomAt(1.25, center().x, center().y));
+    document.querySelector("[data-zoom-out]")?.addEventListener("click", () => zoomAt(0.8, center().x, center().y));
+    zoomValue?.addEventListener("click", () => fitTo(0, 0, W, H, 40));
+
+    viewport.addEventListener("keydown", (e) => {
+      const step = 80;
+      const keys: Record<string, () => void> = {
+        ArrowLeft: () => (view.x += step),
+        ArrowRight: () => (view.x -= step),
+        ArrowUp: () => (view.y += step),
+        ArrowDown: () => (view.y -= step),
+        "+": () => zoomAt(1.2, center().x, center().y),
+        "=": () => zoomAt(1.2, center().x, center().y),
+        "-": () => zoomAt(1 / 1.2, center().x, center().y),
+        "0": () => fitTo(0, 0, W, H, 40),
+      };
+      const run = keys[e.key];
+      if (!run) return;
+      e.preventDefault();
+      run();
+      apply();
+    });
+
+    // Tabbing to a link inside a frame brings that frame into view.
+    world.addEventListener("focusin", (e) => {
+      const item = (e.target as HTMLElement).closest<HTMLElement>("[data-item]");
+      if (item) {
+        const r = itemRect(item);
+        fitTo(r.x, r.y, r.w, r.h, 80);
+        viewport.scrollTop = 0;
+        viewport.scrollLeft = 0;
+      }
+    });
+
+    // Clicking the minimap centres the view there.
+    mapSvg?.addEventListener("click", (e) => {
+      const pt = mapSvg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const p = pt.matrixTransform(mapSvg.getScreenCTM()!.inverse());
+      tween({ k: view.k, x: viewport.clientWidth / 2 - p.x * view.k, y: viewport.clientHeight / 2 - p.y * view.k });
+    });
+
+    addEventListener("resize", apply);
+  }
+</script>
+
+<style>
+  /* Phones and no JavaScript: the board becomes a column of frames. */
+  .viewport {
+    padding: 24px 16px 48px;
+  }
+  .world {
+    display: grid;
+    gap: 40px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* Desktop with JavaScript: a pannable, zoomable canvas. */
+  :global(.canvas-mode) body {
+    overflow: hidden;
+  }
+  :global(.canvas-mode) .viewport {
+    position: fixed;
+    inset: 48px 0 0;
+    padding: 0;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+  }
+  :global(.canvas-mode) .viewport.dragging {
+    cursor: grabbing;
+  }
+  :global(.canvas-mode) .viewport.dragging * {
+    pointer-events: none;
+  }
+  :global(.canvas-mode) .world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    width: var(--bw);
+    height: var(--bh);
+    max-width: none;
+    margin: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  :global(.canvas-mode) .item {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--w);
+  }
+  :global(.canvas-mode) .viewport:focus-visible {
+    outline: none;
+  }
+
+  .frame-label {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .frame-label .open {
+    margin-left: auto;
+    color: var(--blue);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .group:hover .frame-label .open,
+  .frame-label:focus-visible .open {
+    opacity: 1;
+  }
+  @media (hover: none), (max-width: 899px) {
+    .frame-label .open {
+      opacity: 1;
+    }
+  }
+  .group:hover .frame-label {
+    color: var(--blue);
+  }
+
+  .about-frame {
+    padding: 48px 52px;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  }
+  .about h1 {
+    margin: 0;
+    font-size: clamp(40px, 6vw, 76px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .headline {
+    margin: 14px 0 0;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .bio {
+    max-width: 52ch;
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    font-weight: 600;
+  }
+  .contact a {
+    color: var(--blue);
+    text-decoration: none;
+  }
+  .contact a:hover {
+    text-decoration: underline;
+  }
+
+  .sticky {
+    padding: 18px 18px 22px;
+    background: var(--paper);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.06),
+      0 12px 18px -10px rgb(0 0 0 / 0.25);
+    transform: rotate(var(--tilt));
+    font-family: "Comic Sans MS", "Marker Felt", var(--sans);
+  }
+  .sticky-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .sticky-body {
+    margin: 8px 0 0;
+    font-size: 16px;
+    white-space: pre-line;
+  }
+
+  .frames {
+    display: grid;
+    gap: 24px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .frames.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .frame {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+    transition: box-shadow 0.2s;
+  }
+  .frames.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .group:hover .frame {
+    box-shadow: 0 0 0 2px var(--blue);
+  }
+  .empty {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    background: repeating-linear-gradient(45deg, #fafaf9 0 12px, #f1f1ef 12px 24px);
+    color: var(--muted);
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .caption {
+    display: grid;
+    gap: 2px;
+    max-width: 70ch;
+    margin: 10px 0 0;
+    font-size: 15px;
+  }
+  .caption .meta {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* A collaborator's cursor wandering over the board. */
+  .cursor {
+    display: none;
+  }
+  :global(.canvas-mode) .cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    pointer-events: none;
+    animation: wander 26s ease-in-out infinite;
+  }
+  .cursor span {
+    margin-top: 14px;
+    padding: 2px 7px;
+    border-radius: 4px 10px 10px 10px;
+    background: #f24e1e;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  @keyframes wander {
+    0%,
+    100% {
+      transform: translate(620px, 380px);
+    }
+    20% {
+      transform: translate(1010px, 120px);
+    }
+    40% {
+      transform: translate(1300px, 620px);
+    }
+    60% {
+      transform: translate(420px, 1100px);
+    }
+    80% {
+      transform: translate(1700px, 1060px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.canvas-mode) .cursor {
+      animation: none;
+      transform: translate(620px, 380px);
+    }
+  }
+
+  .minimap {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 40;
+    width: 220px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.3);
+  }
+  .minimap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: pointer;
+  }
+  .mm-item,
+  .mm-about {
+    fill: #e2e2df;
+  }
+  .mm-about {
+    fill: #cfcfcb;
+  }
+  .mm-view {
+    fill: rgb(12 140 233 / 0.08);
+    stroke: var(--blue);
+    stroke-width: 24;
+  }
+  .hint {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    z-index: 40;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: #1e1e1e;
+    color: #fff;
+    font-size: 12px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    animation: fade 1s 6s forwards;
+  }
+  @keyframes fade {
+    to {
+      opacity: 0;
+    }
+  }
+</style>

@@ -1,0 +1,414 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const pad = (n: number) => String(n).padStart(2, "0");
+const props: [string, string][] = [
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+];
+if (project.client.isClient) props.push([tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"]);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <div class="editor">
+    <nav class="panel layers" aria-label={tt(locale, "layers")}>
+      <p class="panel-title">{tt(locale, "layers")}</p>
+      <a class="layer back" href={home}>← {tt(locale, "allFrames")}</a>
+      <ol>
+        {
+          ordered.map((p, i) => (
+            <li>
+              <a class="layer" href={projectUrl(p, locale, portfolio)} aria-current={p.slug === project.slug ? "page" : undefined}>
+                <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                  <path d="M3 0v12M9 0v12M0 3h12M0 9h12" stroke="currentColor" stroke-width="1.2" />
+                </svg>
+                <span>
+                  {pad(i + 1)} {text(p.title, locale)}
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </nav>
+
+    <section class="board dots-bg">
+      <h1 class="board-title">
+        <span class="muted">{pad(index + 1)} —</span>
+        {title}
+      </h1>
+      {
+        (desktop || mobile) && (
+          <div class:list={["frames", { "with-phone": desktop && mobile }]}>
+            {desktop && (
+              <figure class="frame-wrap">
+                <figcaption class="frame-label">Desktop — 1440</figcaption>
+                <div class="frame selected">
+                  <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+                  <i class="handle tl" />
+                  <i class="handle tr" />
+                  <i class="handle bl" />
+                  <i class="handle br" />
+                  <span class="size">1440 × 900</span>
+                </div>
+              </figure>
+            )}
+            {mobile && (
+              <figure class="frame-wrap phone">
+                <figcaption class="frame-label">Mobile — 390</figcaption>
+                <div class="frame">
+                  <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+                </div>
+              </figure>
+            )}
+          </div>
+        )
+      }
+      <div class="note">
+        <p class="note-title">{tt(locale, "notes")}</p>
+        <p class="summary">{text(project.summary, locale)}</p>
+        <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+      </div>
+    </section>
+
+    <aside class="panel inspector" aria-label={tt(locale, "properties")}>
+      <section>
+        <p class="panel-title">{tt(locale, "properties")}</p>
+        <dl>
+          {
+            props.map(([k, v]) => (
+              <div>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+      {
+        project.tags.length > 0 && (
+          <section>
+            <p class="panel-title">{tt(locale, "components")}</p>
+            <ul class="components">
+              {project.tags.map((tag) => (
+                <li>
+                  <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                    <path d="M6 0l6 6-6 6-6-6z" fill="currentColor" />
+                  </svg>
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+      {
+        (project.links.live || project.links.repo) && (
+          <section>
+            <p class="panel-title">{tt(locale, "links")}</p>
+            <p class="links">
+              {project.links.live && (
+                <a class="btn primary" href={project.links.live} rel="noopener">
+                  {tt(locale, "live")} ↗
+                </a>
+              )}
+              {project.links.repo && (
+                <a class="btn" href={project.links.repo} rel="noopener">
+                  {tt(locale, "source")} ↗
+                </a>
+              )}
+            </p>
+          </section>
+        )
+      }
+    </aside>
+  </div>
+</Base>
+
+<style>
+  .editor {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+    min-height: calc(100svh - 48px);
+  }
+  .panel {
+    padding: 14px 12px;
+    background: var(--panel);
+    font-size: 13px;
+  }
+  .layers {
+    border-right: 1px solid var(--line);
+  }
+  .inspector {
+    border-left: 1px solid var(--line);
+  }
+  .panel-title {
+    margin: 0 0 8px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .layers ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    color: var(--text);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .layer span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .layer svg {
+    flex: none;
+    color: var(--muted);
+  }
+  .layer:hover {
+    background: #f0f0ee;
+  }
+  .layer[aria-current="page"] {
+    background: #e3f1fd;
+    color: var(--blue);
+    font-weight: 600;
+  }
+  .layer[aria-current="page"] svg {
+    color: var(--blue);
+  }
+  .back {
+    margin-bottom: 8px;
+    color: var(--muted);
+  }
+
+  .board {
+    padding: 36px clamp(20px, 4vw, 56px) 64px;
+  }
+  .board-title {
+    margin: 0 0 24px;
+    font-size: clamp(26px, 3vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .muted {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .frames {
+    display: grid;
+    gap: 28px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .frames.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .frame-wrap {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    margin: 0;
+    min-height: 0;
+  }
+  .frame-label {
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .frame {
+    position: relative;
+    min-height: 0;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  }
+  .frames.with-phone .phone .frame img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  /* A selected frame: blue outline, corner handles and a size badge. */
+  .selected {
+    outline: 1.5px solid var(--blue);
+  }
+  .handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid var(--blue);
+    background: #fff;
+  }
+  .tl {
+    top: -4px;
+    left: -4px;
+  }
+  .tr {
+    top: -4px;
+    right: -4px;
+  }
+  .bl {
+    bottom: -4px;
+    left: -4px;
+  }
+  .br {
+    bottom: -4px;
+    right: -4px;
+  }
+  .size {
+    position: absolute;
+    left: 50%;
+    bottom: -26px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 11px;
+    transform: translateX(-50%);
+  }
+  .note {
+    max-width: 720px;
+    margin-top: 56px;
+    padding: 24px 28px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  }
+  .note-title {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .summary {
+    margin: 8px 0 0;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+  .description {
+    margin-top: 12px;
+    color: #3d3d3a;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .description :global(a) {
+    color: var(--blue);
+  }
+
+  .inspector section {
+    padding: 4px 0 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .inspector section + section {
+    padding-top: 14px;
+  }
+  .inspector dl {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0 6px;
+  }
+  .inspector dt {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .inspector dd {
+    margin: 1px 0 0;
+  }
+  .components {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .components li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    color: #9747ff;
+  }
+  .components li {
+    color: var(--text);
+  }
+  .components svg {
+    color: #9747ff;
+  }
+  .links {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0 6px;
+  }
+  .btn {
+    display: block;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+  }
+  .btn.primary {
+    border-color: var(--blue);
+    background: var(--blue);
+    color: #fff;
+  }
+  .btn:hover {
+    filter: brightness(0.95);
+  }
+
+  @media (max-width: 1100px) {
+    .editor {
+      grid-template-columns: minmax(0, 1fr) 260px;
+    }
+    .layers {
+      display: none;
+    }
+  }
+  @media (max-width: 760px) {
+    .editor {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .inspector {
+      border-left: 0;
+      border-top: 1px solid var(--line);
+    }
+    .frames.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 12px;
+    }
+  }
+</style>

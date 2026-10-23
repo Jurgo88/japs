@@ -1,0 +1,13 @@
+---
+import HomePage from "../../components/HomePage.astro";
+import { loadPortfolio } from "@japs/theme-kit";
+
+export function getStaticPaths() {
+  const portfolio = loadPortfolio();
+  return portfolio.locales.filter((locale) => locale !== portfolio.defaultLocale).map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params;
+---
+
+<HomePage locale={locale!} />
