@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Bento theme preview">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b6dff"/><stop offset="1" stop-color="#4fb0ff"/></linearGradient>
+    <radialGradient id="g" cx="100%" cy="0%" r="80%"><stop offset="0" stop-color="#8b6dff" stop-opacity=".35"/><stop offset="1" stop-color="#131317" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="640" height="400" fill="#09090b"/>
+  <rect x="236" y="10" width="168" height="20" rx="10" fill="#131317" stroke="#ffffff" stroke-opacity=".1"/>
+  <text x="250" y="24" fill="#ededf0" font-family="Arial,sans-serif" font-size="8" font-weight="700">Jane Example</text>
+  <g stroke="#ffffff" stroke-opacity=".08">
+    <rect x="20.5" y="40.5" width="300" height="150" rx="14" fill="#131317"/>
+    <rect x="330.5" y="40.5" width="140" height="70" rx="14" fill="#131317"/>
+    <rect x="480.5" y="40.5" width="140" height="70" rx="14" fill="#131317"/>
+    <rect x="330.5" y="120.5" width="140" height="70" rx="14" fill="#131317"/>
+    <rect x="480.5" y="120.5" width="140" height="70" rx="14" fill="#131317"/>
+    <rect x="20.5" y="200.5" width="350" height="180" rx="14" fill="#131317"/>
+    <rect x="380.5" y="200.5" width="240" height="180" rx="14" fill="#131317"/>
+  </g>
+  <rect x="20.5" y="40.5" width="300" height="150" rx="14" fill="url(#g)"/>
+  <rect x="34" y="54" width="30" height="30" rx="9" fill="url(#a)"/>
+  <text x="34" y="150" fill="#ededf0" font-family="Arial,sans-serif" font-size="26" font-weight="700">Jane Example</text>
+  <text x="34" y="168" fill="#8d8d98" font-family="Arial,sans-serif" font-size="9">Web developer</text>
+  <text x="344" y="58" fill="#8d8d98" font-family="monospace" font-size="7">PROJECTS</text>
+  <text x="344" y="92" fill="#ededf0" font-family="Arial,sans-serif" font-size="28" font-weight="700">4</text>
+  <g fill="url(#a)"><rect x="400" y="92" width="8" height="8" rx="2"/><rect x="412" y="86" width="8" height="14" rx="2"/><rect x="424" y="80" width="8" height="20" rx="2"/><rect x="436" y="72" width="8" height="28" rx="2"/></g>
+  <text x="494" y="58" fill="#8d8d98" font-family="monospace" font-size="7">TECHNOLOGIES</text>
+  <text x="494" y="92" fill="#ededf0" font-family="Arial,sans-serif" font-size="28" font-weight="700">8</text>
+  <text x="344" y="138" fill="#8d8d98" font-family="monospace" font-size="7">YEARS</text>
+  <text x="344" y="172" fill="#ededf0" font-family="Arial,sans-serif" font-size="28" font-weight="700">3</text>
+  <circle cx="570" cy="148" r="5" fill="#8b6dff" stroke="#131317" stroke-width="2"/>
+  <text x="494" y="178" fill="#ededf0" font-family="Arial,sans-serif" font-size="10" font-weight="700">Example City</text>
+  <rect x="30" y="210" width="330" height="120" rx="8" fill="#2b3b6e"/>
+  <text x="32" y="350" fill="#ededf0" font-family="Arial,sans-serif" font-size="11" font-weight="700">Example Shop</text>
+  <rect x="390" y="210" width="220" height="120" rx="8" fill="#f3efe4"/>
+  <text x="392" y="350" fill="#ededf0" font-family="Arial,sans-serif" font-size="11" font-weight="700">Trail Planner</text>
+</svg>
