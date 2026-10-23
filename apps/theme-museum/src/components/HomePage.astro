@@ -1,0 +1,390 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, projectUrl, projectYears, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { FRAMES, WALLS, audioStop, medium, roman, rooms } from "../lib/museum.ts";
+import { tt } from "../lib/strings.ts";
+import Artwork from "./Artwork.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const halls = rooms(projects);
+const present = tt(locale, "present");
+const years = projects.flatMap((p) => [p.period.from, p.period.to]).filter((m): m is string => Boolean(m)).map((m) => m.slice(0, 4)).sort();
+const span = years.length ? (years[0] === years[years.length - 1] ? years[0] : `${years[0]} — ${years[years.length - 1]}`) : "";
+// Works hang at different sizes within a room, like a real wall; the largest frame goes to a work with a screenshot.
+const SIZES = ["lg", "sm", "md"];
+const sizesFor = (hall: typeof projects): string[] => {
+  const sizes = hall.map((_, j) => SIZES[j % SIZES.length]!);
+  const big = sizes.indexOf("lg");
+  if (big >= 0 && !coverShot(hall[big]!)) {
+    const swap = hall.findIndex((p, j) => j !== big && coverShot(p));
+    if (swap >= 0) [sizes[big], sizes[swap]] = [sizes[swap]!, sizes[big]!];
+  }
+  return sizes;
+};
+const cat = (i: number) => String(i + 1).padStart(2, "0");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="entrance">
+    <div class="title-wall">
+      <p class="label">{tt(locale, "exhibition")}{span && ` · ${span}`}</p>
+      <h1>{profile.name}</h1>
+      <p class="subtitle">{text(profile.headline, locale)}</p>
+    </div>
+    <div class="wall-text">
+      {text(profile.bio, locale) && <p class="intro">{text(profile.bio, locale)}</p>}
+      <p class="facts">
+        {projects.length} {plural(locale, "projects", projects.length)}
+        {profile.location && ` · ${profile.location}`}
+      </p>
+      {profile.available !== null && <p class:list={["open", { closed: !profile.available }]}>{tt(locale, profile.available ? "open" : "closed")}</p>}
+    </div>
+  </section>
+
+  <div id="rooms">
+    {
+      halls.map((hall, r) => (
+        <section class="room" id={`room-${r + 1}`} style={`--wall: ${WALLS[r % WALLS.length]}`} aria-labelledby={`room-${r + 1}-title`}>
+          <header class="room-head">
+            <h2 id={`room-${r + 1}-title`}>
+              <span class="label">{tt(locale, "room")}</span>
+              <span class="room-no">{roman(r + 1)}</span>
+            </h2>
+            <span class="label">
+              {tt(locale, "cat")} {cat(r * 3)}
+              {hall.length > 1 && `–${cat(r * 3 + hall.length - 1)}`}
+            </span>
+          </header>
+          <ul class="wall">
+            {hall.map((project, j) => {
+              const i = r * 3 + j;
+              const shot = coverShot(project);
+              return (
+                <li class:list={["work", sizesFor(hall)[j]]}>
+                  <a href={projectUrl(project, locale, portfolio)} class="work-link">
+                    <Artwork
+                      src={shot ? `/${shot.src}` : undefined}
+                      alt={shot ? text(shot.alt, locale) : ""}
+                      width={shot?.viewport === "mobile" ? 390 : 1440}
+                      height={shot?.viewport === "mobile" ? 844 : 900}
+                      finish={FRAMES[i % FRAMES.length]!}
+                      note={tt(locale, "noImage")}
+                      eager={i < 3}
+                    />
+                    <span class="wall-label">
+                      <span class="audio" title={tt(locale, "audio")}>
+                        {audioStop(r + 1, j + 1)}
+                      </span>
+                      <span class="work-title">{text(project.title, locale)}</span>
+                      <span class="artist">
+                        {profile.name}, {projectYears(project, present)}
+                      </span>
+                      <span class="medium">{medium(project, tt(locale, "and"), tt(locale, "onWeb"))}</span>
+                      <span class="cat">
+                        {tt(locale, "cat")} {cat(i)}
+                        {project.client.isClient && ` · ${tt(locale, "commissionedPrivate")}`}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))
+    }
+  </div>
+
+  <section class="plan" id="plan" aria-labelledby="plan-title">
+    <h2 id="plan-title" class="plan-title">{tt(locale, "floorPlan")}</h2>
+    <ol class="plan-grid">
+      {
+        halls.map((hall, r) => (
+          <li class="plan-room" style={`--wall: ${WALLS[r % WALLS.length]}`}>
+            <a class="plan-no" href={`#room-${r + 1}`}>
+              {roman(r + 1)}
+            </a>
+            <ul>
+              {hall.map((project) => (
+                <li>
+                  <a href={projectUrl(project, locale, portfolio)}>{text(project.title, locale)}</a>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</Base>
+
+<style>
+  .entrance {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+    align-items: end;
+    gap: 40px clamp(32px, 6vw, 96px);
+    padding: clamp(56px, 9vw, 128px) var(--pad) clamp(56px, 8vw, 104px);
+  }
+  h1 {
+    margin: 14px 0 0;
+    font: 400 clamp(56px, 10vw, 168px) / 0.92 var(--serif);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .subtitle {
+    margin: 18px 0 0;
+    font: italic 400 clamp(22px, 2.6vw, 34px) / 1.2 var(--serif);
+    color: var(--soft);
+  }
+  /* The introductory wall text, set narrow like a museum panel. */
+  .wall-text {
+    padding-left: 24px;
+    border-left: 1px solid var(--ink);
+  }
+  .intro {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  .facts {
+    margin: 18px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .open {
+    margin: 6px 0 0;
+    color: var(--accent);
+    font: italic 400 19px/1.3 var(--serif);
+  }
+  .open.closed {
+    color: var(--muted);
+  }
+
+  .room {
+    position: relative;
+    padding: 56px var(--pad) 88px;
+    background: var(--wall);
+    isolation: isolate;
+  }
+  /* Skirting board along the bottom of each wall. */
+  .room::after {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 10px;
+    content: "";
+    background: rgb(0 0 0 / 0.06);
+    box-shadow: inset 0 1px 0 rgb(0 0 0 / 0.08);
+  }
+  .room-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+  }
+  .room-head h2 {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+  }
+  .room-no {
+    font: 400 clamp(44px, 6vw, 80px) / 0.9 var(--serif);
+  }
+  /* Works hang on one centre line, at eye level. */
+  .wall {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: clamp(28px, 4vw, 72px);
+    margin: 48px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .work {
+    position: relative;
+    min-width: 0;
+  }
+  .work.lg {
+    flex: 0 1 42%;
+  }
+  .work.md {
+    flex: 0 1 30%;
+  }
+  .work.sm {
+    flex: 0 1 22%;
+  }
+  /* Gallery spotlight from the ceiling. */
+  .work::before {
+    position: absolute;
+    top: -70px;
+    left: 50%;
+    z-index: -1;
+    width: 150%;
+    height: 85%;
+    content: "";
+    background: radial-gradient(ellipse 50% 70% at 50% 10%, rgb(255 251 238 / 0.9), transparent 72%);
+    mask-image: linear-gradient(transparent, #000 35%, #000 70%, transparent);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .work-link {
+    display: grid;
+    gap: 22px;
+    text-decoration: none;
+  }
+  .work-link :global(.frame) {
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .work-link:hover :global(.frame),
+  .work-link:focus-visible :global(.frame) {
+    transform: translateY(-4px);
+  }
+  .work-link:focus-visible {
+    outline: none;
+  }
+  /* The wall label: a small card beside the work. */
+  .wall-label {
+    position: relative;
+    display: grid;
+    gap: 2px;
+    justify-self: end;
+    width: min(100%, 260px);
+    padding: 12px 14px 12px;
+    background: rgb(255 255 255 / 0.7);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .work-link:hover .work-title,
+  .work-link:focus-visible .work-title {
+    color: var(--accent);
+  }
+  .audio {
+    position: absolute;
+    top: -12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    border-radius: 13px;
+    background: var(--ink);
+    color: #fff;
+    font: 600 11px/1 var(--sans);
+  }
+  .work-title {
+    font: italic 400 21px/1.15 var(--serif);
+  }
+  .artist {
+    font-weight: 600;
+  }
+  .medium,
+  .cat {
+    color: var(--soft);
+  }
+  .cat {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+
+  .plan {
+    padding: 96px var(--pad) 0;
+  }
+  .plan-title {
+    margin: 0;
+    font: 400 clamp(36px, 5vw, 64px) / 1 var(--serif);
+  }
+  /* Rooms drawn as an architectural plan: walls with door gaps. */
+  .plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    margin: 32px 0 0;
+    padding: 0;
+    border: 3px solid var(--ink);
+    list-style: none;
+  }
+  .plan-room {
+    position: relative;
+    min-height: 170px;
+    padding: 16px 18px 18px;
+    border: 1.5px solid var(--ink);
+    background: var(--wall);
+  }
+  .plan-room::before {
+    position: absolute;
+    top: -2px;
+    left: 30%;
+    width: 22%;
+    height: 4px;
+    content: "";
+    background: var(--wall);
+  }
+  .plan-no {
+    font: 400 40px/1 var(--serif);
+    text-decoration: none;
+  }
+  .plan-no:hover {
+    color: var(--accent);
+  }
+  .plan-room ul {
+    display: grid;
+    gap: 3px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+  }
+  .plan-room li a {
+    text-decoration: none;
+  }
+  .plan-room li a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 900px) {
+    .entrance {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .wall {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 56px;
+    }
+    .work.lg,
+    .work.md,
+    .work.sm {
+      flex: none;
+    }
+    .work.sm {
+      width: 78%;
+      align-self: center;
+    }
+    .work.md {
+      width: 88%;
+      align-self: center;
+    }
+    .wall-label {
+      justify-self: start;
+    }
+  }
+</style>

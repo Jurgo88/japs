@@ -1,0 +1,79 @@
+---
+/** A framed work: frame finish, white mat and the screenshot (or an empty mat with a note). */
+interface Props {
+  src?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  finish: "black" | "oak" | "white";
+  /** Shown on the empty mat when there is no screenshot. */
+  note?: string;
+  eager?: boolean;
+  class?: string;
+}
+
+const { src, alt = "", width, height, finish, note, eager = false, class: className } = Astro.props;
+---
+
+<span class:list={["frame", finish, className]}>
+  <span class="mat">
+    {
+      src ? (
+        <img src={src} alt={alt} width={width} height={height} loading={eager ? "eager" : "lazy"} />
+      ) : (
+        <span class="empty">{note}</span>
+      )
+    }
+  </span>
+</span>
+
+<style>
+  .frame {
+    position: relative;
+    display: block;
+    padding: clamp(8px, 1.1vw, 16px);
+    box-shadow:
+      0 2px 3px rgb(0 0 0 / 0.18),
+      0 22px 34px -18px rgb(0 0 0 / 0.55);
+  }
+  .black {
+    background: linear-gradient(145deg, #34312d, #141311);
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.06),
+      0 2px 3px rgb(0 0 0 / 0.18),
+      0 22px 34px -18px rgb(0 0 0 / 0.55);
+  }
+  .oak {
+    background:
+      repeating-linear-gradient(88deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 7px),
+      linear-gradient(145deg, #b8895a, #8a5f37);
+  }
+  .white {
+    padding: clamp(5px, 0.6vw, 9px);
+    background: linear-gradient(145deg, #fdfcf9, #e8e5df);
+  }
+  /* The mat (passe-partout) with a bevelled inner edge. */
+  .mat {
+    display: block;
+    padding: clamp(10px, 1.8vw, 28px);
+    background: #fbfaf6;
+    box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.18);
+  }
+  .mat img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
+  }
+  .empty {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    padding: 12px;
+    border: 1px dashed rgb(0 0 0 / 0.2);
+    color: var(--muted);
+    font: italic 400 15px/1.4 var(--serif);
+    text-align: center;
+  }
+</style>
