@@ -17,6 +17,7 @@ export const THEMES = [
   { id: "retro", label: "Retro OS", description: "A classic desktop OS: draggable platinum windows, a projects folder in icon or list view, quick-look previews and a startup screen." },
   { id: "blueprint", label: "Blueprint", description: "A technical drawing set on blue paper: dimension lines, detail callouts, a title block and screenshots drawn as linework." },
   { id: "metro", label: "Metro", description: "A transit network: technologies are coloured lines, projects are stations on a generated map, with a departures board and station pages." },
+  { id: "arena", label: "Arena", description: "Game night: an LED scoreboard with a live clock, projects as a lineup on the ice, stats leaders by technology and match-report project pages." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];

@@ -1,0 +1,41 @@
+---
+/** A top-down rink (200 × 85 ft) for decoration: boards, red and blue lines, circles and creases. */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+const faceoffs = [
+  [31, 20.5],
+  [31, 64.5],
+  [169, 20.5],
+  [169, 64.5],
+];
+const dots = [
+  [80, 20.5],
+  [80, 64.5],
+  [120, 20.5],
+  [120, 64.5],
+];
+---
+
+<svg class:list={["rink", className]} viewBox="-2 -2 204 89" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <rect x="0" y="0" width="200" height="85" rx="28" fill="none" stroke="currentColor" stroke-width="1.2" />
+  <path d="M100 0v85" stroke="var(--red)" stroke-width="1" />
+  <path d="M75 0v85M125 0v85" stroke="var(--blue)" stroke-width="1" />
+  <path d="M11 3.5v78M189 3.5v78" stroke="var(--red)" stroke-width="0.4" />
+  <circle cx="100" cy="42.5" r="15" fill="none" stroke="var(--blue)" stroke-width="0.4" />
+  <circle cx="100" cy="42.5" r="0.8" fill="var(--blue)" />
+  {faceoffs.map(([x, y]) => <circle cx={x} cy={y} r="15" fill="none" stroke="var(--red)" stroke-width="0.4" />)}
+  {[...faceoffs, ...dots].map(([x, y]) => <circle cx={x} cy={y} r="1" fill="var(--red)" />)}
+  <path d="M11 38.5h4.5a4 4 0 0 1 0 8H11" fill="rgb(31 95 214 / 0.18)" stroke="var(--red)" stroke-width="0.4" />
+  <path d="M189 38.5h-4.5a4 4 0 0 0 0 8H189" fill="rgb(31 95 214 / 0.18)" stroke="var(--red)" stroke-width="0.4" />
+</svg>
+
+<style>
+  .rink {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
