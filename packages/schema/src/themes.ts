@@ -26,6 +26,7 @@ export const THEMES = [
   { id: "canvas", label: "Canvas", description: "An infinite design canvas: drag to pan, scroll to zoom, a minimap, sticky notes and project frames; project pages open in a layers-and-inspector editor view." },
   { id: "tunnel", label: "Tunnel", description: "A flight through deep space: a warp starfield, and scrolling flies the camera forward as projects approach out of the fog in 3D." },
   { id: "posters", label: "Posters", description: "A series of generative prints: every project gets a unique poster computed from its own data, pinned to the wall; hover a print to reveal the work behind it." },
+  { id: "aurora", label: "Aurora", description: "A living WebGL aurora that drifts and leans toward the pointer, with frosted liquid-glass cards that tilt in 3D and catch the light." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];

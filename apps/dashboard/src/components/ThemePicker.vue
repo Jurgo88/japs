@@ -37,7 +37,7 @@ function choose(id: ThemeId): void {
         @click="choose(theme.id)"
       >
         <span class="shot">
-          <img :src="['fieldnotes', 'riot', 'orbit', 'reel', 'swiss', 'retro', 'blueprint', 'metro', 'arena', 'bento', 'newspaper', 'vinyl', 'museum', 'terminal', 'canvas', 'tunnel', 'posters'].includes(theme.id) ? `/themes/${theme.id}.svg` : `/themes/${theme.id}.jpg`" :alt="`${theme.label} theme preview`" width="640" height="400" loading="lazy" />
+          <img :src="['fieldnotes', 'riot', 'orbit', 'reel', 'swiss', 'retro', 'blueprint', 'metro', 'arena', 'bento', 'newspaper', 'vinyl', 'museum', 'terminal', 'canvas', 'tunnel', 'posters', 'aurora'].includes(theme.id) ? `/themes/${theme.id}.svg` : `/themes/${theme.id}.jpg`" :alt="`${theme.label} theme preview`" width="640" height="400" loading="lazy" />
           <span v-if="current === theme.id" class="check" aria-hidden="true">
             <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
           </span>
