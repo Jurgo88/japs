@@ -367,6 +367,27 @@ importers:
         specifier: ^7.3.6
         version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/theme-newspaper:
+    dependencies:
+      '@fontsource-variable/grenze-gotisch':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/playfair-display':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/source-serif-4':
+        specifier: ^5.3.1
+        version: 5.3.1
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   apps/theme-orbit:
     dependencies:
       '@fontsource-variable/space-grotesk':
@@ -935,6 +956,9 @@ packages:
   '@fontsource-variable/geist@5.3.0':
     resolution: {integrity: sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA==}
 
+  '@fontsource-variable/grenze-gotisch@5.3.0':
+    resolution: {integrity: sha512-cWTjlS5H5PXkE2ABZ3KajF5YXLSJlJpAdXTbioEIvdCnlXCwRqnIXEzOA5yeLGPdvkW1ilZaAIJAASr28LNERg==}
+
   '@fontsource-variable/inter-tight@5.3.0':
     resolution: {integrity: sha512-ZhZZ29sNZ15P1K+cUt13GeBRYON0akgmNiftshUeDLos7X7zGcRgPzt434879Xhq1QbwlW3M/apBMk7jWabwvA==}
 
@@ -943,6 +967,12 @@ packages:
 
   '@fontsource-variable/pixelify-sans@5.3.0':
     resolution: {integrity: sha512-rOF07QCyHg9xb4UZF3lpXOM4UO+zo3y8tXvO7T+vy40GVt/GU8HL+/YWE029CMsbhOwk4plRDY9G8BU5cWs1ig==}
+
+  '@fontsource-variable/playfair-display@5.3.0':
+    resolution: {integrity: sha512-IHdzTvE8eGIXHteZql7KXoqdc3Gfm+Zs1u4XlSC3MeplkwviT3sx/P6gI0tLwg/xIYLF4ZJYveZ5V+bl9cnDwA==}
+
+  '@fontsource-variable/source-serif-4@5.3.1':
+    resolution: {integrity: sha512-4Rtay22SC4lMvw11r/+9kxANB6P3M0X8s1NudBC2v0J1KU2y3DcMoNcT3lBoZ/CqLirzf+StlO6UlJilyrvaUg==}
 
   '@fontsource-variable/space-grotesk@5.3.0':
     resolution: {integrity: sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==}
@@ -3151,11 +3181,17 @@ snapshots:
 
   '@fontsource-variable/geist@5.3.0': {}
 
+  '@fontsource-variable/grenze-gotisch@5.3.0': {}
+
   '@fontsource-variable/inter-tight@5.3.0': {}
 
   '@fontsource-variable/overpass@5.3.0': {}
 
   '@fontsource-variable/pixelify-sans@5.3.0': {}
+
+  '@fontsource-variable/playfair-display@5.3.0': {}
+
+  '@fontsource-variable/source-serif-4@5.3.1': {}
 
   '@fontsource-variable/space-grotesk@5.3.0': {}
 

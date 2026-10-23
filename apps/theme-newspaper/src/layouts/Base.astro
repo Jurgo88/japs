@@ -1,0 +1,313 @@
+---
+import "@fontsource-variable/grenze-gotisch/wght.css";
+import "@fontsource-variable/playfair-display/wght.css";
+import "@fontsource-variable/playfair-display/wght-italic.css";
+import "@fontsource-variable/source-serif-4/opsz.css";
+import "@fontsource-variable/source-serif-4/opsz-italic.css";
+import { languageName, loadPortfolio, portfolioStats, text } from "@japs/theme-kit";
+import { roman } from "../lib/paper.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+  /** The full front-page masthead, or a slim one on article pages. */
+  front?: boolean;
+}
+
+const { locale, title, description, alternates, homeHref, front = false } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const stats = portfolioStats(portfolio);
+const site = Astro.site;
+// The masthead name is sized from its length so it spans the full width of the page.
+const nameSize = `--chars: ${Math.max(6, [...profile.name].length)}`;
+const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(portfolio.generatedAt));
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#f1ecdf" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23f1ecdf'/><text x='16' y='25' font-family='serif' font-weight='900' font-size='24' text-anchor='middle' fill='%231b1a17'>${(profile.name[0] ?? "N").toUpperCase()}</text></svg>`} />
+  </head>
+  <body>
+    <div class="page">
+      <header class:list={["masthead", { front }]}>
+        <div class="ears">
+          <span>
+            {tt(locale, "vol")} {roman(stats.years ?? 1)} · {tt(locale, "no")} {stats.projects}
+          </span>
+          {
+            alternates.length > 1 && (
+              <nav class="languages" aria-label={tt(locale, "language")}>
+                {alternates.map((a) => (
+                  <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                    {a.locale.toUpperCase()}
+                  </a>
+                ))}
+              </nav>
+            )
+          }
+          <span>{tt(locale, "price")}</span>
+        </div>
+        {
+          front ? (
+            <h1 class="paper-name" style={nameSize}>{profile.name}</h1>
+          ) : (
+            <a class="paper-name" href={homeHref} style={nameSize}>
+              {profile.name}
+            </a>
+          )
+        }
+        <div class="dateline">
+          <span>{profile.location ?? ""}</span>
+          <span>{date}</span>
+          <span>{text(profile.headline, locale)}</span>
+        </div>
+      </header>
+
+      <main><slot /></main>
+
+      <script>
+        // Stretch the masthead name to the full width once the blackletter font has loaded.
+        const fit = () => {
+          for (const name of document.querySelectorAll<HTMLElement>(".paper-name")) {
+            name.style.fontSize = "";
+            const range = document.createRange();
+            range.selectNodeContents(name);
+            const width = range.getBoundingClientRect().width;
+            const available = name.parentElement?.clientWidth ?? 0;
+            if (!width || !available) continue;
+            const cap = name.closest(".front") ? 300 : 72;
+            const size = parseFloat(getComputedStyle(name).fontSize);
+            name.style.fontSize = `${Math.min(cap, (size * available * 0.985) / width)}px`;
+          }
+        };
+        document.fonts.ready.then(fit);
+        const masthead = document.querySelector(".masthead");
+        if (masthead) new ResizeObserver(fit).observe(masthead);
+      </script>
+
+      <footer class="colophon">
+        <span>© {new Date().getFullYear()} {profile.name}</span>
+        <span class="links">
+          {profile.email && <a href={`mailto:${profile.email}`}>{profile.email}</a>}
+          {profile.links.map((link) => (
+            <a href={link.url} rel="me noopener">{link.label}</a>
+          ))}
+        </span>
+        <span>JAPS</span>
+      </footer>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --paper: #f1ecdf;
+    --paper-2: #e8e1cf;
+    --ink: #1b1a17;
+    --soft: #4a463d;
+    --muted: #7a7466;
+    --red: #a3201b;
+    --blackletter: "Grenze Gotisch Variable", "UnifrakturMaguntia", "Old English Text MT", serif;
+    --display: "Playfair Display Variable", Georgia, serif;
+    --serif: "Source Serif 4 Variable", Georgia, serif;
+    --pad: clamp(14px, 3vw, 40px);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--paper-2);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    padding: clamp(0px, 2vw, 28px);
+    background: var(--paper-2);
+    font: 400 16px/1.5 var(--serif);
+    font-optical-sizing: auto;
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  :focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+  }
+  /* The sheet of newsprint. */
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 18px var(--pad) 24px;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgb(255 255 255 / 0.5), transparent 60%),
+      var(--paper);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 30px 60px -40px rgb(0 0 0 / 0.5);
+  }
+  .kicker {
+    margin: 0;
+    font: 700 12px/1.3 var(--serif);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .rule-double {
+    border-top: 3px double var(--ink);
+  }
+
+  /* Screenshots printed as halftone: greyscale with a dot screen; full colour on hover. */
+  .halftone {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    background: #fff;
+  }
+  .halftone img {
+    width: 100%;
+    filter: grayscale(1) contrast(1.15) brightness(1.02) sepia(0.12);
+    transition: filter 0.4s;
+  }
+  .halftone::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background: radial-gradient(rgb(27 26 23 / 0.32) 0.9px, transparent 1.3px) 0 0 / 4px 4px;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  a:hover .halftone img,
+  .halftone:hover img {
+    filter: none;
+  }
+  a:hover .halftone::after,
+  .halftone:hover::after {
+    opacity: 0;
+  }
+  .caption {
+    margin: 6px 0 0;
+    color: var(--soft);
+    font: italic 400 13px/1.4 var(--serif);
+  }
+
+  .masthead {
+    container-type: inline-size;
+    text-align: center;
+  }
+  .ears {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ink);
+    font: 600 12px/1.3 var(--serif);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .languages {
+    display: flex;
+    gap: 10px;
+  }
+  .languages a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .languages a[aria-current="page"] {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  /* A safe size from the name length (--chars) and the masthead width; the script then fits it exactly. */
+  .paper-name {
+    display: block;
+    margin: 6px 0 4px;
+    font: 700 min(72px, calc(100cqi / (var(--chars) * 0.62))) / 1.05 var(--blackletter);
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  /* Room below for the long descenders of J and j. */
+  .front .paper-name {
+    margin: 6px 0 0;
+    padding-bottom: 0.06em;
+    font-size: min(300px, calc(100cqi / (var(--chars) * 0.56)));
+    letter-spacing: 0.02em;
+    line-height: 1.12;
+  }
+  .dateline {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    border-top: 3px double var(--ink);
+    border-bottom: 1px solid var(--ink);
+    font: italic 400 14px/1.3 var(--serif);
+  }
+  .dateline span:last-child {
+    text-align: right;
+  }
+
+  .colophon {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-top: 40px;
+    padding-top: 10px;
+    border-top: 3px double var(--ink);
+    color: var(--soft);
+    font-size: 13px;
+  }
+  .colophon .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+  .colophon a:hover {
+    color: var(--red);
+  }
+
+  @media (max-width: 720px) {
+    .dateline {
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dateline span:last-child {
+      text-align: center;
+    }
+    .dateline span:empty {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>

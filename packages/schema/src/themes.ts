@@ -19,6 +19,7 @@ export const THEMES = [
   { id: "metro", label: "Metro", description: "A transit network: technologies are coloured lines, projects are stations on a generated map, with a departures board and station pages." },
   { id: "arena", label: "Arena", description: "Game night: an LED scoreboard with a live clock, projects as a lineup on the ice, stats leaders by technology and match-report project pages." },
   { id: "bento", label: "Bento", description: "A modern bento grid: rounded tiles of mixed sizes with stats, a tech marquee, an activity chart and a pointer spotlight; follows the system light or dark mode." },
+  { id: "newspaper", label: "Newspaper", description: "A broadsheet front page: blackletter masthead, a lead story in columns, halftone photos, news in brief, a tech index and a classified ad." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];
