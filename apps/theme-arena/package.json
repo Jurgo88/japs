@@ -1,0 +1,19 @@
+{
+  "name": "@japs/theme-arena",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "JAPS theme \"arena\": a static Astro site built from portfolio.json",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource/graduate": "^5.3.0",
+    "@japs/schema": "workspace:*",
+    "@japs/theme-kit": "workspace:*",
+    "astro": "^7.3.6"
+  }
+}

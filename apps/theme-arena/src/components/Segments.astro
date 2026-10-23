@@ -1,0 +1,74 @@
+---
+/**
+ * LED seven-segment digits for the scoreboard. Supports 0–9, ":", "-" and " ".
+ * Segments carry `data-s` so the clock script can relight them (see lib/segments.ts).
+ */
+import { SEGMENTS, segmentsFor } from "../lib/segments.ts";
+
+interface Props {
+  value: string;
+  /** Height in px; width follows. */
+  size?: number;
+  class?: string;
+}
+
+const { value, size = 48, class: className } = Astro.props;
+const chars = [...value];
+---
+
+<span class:list={["segments", className]} style={`--h: ${size}px`} aria-hidden="true">
+  {
+    chars.map((ch) =>
+      ch === ":" ? (
+        <svg class="colon" viewBox="0 0 6 20">
+          <rect x="2" y="5" width="2.4" height="2.4" rx="0.6" />
+          <rect x="2" y="12.6" width="2.4" height="2.4" rx="0.6" />
+        </svg>
+      ) : (
+        <svg class="digit" viewBox="0 0 14 20" data-digit>
+          {SEGMENTS.map((seg) => (
+            <rect
+              data-s={seg.id}
+              class:list={{ on: segmentsFor(ch).includes(seg.id) }}
+              x={seg.x}
+              y={seg.y}
+              width={seg.w}
+              height={seg.h}
+              rx="0.9"
+              transform={`skewX(-6) translate(1.2 0)`}
+            />
+          ))}
+        </svg>
+      ),
+    )
+  }
+</span>
+
+<style>
+  .segments {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--h) * 0.08);
+    height: var(--h);
+    filter: drop-shadow(0 0 calc(var(--h) * 0.12) currentColor);
+  }
+  svg {
+    height: 100%;
+    overflow: visible;
+  }
+  .digit {
+    width: calc(var(--h) * 0.7);
+  }
+  .colon {
+    width: calc(var(--h) * 0.3);
+  }
+  rect {
+    fill: currentColor;
+  }
+  .digit rect {
+    opacity: 0.1;
+  }
+  .digit rect.on {
+    opacity: 1;
+  }
+</style>

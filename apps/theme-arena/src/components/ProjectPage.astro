@@ -1,0 +1,417 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, projectYears, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Rink from "./Rink.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const number = index + 1;
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+// The last game leads back to the first one.
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const box: [string, string][] = [
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+  [tt(locale, "stack"), project.tags.join(", ") || "—"],
+];
+if (project.client.isClient) box.push([tt(locale, "captain"), project.client.label ? text(project.client.label, locale) : "✓"]);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <article>
+    <header class="head">
+      <div class="head-rink" aria-hidden="true"><Rink /></div>
+      <a class="back" href={`${home}#lineup`}>← {tt(locale, "lineup")}</a>
+      <p class="tag">{tt(locale, "matchReport")} · {tt(locale, "season")} {projectYears(project, tt(locale, "present"))}</p>
+      <div class="title-row">
+        <span class="jersey" aria-hidden="true">{number}</span>
+        <h1>{title}</h1>
+        {project.client.isClient && <span class="patch" title={tt(locale, "captain")}>C</span>}
+      </div>
+      <p class="summary">{text(project.summary, locale)}</p>
+      {
+        (project.links.live || project.links.repo) && (
+          <p class="actions">
+            {project.links.live && (
+              <a class="btn primary" href={project.links.live} rel="noopener">
+                <i aria-hidden="true" />
+                {tt(locale, "watchLive")} ↗
+              </a>
+            )}
+            {project.links.repo && (
+              <a class="btn" href={project.links.repo} rel="noopener">
+                {tt(locale, "tape")} ↗
+              </a>
+            )}
+          </p>
+        )
+      }
+    </header>
+
+    {
+      (desktop || mobile) && (
+        <section class="highlights" aria-label={tt(locale, "highlights")}>
+          <div class:list={["screens", { "with-phone": desktop && mobile }]}>
+            {desktop && (
+              <figure class="screen">
+                <span class="replay">{tt(locale, "replay")}</span>
+                <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+              </figure>
+            )}
+            {mobile && (
+              <figure class="screen phone">
+                <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+              </figure>
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    <div class="sheet">
+      <section class="box" aria-labelledby="box-title">
+        <h2 id="box-title" class="sheet-title">{tt(locale, "boxScore")}</h2>
+        <dl>
+          {
+            box.map(([label, value]) => (
+              <div>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+      <section class="recap" aria-labelledby="recap-title">
+        <h2 id="recap-title" class="sheet-title">{tt(locale, "recap")}</h2>
+        <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+      </section>
+    </div>
+
+    {
+      next && (
+        <a class="next" href={projectUrl(next, locale, portfolio)}>
+          <span class="next-label">{tt(locale, "nextGame")}</span>
+          <span class="next-title">
+            <span class="next-no">#{ordered.indexOf(next) + 1}</span>
+            {text(next.title, locale)}
+          </span>
+          <span class="next-arrow" aria-hidden="true">→</span>
+        </a>
+      )
+    }
+  </article>
+</Base>
+
+<style>
+  .head {
+    position: relative;
+    padding: 32px var(--pad) 64px;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 50% 70% at 0 0, rgb(216 30 58 / 0.3), transparent 70%),
+      radial-gradient(ellipse 50% 70% at 100% 100%, rgb(31 95 214 / 0.3), transparent 70%);
+  }
+  .head > :not(.head-rink) {
+    position: relative;
+  }
+  .head-rink {
+    position: absolute;
+    inset: 20px -10% -40px 30%;
+    color: rgb(255 255 255 / 0.12);
+    opacity: 0.3;
+  }
+  .back {
+    display: inline-block;
+    color: rgb(255 255 255 / 0.65);
+    font: 800 13px/1 var(--sport);
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .back:hover {
+    color: #fff;
+  }
+  .tag {
+    margin: 36px 0 0;
+    color: var(--amber);
+    font: 800 13px/1.2 var(--sport);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-top: 14px;
+  }
+  .jersey {
+    flex: none;
+    color: #fff;
+    font: 400 clamp(64px, 10vw, 150px) / 0.9 var(--jersey);
+    -webkit-text-stroke: 3px var(--night);
+    paint-order: stroke fill;
+    text-shadow: 6px 6px 0 var(--red);
+  }
+  h1 {
+    min-width: 0;
+    margin: 0;
+    font: italic 900 clamp(40px, 7vw, 112px) / 0.9 var(--sport);
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .patch {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 3px solid #fff;
+    border-radius: 6px;
+    background: var(--blue);
+    font: 400 24px/1 var(--jersey);
+  }
+  .summary {
+    max-width: 60ch;
+    margin: 26px 0 0;
+    color: rgb(255 255 255 / 0.8);
+    font: 600 clamp(18px, 1.9vw, 23px) / 1.4 var(--sport);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 28px 0 0;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 20px 10px;
+    border: 2px solid #fff;
+    border-radius: 4px;
+    font: italic 900 15px/1 var(--sport);
+    font-stretch: 115%;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-transform: uppercase;
+    transform: skewX(-8deg);
+  }
+  .btn.primary {
+    border-color: var(--red);
+    background: var(--red);
+  }
+  .btn i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+  }
+  .btn:hover {
+    background: #fff;
+    color: var(--night);
+    border-color: #fff;
+  }
+
+  /* Jumbotron screens: desktop and phone side by side. */
+  .highlights {
+    padding: 0 var(--pad);
+  }
+  .screens {
+    display: grid;
+    gap: 16px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .screens.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .screen {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 8px solid #05070d;
+    border-radius: 10px;
+    background: #05070d;
+    box-shadow:
+      0 0 0 2px #232a3f,
+      0 30px 70px -30px rgb(0 0 0 / 0.9);
+  }
+  .screen img {
+    width: 100%;
+    height: auto;
+  }
+  /* Out of flow so the phone never stretches the row; the desktop screen sets its height. */
+  .screens.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .screens:not(.with-phone) .phone {
+    max-width: 320px;
+  }
+  .replay {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    padding: 5px 10px 3px;
+    border-radius: 3px;
+    background: var(--red);
+    font: italic 900 12px/1 var(--sport);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* The game sheet on ice. */
+  .sheet {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+    margin-top: 64px;
+    padding: 56px var(--pad) 64px;
+    background: var(--ice);
+    color: var(--text);
+  }
+  .sheet-title {
+    margin: 0 0 16px;
+    font: italic 900 24px/1 var(--sport);
+    font-stretch: 120%;
+    text-transform: uppercase;
+  }
+  .box dl {
+    margin: 0;
+    border-top: 3px solid var(--red);
+  }
+  .box dl div {
+    display: grid;
+    grid-template-columns: 7.5em minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--ice-2);
+  }
+  .box dt {
+    color: var(--muted);
+    font: 800 12px/1.5 var(--sport);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .box dd {
+    margin: 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .description {
+    max-width: 68ch;
+    padding-top: 14px;
+    border-top: 3px solid var(--blue);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+  .description > :global(:first-child) {
+    margin-top: 0;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.5em;
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .description :global(a) {
+    color: var(--blue);
+  }
+
+  .next {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 20px;
+    padding: 34px var(--pad);
+    background: var(--red);
+    text-decoration: none;
+  }
+  .next-label {
+    grid-column: 1;
+    font: 800 13px/1 var(--sport);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .next-title {
+    grid-column: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    font: italic 900 clamp(30px, 5vw, 72px) / 1 var(--sport);
+    font-stretch: 125%;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .next-no {
+    font: 400 0.8em/1 var(--jersey);
+    font-style: normal;
+  }
+  .next-arrow {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    font-size: clamp(40px, 6vw, 80px);
+    transition: transform 0.25s;
+  }
+  /* The footer follows straight after the red band. */
+  :global(body:has(.next) .footer) {
+    margin-top: 0;
+  }
+  .next:hover .next-arrow {
+    transform: translateX(8px);
+  }
+
+  @media (max-width: 900px) {
+    .sheet {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 640px) {
+    .title-row {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .screens.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 8px;
+    }
+    .screen {
+      border-width: 4px;
+    }
+    .replay {
+      left: 6px;
+      top: 6px;
+      font-size: 9px;
+    }
+  }
+</style>
