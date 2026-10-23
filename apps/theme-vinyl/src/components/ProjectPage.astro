@@ -1,0 +1,440 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { coverShot, formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, projectYears, renderMarkdown, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Record from "./Record.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const cover = coverShot(project);
+const home = `${localePrefix(locale, portfolio)}/`;
+// The last record leads back to the first one.
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0]! : null);
+const nextShot = next ? coverShot(next) : undefined;
+const usage = new Map(tagCounts(portfolio).map((t) => [t.tag, t.count]));
+const credits: [string, string][] = [
+  [tt(locale, "producer"), project.role ? text(project.role, locale) : portfolio.profile.name],
+  [tt(locale, "recorded"), period],
+];
+if (project.client.isClient) credits.push([tt(locale, "label"), project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")]);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <a class="back" href={`${home}#discography`}>← {tt(locale, "backToCrate")}</a>
+
+  <section class="album">
+    <div class="cover-wrap">
+      <Record image={cover ? `/${cover.src}` : undefined} labelText={title} class="album-record" />
+      <div class="cover">
+        {
+          cover ? (
+            <img src={`/${cover.src}`} alt={text(cover.alt, locale)} width={cover.viewport === "mobile" ? 390 : 1440} height={cover.viewport === "mobile" ? 844 : 900} />
+          ) : (
+            <span class="cover-art">
+              <span class="display">{title}</span>
+            </span>
+          )
+        }
+      </div>
+    </div>
+
+    <div class="album-text">
+      <p class="kicker">
+        {tt(locale, "lp")} · {tt(locale, "released")} {projectYears(project, tt(locale, "present"))}
+      </p>
+      <h1 class="display">{title}</h1>
+      <p class="summary">{text(project.summary, locale)}</p>
+      <dl class="credits">
+        {
+          credits.map(([label, value]) => (
+            <div>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      {
+        (project.links.live || project.links.repo) && (
+          <p class="actions">
+            {project.links.live && (
+              <a class="btn primary" href={project.links.live} rel="noopener">
+                ▶ {tt(locale, "listen")}
+              </a>
+            )}
+            {project.links.repo && (
+              <a class="btn" href={project.links.repo} rel="noopener">
+                {tt(locale, "tapes")} ↗
+              </a>
+            )}
+          </p>
+        )
+      }
+    </div>
+  </section>
+
+  {
+    (desktop || mobile) && (
+      <section class="gatefold" aria-label={tt(locale, "gatefold")}>
+        <p class="kicker">{tt(locale, "gatefold")}</p>
+        <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="screen">
+              <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+            </figure>
+          )}
+          {mobile && (
+            <figure class="screen phone">
+              <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+            </figure>
+          )}
+        </div>
+      </section>
+    )
+  }
+
+  <section class="liner">
+    <div class="notes">
+      <h2 class="section-title">{tt(locale, "linerNotes")}</h2>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+    </div>
+    {
+      project.tags.length > 0 && (
+        <div class="personnel">
+          <h2 class="section-title small">{tt(locale, "personnel")}</h2>
+          <ul>
+            {project.tags.map((tag) => (
+              <li>
+                <span>{tag}</span>
+                <span class="dots" aria-hidden="true" />
+                <span class="on">{tt(locale, "onTracks").replace("{n}", String(usage.get(tag) ?? 1))}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+  </section>
+
+  {
+    next && (
+      <a class="next" href={projectUrl(next, locale, portfolio)}>
+        <span class="next-cover">{nextShot ? <img src={`/${nextShot.src}`} alt="" loading="lazy" width="1440" height="900" /> : <span class="cover-art" />}</span>
+        <span class="next-text">
+          <span class="kicker">{tt(locale, "nextRecord")}</span>
+          <span class="next-title display">{text(next.title, locale)}</span>
+        </span>
+        <span class="next-arrow" aria-hidden="true">→</span>
+      </a>
+    )
+  }
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin: 8px var(--pad) 0;
+    color: var(--muted);
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .back:hover {
+    color: var(--rust);
+  }
+  .album {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 48px clamp(40px, 7vw, 110px);
+    padding: 32px var(--pad) 64px;
+  }
+  .cover-wrap {
+    position: relative;
+    margin-right: 22%;
+  }
+  .cover-wrap :global(.album-record) {
+    position: absolute;
+    top: 3%;
+    left: 3%;
+    width: 94%;
+    transform: translateX(30%);
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .cover-wrap:hover :global(.album-record) {
+    transform: translateX(42%) rotate(40deg);
+  }
+  .cover {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--cream-2);
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.08),
+      0 30px 60px -30px rgb(35 26 20 / 0.6);
+  }
+  .cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: left top;
+  }
+  .cover-art {
+    display: grid;
+    align-content: start;
+    height: 100%;
+    padding: 10%;
+    background:
+      linear-gradient(transparent 55%, var(--mustard) 55% 66%, var(--orange) 66% 77%, var(--rust) 77% 88%, var(--brown) 88%),
+      var(--cream-2);
+  }
+  .cover-art span {
+    font-size: clamp(28px, 4vw, 52px);
+    font-weight: 800;
+    line-height: 1;
+  }
+  h1 {
+    margin: 12px 0 0;
+    font-size: clamp(44px, 6.4vw, 96px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    overflow-wrap: anywhere;
+  }
+  .summary {
+    max-width: 52ch;
+    margin: 16px 0 0;
+    font: italic 400 clamp(19px, 2vw, 24px) / 1.35 var(--display);
+  }
+  .credits {
+    display: grid;
+    gap: 6px;
+    margin: 24px 0 0;
+  }
+  .credits div {
+    display: grid;
+    grid-template-columns: 8.5em minmax(0, 1fr);
+    gap: 12px;
+  }
+  .credits dt {
+    color: var(--rust);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1.8;
+    text-transform: uppercase;
+  }
+  .credits dd {
+    margin: 0;
+    font-weight: 600;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 26px 0 0;
+  }
+  .btn {
+    padding: 12px 20px;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .btn.primary {
+    background: var(--ink);
+    color: var(--cream);
+  }
+  .btn:hover {
+    border-color: var(--rust);
+    background: var(--rust);
+    color: var(--cream);
+  }
+
+  .gatefold {
+    margin: 0 var(--pad);
+    padding: 34px clamp(16px, 3vw, 40px) 40px;
+    border-radius: 6px;
+    background:
+      linear-gradient(var(--mustard) 0 6px, var(--orange) 6px 12px, var(--rust) 12px 18px, var(--brown) 18px 24px, transparent 24px),
+      var(--ink);
+  }
+  .gatefold .kicker {
+    margin-top: 6px;
+    color: var(--mustard);
+  }
+  .devices {
+    display: grid;
+    gap: clamp(10px, 2vw, 22px);
+    margin-top: 18px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .screen {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #000;
+  }
+  .screen img {
+    width: 100%;
+    height: auto;
+  }
+  .phone {
+    border-radius: 16px;
+  }
+  /* Out of flow so the phone never stretches the row; the desktop shot sets its height. */
+  .devices.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .devices:not(.with-phone) .phone {
+    max-width: 320px;
+  }
+
+  .liner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+    gap: 48px clamp(32px, 6vw, 96px);
+    padding: 72px var(--pad) 0;
+  }
+  .description {
+    max-width: 66ch;
+    margin-top: 18px;
+    font-size: 17px;
+  }
+  .description > :global(p:first-child) {
+    font: italic 400 1.3em/1.45 var(--display);
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.4em;
+    font-family: var(--display);
+    font-weight: 800;
+  }
+  .description :global(a) {
+    color: var(--rust);
+  }
+  .section-title.small {
+    font-size: clamp(26px, 3vw, 36px);
+  }
+  .personnel ul {
+    display: grid;
+    gap: 6px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .personnel li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-weight: 600;
+  }
+  .personnel .dots {
+    flex: 1;
+    border-bottom: 1.5px dotted var(--muted);
+  }
+  .personnel .on {
+    color: var(--muted);
+    font-size: 14px;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .next {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 22px;
+    margin: 88px var(--pad) 0;
+    padding: 18px;
+    border-radius: 6px;
+    background: var(--cream-2);
+    text-decoration: none;
+  }
+  .next-cover {
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 3px;
+  }
+  .next-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: left top;
+  }
+  .next-text {
+    display: grid;
+    gap: 4px;
+  }
+  .next-title {
+    font-size: clamp(26px, 3.4vw, 44px);
+    font-weight: 800;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+  .next-arrow {
+    font-size: 40px;
+    transition: transform 0.25s;
+  }
+  .next:hover .next-arrow {
+    transform: translateX(6px);
+  }
+  .next:hover .next-title {
+    color: var(--rust);
+  }
+  /* The footer follows straight after. */
+  :global(body:has(.next) .footer) {
+    margin-top: 80px;
+  }
+
+  @media (max-width: 900px) {
+    .album,
+    .liner {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .cover-wrap {
+      max-width: 420px;
+    }
+  }
+  @media (max-width: 600px) {
+    .devices.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+    }
+    .phone {
+      border-radius: 10px;
+    }
+    .next {
+      grid-template-columns: 64px minmax(0, 1fr) auto;
+      gap: 14px;
+    }
+  }
+</style>

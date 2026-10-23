@@ -496,6 +496,24 @@ importers:
         specifier: ^7.3.6
         version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/theme-vinyl:
+    dependencies:
+      '@fontsource-variable/fraunces':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/work-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   packages/cli:
     dependencies:
       '@japs/core':
@@ -976,6 +994,9 @@ packages:
 
   '@fontsource-variable/space-grotesk@5.3.0':
     resolution: {integrity: sha512-2IxmvfB08i9vnGB3Ym/AXvhRE+8XOjWMXIyDum03c+tPwH0FUoMNQfGpU8NXPxjbws0Vvss3AH0Zqt4oJBBAdw==}
+
+  '@fontsource-variable/work-sans@5.3.0':
+    resolution: {integrity: sha512-le8h/OIIuhm5Z7TdvuMw0yKg2gaCZUiMec8zaumsVVjzeJRBPEF0bQI/MkaZDHCVzZDvZoP/O2LiGOSfDLSbaw==}
 
   '@fontsource/barlow-condensed@5.3.0':
     resolution: {integrity: sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g==}
@@ -3194,6 +3215,8 @@ snapshots:
   '@fontsource-variable/source-serif-4@5.3.1': {}
 
   '@fontsource-variable/space-grotesk@5.3.0': {}
+
+  '@fontsource-variable/work-sans@5.3.0': {}
 
   '@fontsource/barlow-condensed@5.3.0': {}
 
