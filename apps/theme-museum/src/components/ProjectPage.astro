@@ -1,0 +1,343 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, projectYears, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { FRAMES, WALLS, audioStop, medium, roman } from "../lib/museum.ts";
+import { tt } from "../lib/strings.ts";
+import Artwork from "./Artwork.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const room = Math.floor(index / 3) + 1;
+const place = (index % 3) + 1;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const { previous, next } = neighbours(project, portfolio);
+const dimensions = [desktop && "1440 × 900 px", mobile && "390 × 844 px"].filter(Boolean).join(" · ");
+const credit = project.client.isClient
+  ? project.client.label
+    ? `${tt(locale, "commissioned")} ${text(project.client.label, locale)}`
+    : tt(locale, "commissionedPrivate")
+  : tt(locale, "collection");
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <section class="gallery" style={`--wall: ${WALLS[(room - 1) % WALLS.length]}`} aria-label={`${tt(locale, "room")} ${roman(room)}`}>
+    <p class="crumbs">
+      <a href={`${home}#room-${room}`}>← {tt(locale, "backToRoom")}</a>
+      <span class="label">
+        {tt(locale, "room")} {roman(room)} · {tt(locale, "cat")} {String(index + 1).padStart(2, "0")}
+      </span>
+    </p>
+    {
+      desktop || mobile ? (
+        <div class:list={["hang", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <div class="piece">
+              <Artwork src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width={1440} height={900} finish={FRAMES[index % FRAMES.length]!} eager />
+            </div>
+          )}
+          {mobile && (
+            <div class="piece phone">
+              <Artwork src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width={390} height={844} finish={FRAMES[(index + 1) % FRAMES.length]!} eager />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div class="hang">
+          <div class="piece">
+            <Artwork finish={FRAMES[index % FRAMES.length]!} note={tt(locale, "noImage")} />
+          </div>
+        </div>
+      )
+    }
+  </section>
+
+  <div class="placard">
+    <article class="label-card">
+      <span class="audio" title={tt(locale, "audio")}>{audioStop(room, place)}</span>
+      <h1>{title}</h1>
+      <p class="artist">{profile.name}, {projectYears(project, tt(locale, "present"))}</p>
+      <dl>
+        <div>
+          <dt>{tt(locale, "medium")}</dt>
+          <dd>{medium(project, tt(locale, "and"), tt(locale, "onWeb"))}</dd>
+        </div>
+        {
+          project.role && (
+            <div>
+              <dt>{tt(locale, "role")}</dt>
+              <dd>{text(project.role, locale)}</dd>
+            </div>
+          )
+        }
+        {
+          dimensions && (
+            <div>
+              <dt>{tt(locale, "dimensions")}</dt>
+              <dd>{dimensions}</dd>
+            </div>
+          )
+        }
+        <div>
+          <dt>{tt(locale, "creditLine")}</dt>
+          <dd>{credit}</dd>
+        </div>
+      </dl>
+      {
+        (project.links.live || project.links.repo) && (
+          <p class="actions">
+            {project.links.live && (
+              <a href={project.links.live} rel="noopener">
+                {tt(locale, "visit")} ↗
+              </a>
+            )}
+            {project.links.repo && (
+              <a href={project.links.repo} rel="noopener">
+                {tt(locale, "study")} ↗
+              </a>
+            )}
+          </p>
+        )
+      }
+    </article>
+
+    <section class="note" aria-labelledby="note-title">
+      <h2 id="note-title" class="label">{tt(locale, "curatorsNote")}</h2>
+      <p class="summary">{text(project.summary, locale)}</p>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+    </section>
+  </div>
+
+  <nav class="walk" aria-label={`${tt(locale, "previousWork")} / ${tt(locale, "nextWork")}`}>
+    {
+      previous ? (
+        <a href={projectUrl(previous, locale, portfolio)}>
+          <span class="label">← {tt(locale, "previousWork")}</span>
+          <span class="walk-title">{text(previous.title, locale)}</span>
+        </a>
+      ) : (
+        <span />
+      )
+    }
+    {
+      next && (
+        <a class="next" href={projectUrl(next, locale, portfolio)}>
+          <span class="label">{tt(locale, "nextWork")} →</span>
+          <span class="walk-title">{text(next.title, locale)}</span>
+        </a>
+      )
+    }
+  </nav>
+</Base>
+
+<style>
+  .gallery {
+    position: relative;
+    padding: 28px var(--pad) 96px;
+    background: var(--wall);
+    isolation: isolate;
+  }
+  .gallery::after {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    content: "";
+    background: rgb(0 0 0 / 0.06);
+    box-shadow: inset 0 1px 0 rgb(0 0 0 / 0.08);
+  }
+  .crumbs {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0;
+    font-size: 14px;
+  }
+  .crumbs a {
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--accent);
+  }
+  /* Desktop and mobile hang side by side on one centre line. */
+  .hang {
+    display: grid;
+    justify-content: center;
+    grid-template-columns: minmax(0, 860px);
+    align-items: center;
+    gap: clamp(24px, 4vw, 64px);
+    margin-top: 72px;
+  }
+  .hang.with-phone {
+    grid-template-columns: minmax(0, 3.3fr) minmax(0, 1fr);
+    max-width: 1180px;
+    margin-inline: auto;
+  }
+  .piece {
+    position: relative;
+  }
+  .piece::before {
+    position: absolute;
+    top: -90px;
+    left: 50%;
+    z-index: -1;
+    width: 140%;
+    height: 90%;
+    content: "";
+    background: radial-gradient(ellipse 50% 70% at 50% 10%, rgb(255 251 238 / 0.95), transparent 72%);
+    mask-image: linear-gradient(transparent, #000 35%, #000 70%, transparent);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .placard {
+    display: grid;
+    grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+    gap: 48px clamp(40px, 7vw, 120px);
+    align-items: start;
+    padding: 72px var(--pad) 0;
+  }
+  /* The full wall label for this work. */
+  .label-card {
+    position: relative;
+    padding: 24px 24px 22px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  }
+  .audio {
+    position: absolute;
+    top: -14px;
+    right: 18px;
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 15px;
+    background: var(--ink);
+    color: #fff;
+    font: 600 12px/1 var(--sans);
+  }
+  h1 {
+    margin: 0;
+    font: italic 400 clamp(32px, 3.6vw, 48px) / 1.05 var(--serif);
+    overflow-wrap: anywhere;
+  }
+  .artist {
+    margin: 8px 0 0;
+    font-weight: 600;
+  }
+  .label-card dl {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .label-card dt {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .label-card dd {
+    margin: 2px 0 0;
+    font-size: 14px;
+  }
+  .actions {
+    display: grid;
+    gap: 6px;
+    margin: 18px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .actions a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .actions a:hover {
+    text-decoration: underline;
+  }
+  .summary {
+    max-width: 48ch;
+    margin: 12px 0 0;
+    font: italic 400 clamp(22px, 2.4vw, 30px) / 1.3 var(--serif);
+  }
+  .description {
+    max-width: 64ch;
+    margin-top: 20px;
+    color: var(--soft);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.4em;
+    color: var(--ink);
+    font: 400 1.5em/1.15 var(--serif);
+  }
+  .description :global(a) {
+    color: var(--accent);
+  }
+
+  .walk {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 96px var(--pad) 0;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .walk a {
+    display: grid;
+    gap: 4px;
+    text-decoration: none;
+  }
+  .walk .next {
+    text-align: right;
+  }
+  .walk-title {
+    font: italic 400 clamp(24px, 3vw, 36px) / 1.1 var(--serif);
+  }
+  .walk a:hover .walk-title {
+    color: var(--accent);
+  }
+
+  @media (max-width: 900px) {
+    .placard {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 600px) {
+    .hang {
+      margin-top: 48px;
+    }
+    .hang.with-phone {
+      grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+    .walk {
+      flex-direction: column;
+    }
+  }
+</style>

@@ -21,6 +21,7 @@ export const THEMES = [
   { id: "bento", label: "Bento", description: "A modern bento grid: rounded tiles of mixed sizes with stats, a tech marquee, an activity chart and a pointer spotlight; follows the system light or dark mode." },
   { id: "newspaper", label: "Newspaper", description: "A broadsheet front page: blackletter masthead, a lead story in columns, halftone photos, news in brief, a tech index and a classified ad." },
   { id: "vinyl", label: "Vinyl", description: "A 70s record: an LP sleeve with the record sliding out, a turntable that plays the hovered track, a discography of album covers and liner notes." },
+  { id: "museum", label: "Museum", description: "A quiet gallery retrospective: projects as framed works under spotlights in painted rooms, museum wall labels, a floor plan and a curator's note." },
 ] as const;
 
 export type ThemeInfo = (typeof THEMES)[number];
