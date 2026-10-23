@@ -1,0 +1,7 @@
+---
+import HomePage from "../components/HomePage.astro";
+import { loadPortfolio } from "@japs/theme-kit";
+const { defaultLocale } = loadPortfolio();
+---
+
+<HomePage locale={defaultLocale} />

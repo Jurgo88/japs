@@ -1,0 +1,366 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { coverShot, formatMonth, loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+// The next three stories, wrapping around to the front of the paper.
+const more = ordered.length > 1 ? Array.from({ length: Math.min(3, ordered.length - 1) }, (_, i) => ordered[(index + 1 + i) % ordered.length]!) : [];
+const facts: [string, string][] = [
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+  [tt(locale, "stack"), project.tags.join(", ") || "—"],
+];
+if (project.client.isClient) facts.push([tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"]);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <article class="article">
+    <p class="crumbs">
+      <a href={home}>← {tt(locale, "frontPage")}</a>
+      <span>{tt(locale, "page")} A{index + 1}</span>
+    </p>
+    <header class="head">
+      <p class="kicker">{project.client.isClient ? tt(locale, "clientWork") : tt(locale, "project")}</p>
+      <h1>{title}</h1>
+      <p class="deck">{text(project.summary, locale)}</p>
+      <p class="byline">
+        {tt(locale, "by")} <b>{profile.name}</b>
+        {project.role && <> · {text(project.role, locale)}</>} · {projectYears(project, tt(locale, "present"))}
+      </p>
+    </header>
+
+    {
+      (desktop || mobile) && (
+        <div class:list={["photos", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="photo">
+              <div class="halftone">
+                <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+              </div>
+              <figcaption class="caption">
+                {tt(locale, "fig")} 1 — {text(desktop.alt, locale)}
+              </figcaption>
+            </figure>
+          )}
+          {mobile && (
+            <figure class="photo phone">
+              <div class="halftone">
+                <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+              </div>
+              <figcaption class="caption">
+                {tt(locale, "fig")} {desktop ? 2 : 1}
+              </figcaption>
+            </figure>
+          )}
+        </div>
+      )
+    }
+
+    <div class="body">
+      <div class="story-text" set:html={renderMarkdown(text(project.description, locale))} />
+      <aside class="factbox" aria-labelledby="facts-title">
+        <h2 id="facts-title">{tt(locale, "factBox")}</h2>
+        <dl>
+          {
+            facts.map(([label, value]) => (
+              <div>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+        {
+          (project.links.live || project.links.repo) && (
+            <p class="links">
+              {project.links.live && (
+                <a href={project.links.live} rel="noopener">
+                  {tt(locale, "live")} ↗
+                </a>
+              )}
+              {project.links.repo && (
+                <a href={project.links.repo} rel="noopener">
+                  {tt(locale, "source")} ↗
+                </a>
+              )}
+            </p>
+          )
+        }
+      </aside>
+    </div>
+  </article>
+
+  {
+    more.length > 0 && (
+      <section class="more" aria-labelledby="more-title">
+        <h2 id="more-title" class="flag">{tt(locale, "moreStories")}</h2>
+        <div class="more-cols">
+          {more.map((p) => {
+            const shot = coverShot(p);
+            return (
+              <a class="more-story" href={projectUrl(p, locale, portfolio)}>
+                {shot && (
+                  <figure class="halftone">
+                    <img src={`/${shot.src}`} alt="" loading="lazy" width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                  </figure>
+                )}
+                <span class="more-title">{text(p.title, locale)}</span>
+                <span class="more-summary">{text(p.summary, locale)}</span>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+    )
+  }
+</Base>
+
+<style>
+  .crumbs {
+    display: flex;
+    justify-content: space-between;
+    margin: 12px 0 0;
+    font: italic 400 14px/1.4 var(--serif);
+  }
+  .crumbs a {
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--red);
+  }
+  .head {
+    max-width: 980px;
+    margin: 24px auto 0;
+    text-align: center;
+  }
+  h1 {
+    margin: 10px 0 0;
+    font: 900 clamp(40px, 7vw, 96px) / 0.95 var(--display);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .deck {
+    max-width: 46ch;
+    margin: 16px auto 0;
+    font: italic 400 clamp(19px, 2vw, 25px) / 1.3 var(--display);
+  }
+  .byline {
+    margin: 14px 0 0;
+    padding: 8px 0;
+    border-block: 1px solid var(--ink);
+    color: var(--soft);
+    font: 600 12px/1.4 var(--serif);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .byline b {
+    color: var(--ink);
+  }
+
+  .photos {
+    display: grid;
+    gap: 18px;
+    margin-top: 28px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .photos.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .photo {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    margin: 0;
+  }
+  .photo .halftone {
+    position: relative;
+    min-height: 0;
+    border: 1px solid var(--ink);
+  }
+  /* Out of flow so the phone never stretches the row; the desktop photo sets its height. */
+  .photos.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .photos:not(.with-phone) .phone {
+    max-width: 320px;
+    margin-inline: auto;
+  }
+
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    gap: 32px;
+    align-items: start;
+    margin-top: 28px;
+  }
+  .story-text {
+    columns: 2 18em;
+    column-gap: 30px;
+    column-rule: 1px solid rgb(27 26 23 / 0.35);
+    font-size: 17px;
+    line-height: 1.6;
+    text-align: justify;
+    hyphens: auto;
+  }
+  .story-text :global(p) {
+    margin: 0 0 0.9em;
+  }
+  .story-text > :global(p:first-child::first-letter) {
+    float: left;
+    margin: 0.04em 0.08em 0 0;
+    font: 900 4.4em/0.8 var(--display);
+  }
+  .story-text :global(h2),
+  .story-text :global(h3) {
+    break-after: avoid;
+    margin: 1.2em 0 0.4em;
+    font: 800 1.3em/1.15 var(--display);
+    text-align: left;
+  }
+  .story-text :global(a) {
+    color: var(--red);
+  }
+  .factbox {
+    padding: 12px 14px 14px;
+    border: 2px solid var(--ink);
+    background: rgb(255 255 255 / 0.35);
+  }
+  .factbox h2 {
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 3px double var(--ink);
+    font: 800 15px/1.2 var(--display);
+    letter-spacing: 0.12em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .factbox dl {
+    margin: 0;
+  }
+  .factbox dl div {
+    padding: 7px 0;
+    border-bottom: 1px dotted var(--muted);
+  }
+  .factbox dt {
+    font: 700 11px/1.3 var(--serif);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .factbox dd {
+    margin: 2px 0 0;
+    font-size: 15px;
+  }
+  .links {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0 0;
+    font: italic 700 15px/1.4 var(--serif);
+  }
+  .links a:hover {
+    color: var(--red);
+  }
+
+  .more {
+    margin-top: 40px;
+  }
+  .flag {
+    margin: 0 0 14px;
+    padding: 4px 0;
+    border-top: 3px double var(--ink);
+    border-bottom: 1px solid var(--ink);
+    font: 800 14px/1.3 var(--display);
+    letter-spacing: 0.12em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .more-cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .more-story {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 0 18px;
+    border-left: 1px solid var(--ink);
+    text-decoration: none;
+  }
+  .more-story:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .more-story:last-child {
+    padding-right: 0;
+  }
+  .more-story .halftone {
+    aspect-ratio: 16 / 9;
+  }
+  .more-story img {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .more-title {
+    font: 800 21px/1.1 var(--display);
+  }
+  .more-story:hover .more-title {
+    text-decoration: underline;
+  }
+  .more-summary {
+    color: var(--soft);
+    font-size: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .more-cols {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+    }
+    .more-story,
+    .more-story:first-child,
+    .more-story:last-child {
+      padding: 0 0 18px;
+      border-left: 0;
+      border-bottom: 1px solid var(--ink);
+    }
+  }
+  @media (max-width: 600px) {
+    .photos.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 8px;
+    }
+    .story-text {
+      text-align: left;
+    }
+  }
+</style>
