@@ -1,0 +1,295 @@
+---
+import type { Portfolio } from "@japs/schema";
+import { projectUrl, projectYears, text } from "@japs/theme-kit";
+import type { Network } from "../lib/network.ts";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  network: Network;
+  portfolio: Portfolio;
+  locale: string;
+}
+
+const { network, portfolio, locale } = Astro.props;
+const { lines, stations } = network;
+const n = stations.length;
+const k = lines.length;
+const present = tt(locale, "present");
+const lineName = (i: number) => lines[i]?.tag ?? tt(locale, "other");
+const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const served = (j: number) => stations.map((s, i) => ({ s, i })).filter(({ s }) => s.lines.includes(j));
+const ink = "#1c1c1c";
+
+// Horizontal map (wide screens): lines run left to right, stations are columns.
+const H = { dx: 74, dy: 44, left: 150, top: 160, right: 120, bottom: 30 };
+const hx = (i: number) => H.left + i * H.dx;
+const hy = (j: number) => H.top + j * H.dy;
+const hWidth = H.left + Math.max(0, n - 1) * H.dx + H.right;
+const hHeight = H.top + Math.max(0, k - 1) * H.dy + H.bottom;
+
+// Vertical map (narrow screens): lines run top to bottom, stations are rows.
+const V = { dx: 22, dy: 54, left: 20, top: 26, bottom: 30 };
+const vx = (j: number) => V.left + j * V.dx;
+const vy = (i: number) => V.top + i * V.dy;
+const labelX = vx(Math.max(0, k - 1)) + 28;
+const vWidth = labelX + 250;
+const vHeight = V.top + Math.max(0, n - 1) * V.dy + V.bottom;
+
+// Dim everything not on the chosen line.
+const focusCss = lines
+  .map((l) => `.metro-map[data-focus="${l.index}"] [data-l]:not([data-l~="${l.index}"]){opacity:.12}`)
+  .join("");
+---
+
+<div class="metro-map" data-map>
+  <div class="legend" role="group" aria-label={tt(locale, "lines")}>
+    <button type="button" class="chip all" data-line="" aria-pressed="true">{tt(locale, "allLines")}</button>
+    {
+      lines.map((line) => (
+        <button type="button" class="chip" data-line={line.index} aria-pressed="false" style={`--c: ${line.color}`}>
+          <i aria-hidden="true" />
+          {lineName(line.index)}
+          <span class="chip-count">{served(line.index).length}</span>
+        </button>
+      ))
+    }
+    <span class="hint">{tt(locale, "mapHint")}</span>
+  </div>
+
+  <div class="map-scroll horizontal">
+    <svg viewBox={`0 0 ${hWidth} ${hHeight}`} width={hWidth} height={hHeight} role="img" aria-label={tt(locale, "network")} style={`min-width: ${Math.round(hWidth * 0.72)}px`}>
+      {
+        lines.map((line) => {
+          const on = served(line.index);
+          if (!on.length) return null;
+          const y = hy(line.index);
+          const x1 = hx(on[0]!.i);
+          const x2 = hx(on[on.length - 1]!.i);
+          return (
+            <g data-l={String(line.index)}>
+              <text class="line-name" x={H.left - 30} y={y + 5} text-anchor="end" fill={line.color}>
+                {clip(lineName(line.index), 16)}
+              </text>
+              <path d={`M${x1} ${y}H${x2}`} stroke={line.color} stroke-width="9" />
+              <rect x={x1 - 2} y={y - 12} width="4" height="24" fill={line.color} />
+              <rect x={x2 - 2} y={y - 12} width="4" height="24" fill={line.color} />
+            </g>
+          );
+        })
+      }
+      {
+        stations.map((station, i) => {
+          const x = hx(i);
+          const ys = station.lines.map(hy);
+          const top = Math.min(...ys);
+          const bottom = Math.max(...ys);
+          const title = text(station.project.title, locale);
+          const color = lines[station.lines[0]!]!.color;
+          return (
+            <a href={projectUrl(station.project, locale, portfolio)} class="stn" data-l={station.lines.join(" ")}>
+              <title>{`${title} — ${station.lines.map(lineName).join(", ")}`}</title>
+              <path class="guide" d={`M${x} ${H.top - 26}V${top - 14}`} />
+              {station.lines.length > 1 ? (
+                <>
+                  <rect x={x - 4} y={top} width="8" height={bottom - top} fill="#fff" stroke={ink} stroke-width="2.5" />
+                  {ys.map((y) => (
+                    <circle cx={x} cy={y} r="8.5" fill="#fff" stroke={ink} stroke-width="3.5" />
+                  ))}
+                </>
+              ) : (
+                <rect x={x - 2.5} y={top - 15} width="5" height="11" fill={color} />
+              )}
+              <text class="stn-name" transform={`translate(${x + 3} ${H.top - 32}) rotate(-40)`}>
+                {clip(title, 24)}
+              </text>
+            </a>
+          );
+        })
+      }
+    </svg>
+  </div>
+
+  <div class="map-scroll vertical">
+    <svg viewBox={`0 0 ${vWidth} ${vHeight}`} width="100%" role="img" aria-label={tt(locale, "network")}>
+      {
+        lines.map((line) => {
+          const on = served(line.index);
+          if (!on.length) return null;
+          const x = vx(line.index);
+          const y1 = vy(on[0]!.i);
+          const y2 = vy(on[on.length - 1]!.i);
+          return (
+            <g data-l={String(line.index)}>
+              <path d={`M${x} ${y1}V${y2}`} stroke={line.color} stroke-width="8" />
+              <rect x={x - 10} y={y1 - 2} width="20" height="4" fill={line.color} />
+              <rect x={x - 10} y={y2 - 2} width="20" height="4" fill={line.color} />
+            </g>
+          );
+        })
+      }
+      {
+        stations.map((station, i) => {
+          const y = vy(i);
+          const xs = station.lines.map(vx);
+          const left = Math.min(...xs);
+          const right = Math.max(...xs);
+          const color = lines[station.lines[0]!]!.color;
+          return (
+            <a href={projectUrl(station.project, locale, portfolio)} class="stn" data-l={station.lines.join(" ")}>
+              {station.lines.length > 1 ? (
+                <>
+                  <rect x={left} y={y - 3.5} width={right - left} height="7" fill="#fff" stroke={ink} stroke-width="2.5" />
+                  {xs.map((x) => (
+                    <circle cx={x} cy={y} r="7.5" fill="#fff" stroke={ink} stroke-width="3" />
+                  ))}
+                </>
+              ) : (
+                <rect x={left + 4} y={y - 2.5} width="10" height="5" fill={color} />
+              )}
+              <path class="guide" d={`M${right + 16} ${y}H${labelX - 6}`} />
+              <text class="stn-name" x={labelX} y={y + 1}>
+                {clip(text(station.project.title, locale), 26)}
+              </text>
+              <text class="stn-year" x={labelX} y={y + 17}>
+                {projectYears(station.project, present)}
+              </text>
+            </a>
+          );
+        })
+      }
+    </svg>
+  </div>
+</div>
+
+<style is:inline set:html={focusCss}></style>
+
+<script>
+  for (const map of document.querySelectorAll<HTMLElement>("[data-map]")) {
+    const chips = map.querySelectorAll<HTMLButtonElement>(".chip");
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        const line = chip.dataset.line ?? "";
+        const same = map.dataset.focus === line;
+        if (!line || same) delete map.dataset.focus;
+        else map.dataset.focus = line;
+        const active = map.dataset.focus ?? "";
+        for (const c of chips) c.setAttribute("aria-pressed", String((c.dataset.line ?? "") === active));
+      });
+    }
+  }
+</script>
+
+<style>
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px 6px;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    font: 700 14px/1 var(--sans);
+    cursor: pointer;
+  }
+  .chip i {
+    width: 22px;
+    height: 7px;
+    border-radius: 4px;
+    background: var(--c);
+  }
+  .chip-count {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--ink);
+    color: #fff;
+  }
+  .chip[aria-pressed="true"] .chip-count {
+    color: rgb(255 255 255 / 0.7);
+  }
+  .hint {
+    margin-left: 6px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .map-scroll {
+    overflow-x: auto;
+    padding: 6px 0 10px;
+  }
+  .horizontal svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .vertical {
+    display: none;
+  }
+  svg {
+    overflow: visible;
+    font-family: var(--sans);
+  }
+  svg path[stroke] {
+    fill: none;
+  }
+  [data-l] {
+    transition: opacity 0.25s;
+  }
+  .line-name {
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .guide {
+    fill: none;
+    stroke: #bdbab2;
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+  .stn-name {
+    fill: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .stn-year {
+    fill: var(--muted);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .stn:hover .stn-name,
+  .stn:focus-visible .stn-name {
+    fill: var(--accent);
+    text-decoration: underline;
+  }
+  .stn:focus-visible {
+    outline: none;
+  }
+  .stn:hover .guide,
+  .stn:focus-visible .guide {
+    stroke: var(--ink);
+    stroke-dasharray: none;
+  }
+  @media (max-width: 760px) {
+    .horizontal {
+      display: none;
+    }
+    .vertical {
+      display: block;
+    }
+    .hint {
+      display: none;
+    }
+    .chip {
+      padding: 6px 10px 5px;
+      font-size: 13px;
+    }
+  }
+</style>

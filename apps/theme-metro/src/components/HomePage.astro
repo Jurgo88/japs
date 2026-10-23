@@ -1,0 +1,346 @@
+---
+import { loadPortfolio, localePrefix, plural, portfolioStats, projectUrl, projectYears, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { buildNetwork } from "../lib/network.ts";
+import { tt } from "../lib/strings.ts";
+import NetworkMap from "./NetworkMap.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const network = buildNetwork(portfolio);
+const { lines, stations } = network;
+const stats = portfolioStats(portfolio);
+const present = tt(locale, "present");
+const lineName = (i: number) => lines[i]?.tag ?? tt(locale, "other");
+// Newest work departs first.
+const departures = [...stations].reverse();
+const statusText = profile.available === null ? null : tt(locale, profile.available ? "goodService" : "closure");
+const lineCount = (i: number) => stations.filter((s) => s.lines.includes(i)).length;
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <div class="hero-main">
+      <span class="sign-label">{tt(locale, "station")}</span>
+      <h1 class="station-sign">{profile.name}</h1>
+      <ul class="line-strip" aria-label={tt(locale, "lines")}>
+        {
+          lines.map((line) => (
+            <li style={`--c: ${line.color}`}>{lineName(line.index)}</li>
+          ))
+        }
+      </ul>
+      <p class="headline">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+    </div>
+
+    <aside class="status" aria-labelledby="status-title">
+      <h2 id="status-title" class="status-head">{tt(locale, "serviceStatus")}</h2>
+      <ul class="status-lines">
+        {
+          lines.map((line) => (
+            <li>
+              <span class="status-line" style={`--c: ${line.color}`}>
+                {lineName(line.index)}
+              </span>
+              <span class:list={["status-text", { closed: profile.available === false }]}>{statusText ?? `${lineCount(line.index)} ${plural(locale, "projects", lineCount(line.index))}`}</span>
+            </li>
+          ))
+        }
+      </ul>
+      {
+        profile.available !== null && (
+          <p class:list={["status-note", { closed: !profile.available }]}>{tt(locale, profile.available ? "available" : "unavailable")}</p>
+        )
+      }
+      <p class="status-stats">
+        <span><b>{stats.projects}</b> {plural(locale, "projects", stats.projects)}</span>
+        <span><b>{stats.technologies}</b> {plural(locale, "technologies", stats.technologies)}</span>
+        {stats.years !== null && <span><b>{stats.years}</b> {plural(locale, "years", stats.years)}</span>}
+      </p>
+    </aside>
+  </section>
+
+  <section class="map-section" id="map" aria-labelledby="map-title">
+    <h2 id="map-title" class="section-title">{tt(locale, "network")}</h2>
+    <NetworkMap network={network} portfolio={portfolio} locale={locale} />
+  </section>
+
+  <section class="board-section" id="departures" aria-labelledby="departures-title">
+    <div class="board">
+      <h2 id="departures-title" class="board-title">
+        <span>{tt(locale, "departures")}</span>
+        <span class="board-count">{stations.length}</span>
+      </h2>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{tt(locale, "year")}</th>
+            <th scope="col">{tt(locale, "destination")}</th>
+            <th scope="col" class="calling">{tt(locale, "callingAt")}</th>
+            <th scope="col" class="state">{tt(locale, "status")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            departures.map(({ project, lines: on }) => (
+              <tr>
+                <td class="year">{projectYears(project, present)}</td>
+                <td class="dest">
+                  <a href={projectUrl(project, locale, portfolio)}>{text(project.title, locale)}</a>
+                </td>
+                <td class="calling">
+                  <span class="dots">
+                    {on.map((i) => (
+                      <i style={`--c: ${lines[i]!.color}`} title={lineName(i)} />
+                    ))}
+                  </span>
+                  <span class="calling-names">{on.map(lineName).join(" · ")}</span>
+                </td>
+                <td class:list={["state", { live: project.links.live }]}>{project.links.live ? tt(locale, "liveShort") : tt(locale, "depot")}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    gap: 40px 56px;
+    align-items: start;
+    padding: 56px var(--pad) 40px;
+  }
+  .station-sign {
+    margin: 0;
+    padding: 18px 26px 12px;
+    border-radius: 6px 6px 0 0;
+    background: var(--navy);
+    color: #fff;
+    font: 800 clamp(44px, 7.4vw, 112px) / 1 var(--sans);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .line-strip {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .line-strip li {
+    flex: 1 1 auto;
+    padding: 7px 14px 5px;
+    background: var(--c);
+    color: #fff;
+    font: 800 14px/1.2 var(--sans);
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
+  }
+  .headline {
+    margin: 26px 0 0;
+    font: 800 clamp(22px, 2.4vw, 32px) / 1.15 var(--sans);
+  }
+  .bio {
+    max-width: 58ch;
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 18px;
+  }
+
+  .status {
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .status-head {
+    margin: 0;
+    padding: 12px 16px 9px;
+    background: var(--ink);
+    color: #fff;
+    font: 800 16px/1.2 var(--sans);
+  }
+  .status-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .status-lines li {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+    border-bottom: 1px solid var(--rule);
+  }
+  .status-line {
+    padding: 9px 12px 7px;
+    background: var(--c);
+    color: #fff;
+    font: 800 14px/1.2 var(--sans);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status-text {
+    padding: 9px 12px 7px;
+    font: 600 14px/1.2 var(--sans);
+  }
+  .status-text.closed,
+  .status-note.closed {
+    color: #b3261e;
+  }
+  .status-note {
+    margin: 0;
+    padding: 12px 16px 0;
+    color: #0a7a3a;
+    font-weight: 700;
+  }
+  .status-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 0;
+    padding: 12px 16px 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .status-stats b {
+    color: var(--ink);
+    font-size: 18px;
+  }
+
+  .map-section {
+    margin-top: 56px;
+    padding: 0 var(--pad);
+  }
+
+  .board-section {
+    margin-top: 96px;
+    padding: 0 var(--pad);
+  }
+  .board {
+    padding: 22px clamp(14px, 2.4vw, 32px) 26px;
+    border: 10px solid #2a2a2a;
+    border-radius: 10px;
+    background: var(--board);
+    color: var(--amber);
+    box-shadow: inset 0 0 40px rgb(0 0 0 / 0.8);
+  }
+  .board-title {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 14px;
+    font: 800 clamp(28px, 4vw, 48px) / 1 var(--dots);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgb(255 182 39 / 0.45);
+  }
+  .board table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .board th {
+    padding: 6px 10px;
+    border-bottom: 1px solid rgb(255 182 39 / 0.3);
+    color: rgb(255 182 39 / 0.65);
+    font: 600 12px/1.2 var(--sans);
+    letter-spacing: 0.1em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .board td {
+    padding: 10px 10px 8px;
+    border-bottom: 1px solid rgb(255 255 255 / 0.06);
+    vertical-align: middle;
+  }
+  .year,
+  .dest,
+  .state {
+    font: 800 clamp(17px, 1.8vw, 24px) / 1.1 var(--dots);
+    text-shadow: 0 0 8px rgb(255 182 39 / 0.35);
+  }
+  .year {
+    width: 9em;
+    white-space: nowrap;
+  }
+  .dest a {
+    text-decoration: none;
+  }
+  .dest a:hover,
+  .dest a:focus-visible {
+    color: #fff;
+    text-shadow: 0 0 10px #fff;
+  }
+  .calling {
+    color: rgb(255 255 255 / 0.7);
+    font-size: 13px;
+  }
+  .dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-right: 8px;
+    vertical-align: -1px;
+  }
+  .dots i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+  .state {
+    width: 7em;
+    text-align: right;
+    white-space: nowrap;
+    color: rgb(255 182 39 / 0.55);
+  }
+  .state.live {
+    color: #7dff9b;
+    text-shadow: 0 0 8px rgb(125 255 155 / 0.5);
+  }
+
+  @media (max-width: 960px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .calling-names {
+      display: none;
+    }
+  }
+  @media (max-width: 600px) {
+    .hero {
+      padding-top: 32px;
+    }
+    .station-sign {
+      padding: 14px 16px 8px;
+    }
+    .board {
+      border-width: 6px;
+    }
+    .board th.calling,
+    .board td.calling {
+      display: none;
+    }
+    .year {
+      width: auto;
+      font-size: 14px;
+    }
+    .state {
+      width: auto;
+      font-size: 14px;
+    }
+  }
+</style>

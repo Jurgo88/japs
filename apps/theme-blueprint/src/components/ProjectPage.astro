@@ -1,0 +1,353 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Callout from "./Callout.astro";
+import Dim from "./Dim.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const index = ordered.findIndex((p) => p.slug === project.slug);
+const pad = (n: number) => String(n).padStart(2, "0");
+const sheet = `P-${pad(index + 1)}`;
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+// The last sheet leads back to the first one.
+const next = neighbours(project, portfolio).next ?? (ordered.length > 1 ? ordered[0] : null);
+const nextSheet = next ? `P-${pad(ordered.indexOf(next) + 1)}` : null;
+const specs: [string, string][] = [
+  [tt(locale, "kind"), project.client.isClient ? (project.client.label ? text(project.client.label, locale) : tt(locale, "clientWork")) : tt(locale, "project")],
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+];
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+  sheet={sheet}
+  sheetTitle={title}
+  next={next && nextSheet ? { href: projectUrl(next, locale, portfolio), label: `${nextSheet} ${text(next.title, locale)}` } : null}
+>
+  <article>
+    <header class="head">
+      <p class="crumbs label">
+        <a href={`${home}#index`}>← {tt(locale, "index")}</a>
+        <span>{tt(locale, "sheet")} {sheet} / P-{pad(ordered.length)}</span>
+      </p>
+      <div class="title-row">
+        <Callout top={pad(index + 1)} bottom={sheet} size={78} />
+        <h1>{title}</h1>
+      </div>
+      <p class="summary">{text(project.summary, locale)}</p>
+    </header>
+
+    {
+      (desktop || mobile) && (
+        <div class:list={["elevations", { "with-phone": desktop && mobile }]}>
+          {desktop && (
+            <figure class="elevation">
+              <div class="plate">
+                <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+              </div>
+              <Dim label="1440" />
+              <figcaption class="label">
+                {tt(locale, "elevation")} 1 — {tt(locale, "desktop")}
+              </figcaption>
+            </figure>
+          )}
+          {mobile && (
+            <figure class="elevation phone">
+              <div class="plate">
+                <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+              </div>
+              <Dim label="390" />
+              <figcaption class="label">
+                {tt(locale, "elevation")} {desktop ? 2 : 1} — {tt(locale, "mobile")}
+              </figcaption>
+            </figure>
+          )}
+        </div>
+      )
+    }
+
+    <div class="body">
+      <aside class="specs" aria-labelledby="specs-title">
+        <h2 id="specs-title" class="label">{tt(locale, "specs")}</h2>
+        <dl>
+          {
+            specs.map(([label, value]) => (
+              <div>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))
+          }
+          {
+            project.tags.length > 0 && (
+              <div>
+                <dt>{tt(locale, "stack")}</dt>
+                <dd>{project.tags.join(" · ")}</dd>
+              </div>
+            )
+          }
+        </dl>
+        {
+          (project.links.live || project.links.repo) && (
+            <ul class="refs" aria-label={tt(locale, "links")}>
+              {project.links.live && (
+                <li>
+                  <a href={project.links.live} rel="noopener">
+                    <span class="label">Ref. A</span>
+                    {tt(locale, "live")} ↗
+                  </a>
+                </li>
+              )}
+              {project.links.repo && (
+                <li>
+                  <a href={project.links.repo} rel="noopener">
+                    <span class="label">Ref. B</span>
+                    {tt(locale, "source")} ↗
+                  </a>
+                </li>
+              )}
+            </ul>
+          )
+        }
+      </aside>
+
+      <section class="notes" aria-labelledby="notes-title">
+        <h2 id="notes-title" class="label">{tt(locale, "projectNotes")}</h2>
+        <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+      </section>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .head {
+    padding: 28px 0 56px;
+  }
+  .crumbs {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 40px;
+  }
+  .crumbs a {
+    text-decoration: none;
+  }
+  .crumbs a:hover {
+    color: var(--red);
+  }
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  h1 {
+    min-width: 0;
+    margin: 0;
+    font: 700 clamp(48px, 8vw, 132px) / 0.88 var(--display);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .summary {
+    max-width: 58ch;
+    margin: 26px 0 0 100px;
+    font: 500 clamp(19px, 1.8vw, 24px) / 1.3 var(--display);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .elevations {
+    display: grid;
+    gap: 28px;
+    align-items: start;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .elevations.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .elevation {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+  }
+  .elevation .plate {
+    aspect-ratio: 16 / 10;
+  }
+  .elevations:not(.with-phone) .phone {
+    max-width: 300px;
+  }
+  .elevations:not(.with-phone) .phone .plate {
+    aspect-ratio: 390 / 844;
+  }
+  /* In the pair the phone stretches to the desktop figure; its image stays out of flow so it never sets the height. */
+  .elevations.with-phone {
+    align-items: stretch;
+  }
+  .elevations.with-phone .phone {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+  }
+  .elevations.with-phone .phone .plate {
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+  .elevations.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+  }
+
+  .body {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.36fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+    padding-top: 72px;
+  }
+  .specs {
+    position: sticky;
+    top: 20px;
+    border: 1px solid var(--line);
+  }
+  .specs h2,
+  .notes h2 {
+    margin: 0;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .specs dl {
+    margin: 0;
+  }
+  .specs dl div {
+    display: grid;
+    grid-template-columns: 7em minmax(0, 1fr);
+    border-bottom: 1px solid var(--faint);
+  }
+  .specs dt,
+  .specs dd {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+  .specs dt {
+    border-right: 1px solid var(--faint);
+    color: var(--soft);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 11px;
+  }
+  .specs dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .refs {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .refs a {
+    display: grid;
+    gap: 2px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+    font: 700 21px/1.1 var(--display);
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+  .refs li:first-child a {
+    border-top: 0;
+  }
+  .refs a:hover {
+    background: var(--line);
+    color: var(--paper);
+  }
+  .refs a:hover .label {
+    color: var(--paper);
+  }
+  .notes {
+    border: 1px solid var(--line);
+    background: rgb(14 55 102 / 0.55);
+  }
+  .description {
+    max-width: 70ch;
+    padding: 18px 22px 8px;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.5em;
+    font-family: var(--display);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+  .description :global(h2) {
+    font-size: 28px;
+  }
+  .description :global(h3) {
+    font-size: 22px;
+  }
+  .description :global(a) {
+    color: var(--red);
+  }
+  .description :global(ul),
+  .description :global(ol) {
+    padding-left: 1.4em;
+  }
+
+  @media (max-width: 860px) {
+    .head {
+      padding: 20px 0 36px;
+    }
+    .crumbs {
+      margin-bottom: 24px;
+    }
+    .title-row {
+      align-items: start;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .summary {
+      margin-left: 0;
+    }
+    .elevations.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 12px;
+    }
+    .elevation figcaption {
+      font-size: 9px;
+    }
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 28px;
+      padding-top: 48px;
+    }
+    .specs {
+      position: static;
+    }
+    .description {
+      padding: 14px 14px 4px;
+    }
+  }
+</style>

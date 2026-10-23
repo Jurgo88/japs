@@ -1,0 +1,32 @@
+---
+/** A horizontal dimension line: end ticks, a line and the measure in the middle. */
+interface Props {
+  label: string;
+  class?: string;
+}
+
+const { label, class: className } = Astro.props;
+---
+
+<div class:list={["dim", className]} aria-hidden="true"><span>{label}</span></div>
+
+<style>
+  .dim {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 14px;
+    border-inline: 1px solid var(--line);
+    color: var(--line);
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .dim::before,
+  .dim::after {
+    flex: 1;
+    height: 1px;
+    content: "";
+    background: var(--line);
+  }
+</style>
