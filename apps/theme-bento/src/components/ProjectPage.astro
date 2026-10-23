@@ -1,0 +1,354 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { coverShot, formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, projectYears, renderMarkdown, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const { previous, next } = neighbours(project, portfolio);
+// Wrap around so both cards are always there when there is more than one project.
+const prev = previous ?? (ordered.length > 1 ? ordered[ordered.length - 1]! : null);
+const nxt = next ?? (ordered.length > 1 ? ordered[0]! : null);
+const usage = new Map(tagCounts(portfolio).map((t) => [t.tag, t.count]));
+const facts: [string, string][] = [
+  [tt(locale, "role"), project.role ? text(project.role, locale) : "—"],
+  [tt(locale, "period"), period],
+];
+if (project.client.isClient) facts.push([tt(locale, "clientWork"), project.client.label ? text(project.client.label, locale) : "✓"]);
+const neighbourCards = [
+  { label: tt(locale, "previous"), project: prev, dir: "prev" },
+  { label: tt(locale, "next"), project: nxt, dir: "next" },
+].filter((c): c is { label: string; project: PortfolioProject; dir: string } => c.project !== null && c.project.slug !== project.slug);
+---
+
+<Base
+  locale={locale}
+  title={`${title} — ${portfolio.profile.name}`}
+  description={text(project.summary, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }))}
+  homeHref={home}
+>
+  <a class="back" href={`${home}#work`}>← {tt(locale, "back")}</a>
+
+  <article class="bento">
+    <header class="tile s-8 intro">
+      <p class="eyebrow">
+        {projectYears(project, tt(locale, "present"))}
+        {project.client.isClient && ` · ${tt(locale, "clientWork")}`}
+      </p>
+      <h1>{title}</h1>
+      <p class="summary">{text(project.summary, locale)}</p>
+      {
+        (project.links.live || project.links.repo) && (
+          <p class="actions">
+            {project.links.live && (
+              <a class="btn primary" href={project.links.live} rel="noopener">
+                {tt(locale, "live")} ↗
+              </a>
+            )}
+            {project.links.repo && (
+              <a class="btn" href={project.links.repo} rel="noopener">
+                {tt(locale, "source")} ↗
+              </a>
+            )}
+          </p>
+        )
+      }
+    </header>
+
+    <aside class="tile s-4 facts" aria-labelledby="facts-title">
+      <h2 id="facts-title" class="eyebrow">{tt(locale, "details")}</h2>
+      <dl>
+        {
+          facts.map(([label, value]) => (
+            <div>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </aside>
+
+    {
+      (desktop || mobile) && (
+        <section class="tile s-12 screens" aria-label={tt(locale, "screens")}>
+          <div class:list={["devices", { "with-phone": desktop && mobile }]}>
+            {desktop && (
+              <figure class="screen">
+                <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+              </figure>
+            )}
+            {mobile && (
+              <figure class="screen phone">
+                <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+              </figure>
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    <section class="tile s-8 notes" aria-labelledby="notes-title">
+      <h2 id="notes-title" class="eyebrow">{tt(locale, "overview")}</h2>
+      <div class="description" set:html={renderMarkdown(text(project.description, locale))} />
+    </section>
+
+    {
+      project.tags.length > 0 && (
+        <aside class="tile s-4 stack" aria-labelledby="stack-title">
+          <h2 id="stack-title" class="eyebrow">{tt(locale, "stack")}</h2>
+          <ul>
+            {project.tags.map((tag) => (
+              <li>
+                <span>{tag}</span>
+                <span class="usage mono">
+                  {tt(locale, "usedIn")} {usage.get(tag) ?? 1}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )
+    }
+
+    {
+      neighbourCards.map(({ label, project: p, dir }) => {
+        const shot = coverShot(p);
+        return (
+          <a class:list={["tile", "s-6", "neighbour", dir]} href={projectUrl(p, locale, portfolio)}>
+            <span class="n-text">
+              <span class="eyebrow">{dir === "prev" ? `← ${label}` : `${label} →`}</span>
+              <span class="n-title">{text(p.title, locale)}</span>
+            </span>
+            {shot && (
+              <span class="n-thumb">
+                <img src={`/${shot.src}`} alt="" loading="lazy" width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+              </span>
+            )}
+          </a>
+        );
+      })
+    }
+  </article>
+</Base>
+
+<style>
+  .back {
+    display: inline-block;
+    margin: 28px 4px 16px;
+    color: var(--muted);
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .back:hover {
+    color: var(--text);
+  }
+  .intro {
+    gap: 12px;
+    justify-content: flex-end;
+    min-height: 300px;
+    background:
+      radial-gradient(ellipse 80% 70% at 100% 0, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+      var(--tile);
+  }
+  h1 {
+    margin: 0;
+    font: 650 clamp(36px, 5.4vw, 68px) / 1 var(--sans);
+    letter-spacing: -0.04em;
+    overflow-wrap: anywhere;
+  }
+  .summary {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 6px 0 0;
+  }
+  .facts dl {
+    display: grid;
+    gap: 0;
+    margin: 12px 0 0;
+  }
+  .facts dl div {
+    display: grid;
+    gap: 2px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts dl div:last-child {
+    border-bottom: 0;
+  }
+  .facts dt {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .facts dd {
+    margin: 0;
+    font-weight: 500;
+  }
+
+  .screens {
+    padding: clamp(14px, 3vw, 36px);
+    background:
+      radial-gradient(ellipse 60% 80% at 0 100%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+      radial-gradient(ellipse 60% 80% at 100% 0, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%),
+      var(--tile-2);
+  }
+  .devices {
+    display: grid;
+    gap: clamp(10px, 2vw, 22px);
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .devices.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .screen {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--tile);
+    box-shadow: 0 20px 50px -24px rgb(0 0 0 / 0.45);
+  }
+  .screen img {
+    width: 100%;
+    height: auto;
+  }
+  .phone {
+    border-radius: 22px;
+  }
+  /* Out of flow so the phone never stretches the row; the desktop shot sets its height. */
+  .devices.with-phone .phone img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .devices:not(.with-phone) .phone {
+    max-width: 320px;
+    margin-inline: auto;
+  }
+
+  .description {
+    max-width: 68ch;
+    margin-top: 10px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.6em 0 0.4em;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .description :global(a) {
+    color: var(--accent);
+  }
+  .description :global(code) {
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: var(--tile-2);
+    font: 0.9em var(--mono);
+  }
+  .stack ul {
+    display: grid;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stack li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+    font-weight: 500;
+  }
+  .stack li:last-child {
+    border-bottom: 0;
+  }
+  .usage {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .neighbour {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 120px;
+  }
+  .neighbour.next {
+    flex-direction: row-reverse;
+    text-align: right;
+  }
+  .n-text {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  .n-title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+  .n-thumb {
+    flex: none;
+    width: 140px;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .n-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  @media (max-width: 600px) {
+    .intro {
+      min-height: 240px;
+    }
+    .devices.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+    }
+    .screen {
+      border-radius: 10px;
+    }
+    .phone {
+      border-radius: 14px;
+    }
+    .n-thumb {
+      width: 96px;
+    }
+  }
+</style>
