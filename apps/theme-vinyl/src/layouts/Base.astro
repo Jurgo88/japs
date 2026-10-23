@@ -1,0 +1,272 @@
+---
+import "@fontsource-variable/fraunces/full.css";
+import "@fontsource-variable/fraunces/full-italic.css";
+import "@fontsource-variable/work-sans/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#f1e7d6" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23141414'/><circle cx='16' cy='16' r='10' fill='none' stroke='%23333' stroke-width='1'/><circle cx='16' cy='16' r='5.5' fill='%23e8642c'/><circle cx='16' cy='16' r='1.4' fill='%23f1e7d6'/></svg>`} />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href={homeHref}>
+        <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+          <circle cx="16" cy="16" r="15" fill="#141414" />
+          <circle cx="16" cy="16" r="10" fill="none" stroke="#333" />
+          <circle cx="16" cy="16" r="5.5" fill="#e8642c" />
+          <circle cx="16" cy="16" r="1.4" fill="#f1e7d6" />
+        </svg>
+        <span>{profile.name}</span>
+      </a>
+      <nav class="nav" aria-label={tt(locale, "discography")}>
+        <a href={`${homeHref}#tracklist`}>{tt(locale, "tracklist")}</a>
+        <a href={`${homeHref}#discography`}>{tt(locale, "discography")}</a>
+        <a href="#booking">{tt(locale, "booking")}</a>
+      </nav>
+      {
+        alternates.length > 1 && (
+          <nav class="languages" aria-label={tt(locale, "language")}>
+            {alternates.map((a) => (
+              <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                {a.locale.toUpperCase()}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="footer" id="booking">
+      <div class="stripes" aria-hidden="true"></div>
+      <div class="footer-inner">
+        <p class="kicker">{tt(locale, "booking")}</p>
+        <p class="footer-lead">{tt(locale, "bookingText")}</p>
+        {profile.email && <a class="footer-mail" href={`mailto:${profile.email}`}>{profile.email}</a>}
+        <ul class="footer-links">
+          {profile.links.map((link) => (
+            <li>
+              <a href={link.url} rel="me noopener">{link.label} ↗</a>
+            </li>
+          ))}
+        </ul>
+        <p class="fine">℗ © {new Date().getFullYear()} {profile.name} · JAPS Records</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --cream: #f1e7d6;
+    --cream-2: #e7d9c2;
+    --ink: #231a14;
+    --brown: #5b3a29;
+    --rust: #b5452a;
+    --orange: #e8642c;
+    --mustard: #efb03a;
+    --muted: #7a6656;
+    --display: "Fraunces Variable", Georgia, serif;
+    --sans: "Work Sans Variable", system-ui, sans-serif;
+    --pad: clamp(16px, 4vw, 56px);
+    /* The 70s sleeve stripes. */
+    --stripes: linear-gradient(var(--mustard) 0 25%, var(--orange) 25% 50%, var(--rust) 50% 75%, var(--brown) 75%);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--cream);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    background:
+      radial-gradient(rgb(35 26 20 / 0.06) 1px, transparent 1.2px) 0 0 / 6px 6px,
+      var(--cream);
+    font: 400 16px/1.6 var(--sans);
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--orange);
+    color: var(--cream);
+  }
+  :focus-visible {
+    outline: 3px solid var(--orange);
+    outline-offset: 3px;
+  }
+  .display {
+    font-family: var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+  }
+  .kicker {
+    margin: 0;
+    color: var(--rust);
+    font: 600 13px/1.3 var(--sans);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .section-title {
+    margin: 0;
+    font: 800 clamp(34px, 5vw, 64px) / 1 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    letter-spacing: -0.02em;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 28px;
+    padding: 18px var(--pad);
+  }
+  .topbar a {
+    text-decoration: none;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: 800 20px/1 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+  }
+  .brand svg {
+    transition: transform 0.6s;
+  }
+  .brand:hover svg {
+    transform: rotate(240deg);
+  }
+  .nav {
+    display: flex;
+    gap: 22px;
+    font: 500 14px/1 var(--sans);
+  }
+  .nav a:hover,
+  .languages a:hover {
+    color: var(--rust);
+  }
+  .languages {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    font: 600 12px/1 var(--sans);
+  }
+  .languages a {
+    padding: 6px 9px;
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .languages a[aria-current="page"] {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .footer {
+    margin-top: 120px;
+    background: var(--ink);
+    color: var(--cream);
+  }
+  .stripes {
+    height: 36px;
+    background: var(--stripes);
+  }
+  .footer-inner {
+    padding: 56px var(--pad) 32px;
+    text-align: center;
+  }
+  .footer .kicker {
+    color: var(--mustard);
+  }
+  .footer-lead {
+    margin: 10px 0 0;
+    font: italic 400 clamp(20px, 2.4vw, 28px) / 1.3 var(--display);
+  }
+  .footer-mail {
+    display: inline-block;
+    margin-top: 10px;
+    color: var(--mustard);
+    font: 800 clamp(28px, 5vw, 64px) / 1.1 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .footer-mail:hover {
+    color: var(--orange);
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .footer-links a {
+    text-decoration: underline;
+    text-decoration-color: rgb(241 231 214 / 0.35);
+    text-underline-offset: 4px;
+  }
+  .footer-links a:hover {
+    color: var(--mustard);
+  }
+  .fine {
+    margin: 40px 0 0;
+    color: rgb(241 231 214 / 0.5);
+    font-size: 13px;
+  }
+
+  @media (max-width: 760px) {
+    .nav {
+      display: none;
+    }
+    .footer {
+      margin-top: 80px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>

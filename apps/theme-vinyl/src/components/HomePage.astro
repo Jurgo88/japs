@@ -1,0 +1,647 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Record from "./Record.astro";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stats = portfolioStats(portfolio);
+const credits = tagCounts(portfolio).slice(0, 12);
+const present = tt(locale, "present");
+// Two sides of the record: the first half on side A, the rest on side B.
+const half = Math.ceil(projects.length / 2);
+const sides = [
+  { name: tt(locale, "sideA"), code: "A", tracks: projects.slice(0, half) },
+  { name: tt(locale, "sideB"), code: "B", tracks: projects.slice(half) },
+].filter((s) => s.tracks.length > 0);
+const years = projects.flatMap((p) => [p.period.from, p.period.to]).filter((m): m is string => Boolean(m)).map((m) => m.slice(0, 4)).sort();
+const span = years.length ? (years[0] === years[years.length - 1] ? years[0] : `${years[0]}–${years[years.length - 1]}`) : "";
+const firstWithShot = projects.find((p) => coverShot(p));
+const firstShot = firstWithShot ? coverShot(firstWithShot) : undefined;
+const initials = profile.name
+  .trim()
+  .split(/\s+/)
+  .map((w) => w[0] ?? "")
+  .join("")
+  .toUpperCase();
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <div class="sleeve-wrap">
+      <Record labelText={initials} class="hero-record" />
+      <div class="sleeve" aria-hidden="true">
+        <span class="sleeve-name">{profile.name}</span>
+        <span class="sleeve-meta">{tt(locale, "lp")} · {projects.length} {tt(locale, "tracks")}</span>
+        <span class="sleeve-stripes"></span>
+        {profile.available !== null && <span class:list={["sticker", { off: !profile.available }]}>{tt(locale, profile.available ? "sticker" : "stickerOff")}</span>}
+      </div>
+    </div>
+
+    <div class="hero-text">
+      <p class="kicker">
+        {tt(locale, "lp")} · {projects.length} {tt(locale, "tracks")}{span && ` · ${span}`}
+      </p>
+      <h1 class="display">{profile.name}</h1>
+      <p class="headline">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+      {profile.available !== null && <p class:list={["availability", { off: !profile.available }]}>{tt(locale, profile.available ? "available" : "unavailable")}</p>}
+    </div>
+  </section>
+
+  <section class="listening" id="tracklist" aria-labelledby="tracklist-title">
+    <div class="turntable-col">
+      <div class="turntable" data-turntable>
+        <Record image={firstShot ? `/${firstShot.src}` : undefined} labelText={initials} class="deck-record" />
+        <span class="arm" aria-hidden="true"><i></i></span>
+        <span class="knob" aria-hidden="true"></span>
+      </div>
+      <p class="now">
+        <span class="kicker">{tt(locale, "nowPlaying")}</span>
+        <span class="now-title" data-now>{firstWithShot ? text(firstWithShot.title, locale) : profile.name}</span>
+        <span class="hint">{tt(locale, "pickTrack")}</span>
+      </p>
+    </div>
+
+    <div class="tracklist">
+      <h2 id="tracklist-title" class="section-title">{tt(locale, "tracklist")}</h2>
+      {
+        sides.map((side) => (
+          <div class="side">
+            <p class="side-name">{side.name}</p>
+            <ol>
+              {side.tracks.map((project, i) => {
+                const shot = coverShot(project);
+                return (
+                  <li>
+                    <a class="track" href={projectUrl(project, locale, portfolio)} data-shot={shot ? `/${shot.src}` : ""} data-title={text(project.title, locale)}>
+                      <span class="code">
+                        {side.code}
+                        {i + 1}
+                      </span>
+                      <span class="track-title">
+                        {text(project.title, locale)}
+                        <span class="track-tags">{project.tags.slice(0, 3).join(" · ")}</span>
+                      </span>
+                      <span class="track-year">{projectYears(project, present)}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="discography" id="discography" aria-labelledby="disco-title">
+    <h2 id="disco-title" class="section-title">{tt(locale, "discography")}</h2>
+    <ul class="crate">
+      {
+        projects.map((project, i) => {
+          const shot = coverShot(project);
+          return (
+            <li>
+              <a class="album" href={projectUrl(project, locale, portfolio)}>
+                <span class="cover-wrap">
+                  <Record image={shot ? `/${shot.src}` : undefined} labelText={text(project.title, locale)} class="peek" />
+                  <span class="cover">
+                    {shot ? (
+                      <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading={i < 4 ? "eager" : "lazy"} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                    ) : (
+                      <span class="cover-art">
+                        <span class="display">{text(project.title, locale)}</span>
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span class="album-title display">{text(project.title, locale)}</span>
+                <span class="album-meta">
+                  {projectYears(project, present)}
+                  {project.client.isClient && ` · ${tt(locale, "clientWork")}`}
+                </span>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+
+  <section class="liner" aria-labelledby="liner-title">
+    <div class="notes">
+      <h2 id="liner-title" class="section-title">{tt(locale, "linerNotes")}</h2>
+      <p class="notes-lead display">{text(profile.headline, locale)}</p>
+      {text(profile.bio, locale) && <p>{text(profile.bio, locale)}</p>}
+      <p class="notes-sign">— {profile.name}{profile.location && `, ${profile.location}`}</p>
+    </div>
+    {
+      credits.length > 0 && (
+        <div class="credits">
+          <h2 class="section-title small">{tt(locale, "credits")}</h2>
+          <ul>
+            {credits.map(({ tag, count }) => (
+              <li>
+                <span>{tag}</span>
+                <span class="dots" aria-hidden="true" />
+                <span class="on">{tt(locale, "onTracks").replace("{n}", String(count))}</span>
+              </li>
+            ))}
+          </ul>
+          <p class="credit-total">
+            {stats.technologies} {plural(locale, "technologies", stats.technologies)}
+          </p>
+        </div>
+      )
+    }
+  </section>
+</Base>
+
+<script>
+  // Hovering or focusing a track puts its screenshot on the turntable and spins the record.
+  const deck = document.querySelector<HTMLElement>("[data-turntable]");
+  const record = deck?.querySelector<HTMLElement>(".deck-record");
+  const label = record?.querySelector<HTMLElement>(".label");
+  const now = document.querySelector<HTMLElement>("[data-now]");
+  const play = (track: HTMLAnchorElement) => {
+    if (!record || !label) return;
+    const src = track.dataset.shot;
+    let img = label.querySelector("img");
+    if (src) {
+      if (!img) {
+        img = document.createElement("img");
+        img.alt = "";
+        label.prepend(img);
+      }
+      img.src = src;
+      label.querySelector(".label-text")?.setAttribute("hidden", "");
+    } else {
+      img?.remove();
+      label.querySelector(".label-text")?.removeAttribute("hidden");
+    }
+    if (now) now.textContent = track.dataset.title ?? "";
+    record.classList.add("spin");
+    deck?.classList.add("playing");
+  };
+  const stop = () => {
+    record?.classList.remove("spin");
+    deck?.classList.remove("playing");
+  };
+  for (const track of document.querySelectorAll<HTMLAnchorElement>(".track")) {
+    track.addEventListener("pointerenter", () => play(track));
+    track.addEventListener("focus", () => play(track));
+    track.addEventListener("blur", stop);
+  }
+  document.querySelector(".tracklist")?.addEventListener("pointerleave", stop);
+</script>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 48px clamp(32px, 6vw, 96px);
+    padding: 40px var(--pad) 72px;
+  }
+  /* The sleeve with the record half out of it; hovering slides it further and spins it. */
+  .sleeve-wrap {
+    position: relative;
+    width: min(100%, 520px);
+    margin-right: 18%;
+  }
+  .sleeve-wrap :global(.hero-record) {
+    position: absolute;
+    top: 3%;
+    left: 3%;
+    width: 94%;
+    transform: translateX(34%);
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sleeve-wrap:hover :global(.hero-record) {
+    transform: translateX(48%) rotate(30deg);
+  }
+  .sleeve {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--cream-2);
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.08),
+      0 30px 60px -30px rgb(35 26 20 / 0.6);
+  }
+  .sleeve-name {
+    position: absolute;
+    top: 7%;
+    left: 7%;
+    right: 7%;
+    font: 800 clamp(34px, 5.4vw, 72px) / 0.92 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    letter-spacing: -0.02em;
+  }
+  .sleeve-meta {
+    position: absolute;
+    left: 7%;
+    bottom: 6%;
+    z-index: 1;
+    padding: 5px 8px 4px;
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--cream);
+    font: 600 12px/1 var(--sans);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  /* Rainbow bands sweeping up from the bottom corner. */
+  .sleeve-stripes {
+    position: absolute;
+    left: -30%;
+    right: -30%;
+    bottom: -8%;
+    height: 52%;
+    background: var(--stripes);
+    transform: rotate(-14deg);
+    transform-origin: left bottom;
+  }
+  .sticker {
+    position: absolute;
+    top: 46%;
+    right: 7%;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 22%;
+    aspect-ratio: 1;
+    padding: 6px;
+    border-radius: 50%;
+    background: var(--mustard);
+    color: var(--ink);
+    font: 800 clamp(10px, 1.1vw, 14px) / 1.05 var(--display);
+    text-align: center;
+    transform: rotate(12deg);
+    box-shadow: 0 4px 10px -4px rgb(0 0 0 / 0.4);
+  }
+  .sticker.off {
+    background: var(--cream);
+    color: var(--rust);
+  }
+  .hero-text h1 {
+    margin: 12px 0 0;
+    font-size: clamp(48px, 7.4vw, 108px);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    overflow-wrap: anywhere;
+  }
+  .headline {
+    margin: 16px 0 0;
+    font: italic 400 clamp(20px, 2.2vw, 28px) / 1.25 var(--display);
+  }
+  .bio {
+    max-width: 50ch;
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 17px;
+  }
+  .availability {
+    display: inline-block;
+    margin: 18px 0 0;
+    padding: 6px 14px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .availability.off {
+    color: var(--muted);
+    border-color: var(--muted);
+  }
+
+  .listening {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+    gap: 48px clamp(32px, 5vw, 72px);
+    align-items: start;
+    padding: 72px var(--pad);
+    background: var(--ink);
+    color: var(--cream);
+  }
+  .turntable-col {
+    position: sticky;
+    top: 24px;
+  }
+  /* A wooden plinth with a platter, tone arm and knob. */
+  .turntable {
+    position: relative;
+    aspect-ratio: 1.12;
+    padding: 7% 18% 7% 7%;
+    border-radius: 14px;
+    background:
+      repeating-linear-gradient(92deg, rgb(255 255 255 / 0.03) 0 2px, transparent 2px 9px),
+      linear-gradient(160deg, #7a4b30, #4a2c1c);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.12),
+      0 30px 60px -30px #000;
+  }
+  .turntable :global(.deck-record) {
+    width: 100%;
+  }
+  .arm {
+    position: absolute;
+    top: 9%;
+    right: 7%;
+    width: 9%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(#ddd 30%, #999 32% 60%, #666 62%);
+  }
+  .arm i {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 7px;
+    height: 330%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #bbb, #eee, #999);
+    transform-origin: top center;
+    transform: translateX(-50%) rotate(8deg);
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .arm i::after {
+    position: absolute;
+    left: -6px;
+    bottom: -14px;
+    width: 18px;
+    height: 22px;
+    border-radius: 3px;
+    content: "";
+    background: #2a2a2a;
+  }
+  .playing .arm i {
+    transform: translateX(-50%) rotate(26deg);
+  }
+  .knob {
+    position: absolute;
+    right: 6%;
+    bottom: 8%;
+    width: 7%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #eee, #888);
+  }
+  .now {
+    display: grid;
+    gap: 4px;
+    margin: 18px 0 0;
+  }
+  .now .kicker {
+    color: var(--mustard);
+  }
+  .now-title {
+    font: 700 24px/1.15 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+  }
+  .hint {
+    color: rgb(241 231 214 / 0.55);
+    font-size: 13px;
+  }
+  .tracklist .section-title {
+    color: var(--cream);
+  }
+  .side {
+    margin-top: 28px;
+  }
+  .side-name {
+    margin: 0 0 6px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--orange);
+    color: var(--mustard);
+    font: 600 13px/1 var(--sans);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .side ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .track {
+    display: grid;
+    grid-template-columns: 3em minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 14px;
+    padding: 11px 8px;
+    border-bottom: 1px solid rgb(241 231 214 / 0.12);
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .track:hover,
+  .track:focus-visible {
+    background: rgb(241 231 214 / 0.07);
+    outline: none;
+  }
+  .code {
+    color: var(--orange);
+    font: 600 14px/1 var(--sans);
+    font-variant-numeric: tabular-nums;
+  }
+  .track-title {
+    display: grid;
+    font: 700 20px/1.2 var(--display);
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+  }
+  .track-tags {
+    color: rgb(241 231 214 / 0.5);
+    font: 400 13px/1.4 var(--sans);
+  }
+  .track-year {
+    color: rgb(241 231 214 / 0.6);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .discography {
+    padding: 88px var(--pad) 0;
+  }
+  .crate {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 44px 28px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .album {
+    display: grid;
+    gap: 8px;
+    text-decoration: none;
+  }
+  .cover-wrap {
+    position: relative;
+    display: block;
+    margin-right: 14%;
+  }
+  .cover-wrap :global(.peek) {
+    position: absolute;
+    top: 4%;
+    left: 4%;
+    width: 92%;
+    transform: translateX(12%);
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .album:hover :global(.peek),
+  .album:focus-visible :global(.peek) {
+    transform: translateX(32%) rotate(40deg);
+  }
+  .cover {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--cream-2);
+    box-shadow:
+      inset 0 0 0 1px rgb(0 0 0 / 0.08),
+      0 18px 36px -20px rgb(35 26 20 / 0.7);
+  }
+  /* Square covers crop the screenshot from its top-left corner, where a site usually starts. */
+  .cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: left top;
+  }
+  .cover-art {
+    display: grid;
+    align-content: start;
+    height: 100%;
+    padding: 10%;
+    background:
+      linear-gradient(transparent 55%, var(--mustard) 55% 66%, var(--orange) 66% 77%, var(--rust) 77% 88%, var(--brown) 88%),
+      var(--cream-2);
+  }
+  .cover-art span {
+    font-size: clamp(22px, 2.4vw, 30px);
+    font-weight: 800;
+    line-height: 1;
+  }
+  .album-title {
+    margin-top: 6px;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .album:hover .album-title {
+    color: var(--rust);
+  }
+  .album-meta {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .liner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 48px clamp(32px, 6vw, 96px);
+    margin: 100px var(--pad) 0;
+    padding: 48px clamp(20px, 4vw, 56px);
+    border-radius: 6px;
+    background: var(--cream-2);
+  }
+  .notes p {
+    max-width: 58ch;
+    margin: 14px 0 0;
+    font-size: 17px;
+  }
+  .notes-lead {
+    font-size: clamp(22px, 2.4vw, 30px) !important;
+    font-style: italic;
+    line-height: 1.3;
+  }
+  .notes-sign {
+    font-family: var(--display);
+    font-style: italic;
+  }
+  .section-title.small {
+    font-size: clamp(26px, 3vw, 36px);
+  }
+  .credits ul {
+    display: grid;
+    gap: 6px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .credits li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-weight: 600;
+  }
+  .credits .dots {
+    flex: 1;
+    border-bottom: 1.5px dotted var(--muted);
+  }
+  .credits .on {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 14px;
+    font-style: italic;
+  }
+  .credit-total {
+    margin: 14px 0 0;
+    color: var(--rust);
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .hero,
+    .listening,
+    .liner {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sleeve-wrap {
+      width: min(78%, 420px);
+    }
+    .turntable-col {
+      position: static;
+      max-width: 420px;
+    }
+  }
+  @media (max-width: 600px) {
+    .hero {
+      padding-top: 16px;
+    }
+    .track {
+      grid-template-columns: 2.4em minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+    .track-title {
+      font-size: 17px;
+    }
+    .crate {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 32px 18px;
+    }
+    .album-title {
+      font-size: 17px;
+    }
+  }
+</style>

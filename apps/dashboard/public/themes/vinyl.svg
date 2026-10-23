@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Vinyl theme preview">
+  <defs>
+    <radialGradient id="v" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#1d1d1d"/><stop offset="1" stop-color="#101010"/></radialGradient>
+    <clipPath id="s"><rect x="30" y="40" width="200" height="200" rx="3"/></clipPath>
+  </defs>
+  <rect width="640" height="400" fill="#f1e7d6"/>
+  <circle cx="190" cy="140" r="96" fill="url(#v)"/>
+  <circle cx="190" cy="140" r="70" fill="none" stroke="#2a2a2a"/><circle cx="190" cy="140" r="52" fill="none" stroke="#2a2a2a"/>
+  <circle cx="190" cy="140" r="30" fill="#e8642c"/><circle cx="190" cy="140" r="4" fill="#f1e7d6"/>
+  <rect x="30" y="40" width="200" height="200" rx="3" fill="#e7d9c2"/>
+  <g clip-path="url(#s)" transform="rotate(-14 30 240)">
+    <rect x="0" y="150" width="320" height="24" fill="#efb03a"/><rect x="0" y="174" width="320" height="24" fill="#e8642c"/><rect x="0" y="198" width="320" height="24" fill="#b5452a"/><rect x="0" y="222" width="320" height="40" fill="#5b3a29"/>
+  </g>
+  <text x="44" y="82" fill="#231a14" font-family="Georgia,serif" font-size="30" font-weight="900">Jane</text>
+  <text x="44" y="112" fill="#231a14" font-family="Georgia,serif" font-size="30" font-weight="900">Example</text>
+  <circle cx="198" cy="150" r="22" fill="#efb03a"/>
+  <text x="198" y="153" fill="#231a14" font-family="Georgia,serif" font-size="7" font-weight="800" text-anchor="middle" transform="rotate(12 198 150)">Now booking</text>
+  <text x="330" y="78" fill="#b5452a" font-family="Arial,sans-serif" font-size="8" font-weight="600" letter-spacing="2">LP · 4 TRACKS</text>
+  <text x="330" y="118" fill="#231a14" font-family="Georgia,serif" font-size="38" font-weight="900">Jane Example</text>
+  <text x="330" y="140" fill="#231a14" font-family="Georgia,serif" font-size="13" font-style="italic">Web developer</text>
+  <rect y="270" width="640" height="130" fill="#231a14"/>
+  <rect x="30" y="284" width="130" height="104" rx="8" fill="#6b4029"/>
+  <circle cx="86" cy="336" r="40" fill="url(#v)"/><circle cx="86" cy="336" r="13" fill="#e8642c"/>
+  <path d="M146 296l-12 50" stroke="#ddd" stroke-width="3"/>
+  <g font-family="Georgia,serif" font-size="12" font-weight="800" fill="#f1e7d6"><text x="210" y="300">Example Shop</text><text x="210" y="326">Trail Planner</text><text x="210" y="352">Bakery Orders</text><text x="210" y="378">Habit Tracker</text></g>
+  <g font-family="Arial,sans-serif" font-size="9" font-weight="600" fill="#e8642c"><text x="186" y="300">A1</text><text x="186" y="326">A2</text><text x="186" y="352">B1</text><text x="186" y="378">B2</text></g>
+  <path d="M186 286h420" stroke="#e8642c" stroke-width="1.5"/>
+</svg>
