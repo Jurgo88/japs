@@ -2,8 +2,6 @@ import { extendStrings } from "@japs/theme-kit";
 
 export const tt = extendStrings({
   en: {
-    paperBefore: "The",
-    paperAfter: "Times",
     vol: "Vol.",
     no: "No.",
     est: "Est.",
@@ -29,8 +27,6 @@ export const tt = extendStrings({
     project: "Project",
   },
   sk: {
-    paperBefore: "Noviny",
-    paperAfter: "",
     vol: "Roč.",
     no: "Č.",
     est: "Zal.",
@@ -56,8 +52,6 @@ export const tt = extendStrings({
     project: "Projekt",
   },
   cs: {
-    paperBefore: "Noviny",
-    paperAfter: "",
     vol: "Roč.",
     no: "Č.",
     est: "Zal.",
@@ -83,8 +77,6 @@ export const tt = extendStrings({
     project: "Projekt",
   },
   de: {
-    paperBefore: "Die",
-    paperAfter: "Zeitung",
     vol: "Jg.",
     no: "Nr.",
     est: "Gegr.",

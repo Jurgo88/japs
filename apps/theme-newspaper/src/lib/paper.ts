@@ -26,5 +26,3 @@ export function roman(n: number): string {
   return out;
 }
 
-/** "The Jane Example Times"; languages that would need to inflect the name put it after a label instead. */
-export const paperName = (name: string, before: string, after: string): string => [before, name, after].filter(Boolean).join(" ");

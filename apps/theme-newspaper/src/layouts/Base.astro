@@ -5,7 +5,7 @@ import "@fontsource-variable/playfair-display/wght-italic.css";
 import "@fontsource-variable/source-serif-4/opsz.css";
 import "@fontsource-variable/source-serif-4/opsz-italic.css";
 import { languageName, loadPortfolio, portfolioStats, text } from "@japs/theme-kit";
-import { paperName, roman } from "../lib/paper.ts";
+import { roman } from "../lib/paper.ts";
 import { tt } from "../lib/strings.ts";
 
 interface Props {
@@ -23,6 +23,8 @@ const portfolio = loadPortfolio();
 const { profile } = portfolio;
 const stats = portfolioStats(portfolio);
 const site = Astro.site;
+// The masthead name is sized from its length so it spans the full width of the page.
+const nameSize = `--chars: ${Math.max(6, [...profile.name].length)}`;
 const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(portfolio.generatedAt));
 ---
 
@@ -61,10 +63,10 @@ const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric",
         </div>
         {
           front ? (
-            <h1 class="paper-name">{paperName(profile.name, tt(locale, "paperBefore"), tt(locale, "paperAfter"))}</h1>
+            <h1 class="paper-name" style={nameSize}>{profile.name}</h1>
           ) : (
-            <a class="paper-name" href={homeHref}>
-              {paperName(profile.name, tt(locale, "paperBefore"), tt(locale, "paperAfter"))}
+            <a class="paper-name" href={homeHref} style={nameSize}>
+              {profile.name}
             </a>
           )
         }
@@ -76,6 +78,26 @@ const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric",
       </header>
 
       <main><slot /></main>
+
+      <script>
+        // Stretch the masthead name to the full width once the blackletter font has loaded.
+        const fit = () => {
+          for (const name of document.querySelectorAll<HTMLElement>(".paper-name")) {
+            name.style.fontSize = "";
+            const range = document.createRange();
+            range.selectNodeContents(name);
+            const width = range.getBoundingClientRect().width;
+            const available = name.parentElement?.clientWidth ?? 0;
+            if (!width || !available) continue;
+            const cap = name.closest(".front") ? 300 : 72;
+            const size = parseFloat(getComputedStyle(name).fontSize);
+            name.style.fontSize = `${Math.min(cap, (size * available * 0.985) / width)}px`;
+          }
+        };
+        document.fonts.ready.then(fit);
+        const masthead = document.querySelector(".masthead");
+        if (masthead) new ResizeObserver(fit).observe(masthead);
+      </script>
 
       <footer class="colophon">
         <span>© {new Date().getFullYear()} {profile.name}</span>
@@ -193,6 +215,7 @@ const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric",
   }
 
   .masthead {
+    container-type: inline-size;
     text-align: center;
   }
   .ears {
@@ -218,17 +241,22 @@ const date = new Intl.DateTimeFormat(locale, { weekday: "long", year: "numeric",
     color: var(--ink);
     text-decoration: underline;
   }
+  /* A safe size from the name length (--chars) and the masthead width; the script then fits it exactly. */
   .paper-name {
     display: block;
     margin: 6px 0 4px;
-    font: 700 clamp(30px, 5vw, 56px) / 1.05 var(--blackletter);
+    font: 700 min(72px, calc(100cqi / (var(--chars) * 0.62))) / 1.05 var(--blackletter);
+    letter-spacing: 0.01em;
     text-decoration: none;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
   }
+  /* Room below for the long descenders of J and j. */
   .front .paper-name {
-    margin: 14px 0 10px;
-    font-size: clamp(44px, 9.4vw, 132px);
-    line-height: 0.95;
+    margin: 6px 0 0;
+    padding-bottom: 0.06em;
+    font-size: min(300px, calc(100cqi / (var(--chars) * 0.56)));
+    letter-spacing: 0.02em;
+    line-height: 1.12;
   }
   .dateline {
     display: flex;
