@@ -2,6 +2,9 @@ import { extendStrings } from "@japs/theme-kit";
 
 export const tt = extendStrings({
   en: {
+    consoleTitle: "interactive shell — type a command",
+    try: "try",
+    lastLogin: "Last login",
     statusOn: "available for new projects",
     statusOff: "not taking new projects",
     hint: "Type 'help' and press Enter.",
@@ -30,6 +33,9 @@ export const tt = extendStrings({
     back: "back",
   },
   sk: {
+    consoleTitle: "interaktívny shell — napíšte príkaz",
+    try: "skúste",
+    lastLogin: "Posledné prihlásenie",
     statusOn: "prijímam nové projekty",
     statusOff: "momentálne neprijímam nové projekty",
     hint: "Napíšte 'help' a stlačte Enter.",
@@ -58,6 +64,9 @@ export const tt = extendStrings({
     back: "späť",
   },
   cs: {
+    consoleTitle: "interaktivní shell — napište příkaz",
+    try: "zkuste",
+    lastLogin: "Poslední přihlášení",
     statusOn: "přijímám nové projekty",
     statusOff: "momentálně nepřijímám nové projekty",
     hint: "Napište 'help' a stiskněte Enter.",
@@ -86,6 +95,9 @@ export const tt = extendStrings({
     back: "zpět",
   },
   de: {
+    consoleTitle: "interaktive Shell — tippe einen Befehl",
+    try: "probier",
+    lastLogin: "Letzte Anmeldung",
     statusOn: "offen für neue Projekte",
     statusOff: "derzeit keine neuen Projekte",
     hint: "Tippe 'help' und drücke Enter.",

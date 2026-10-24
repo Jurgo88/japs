@@ -36,7 +36,7 @@ if (project.client.isClient) meta.push(["client", project.client.label ? text(pr
 
 <Base locale={locale} title={`${title} — ${portfolio.profile.name}`} description={text(project.summary, locale)} alternates={alternates} homeHref={home} cwd={cwd}>
   <div class="transcript">
-    <section class="block" style="--i: 0">
+    <section class="block" data-type>
       <Prompt cmd={`cd ~/projects/${project.slug} && cat README.md`} />
       <h1 class="title"><span class="muted"># </span>{title}</h1>
       <p class="out quote"><span class="muted">&gt; </span>{text(project.summary, locale)}</p>
@@ -75,10 +75,15 @@ if (project.client.isClient) meta.push(["client", project.client.label ? text(pr
         }
       </dl>
     </section>
+  </div>
+
+  <Shell locale={locale} cwd={cwd} alternates={alternates} />
+
+  <div class="transcript">
 
     {
       (desktop || mobile) && (
-        <section class="block" style="--i: 1">
+        <section class="block" data-type>
           <Prompt cmd="ls screenshots/" cwd={cwd} />
           <div class:list={["shots", { "with-phone": desktop && mobile }]}>
             {desktop && (
@@ -100,12 +105,12 @@ if (project.client.isClient) meta.push(["client", project.client.label ? text(pr
       )
     }
 
-    <section class="block" style="--i: 2">
+    <section class="block" data-type>
       <Prompt cmd="cat NOTES.md" cwd={cwd} />
       <div class="description out" set:html={renderMarkdown(text(project.description, locale))} />
     </section>
 
-    <section class="block" style="--i: 3">
+    <section class="block" data-type>
       <Prompt cmd="ls .." cwd={cwd} />
       <p class="out nav">
         <a href={home}>../ ({tt(locale, "back")})</a>
@@ -115,9 +120,6 @@ if (project.client.isClient) meta.push(["client", project.client.label ? text(pr
     </section>
   </div>
 
-  <div class="block" style="--i: 4">
-    <Shell locale={locale} cwd={cwd} alternates={alternates} />
-  </div>
 </Base>
 
 <style>

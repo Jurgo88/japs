@@ -1,7 +1,7 @@
 ---
 /**
- * The interactive prompt at the end of the transcript. Without JavaScript it is hidden and the
- * transcript above already holds every link.
+ * The interactive console right under the intro. Its output prints inside the panel. Without
+ * JavaScript it is hidden and the transcript already holds every link.
  */
 import { loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
 import { host, safeJson, user, type ShellData } from "../lib/shell.ts";
@@ -50,15 +50,30 @@ const data: ShellData = {
 };
 ---
 
-<section class="shell" data-shell hidden>
+<section class="console" data-shell data-type hidden aria-label={tt(locale, "consoleTitle")}>
+  <header class="console-bar">
+    <span class="led" aria-hidden="true"></span>
+    <span>{tt(locale, "consoleTitle")}</span>
+    <span class="keys">↑↓ · Tab</span>
+  </header>
   <div class="shell-output" aria-live="polite"></div>
   <form class="shell-line" autocomplete="off">
     <label class="ps1" for="shell-input">
       <span class="who">{data.user}@{host}</span>:<span class="where">{cwd}</span>$
     </label>
-    <input id="shell-input" name="cmd" type="text" spellcheck="false" autocapitalize="off" aria-label={tt(locale, "prompt")} />
+    <span class="field">
+      <input id="shell-input" name="cmd" type="text" spellcheck="false" autocapitalize="off" placeholder=" " aria-label={tt(locale, "prompt")} />
+      <i class="fake-caret" aria-hidden="true"></i>
+    </span>
   </form>
-  <p class="shell-hint muted">{tt(locale, "hint")}</p>
+  <p class="chips">
+    <span class="muted">{tt(locale, "try")}:</span>
+    {["help", "ls", "stack", "contact", "theme amber"].map((c) => (
+      <button type="button" data-cmd={c}>
+        {c}
+      </button>
+    ))}
+  </p>
 </section>
 
 <script type="application/json" id="shell-data" set:html={safeJson(data)} />
@@ -89,6 +104,7 @@ const data: ShellData = {
       const line = el("p", "out");
       line.append(...parts);
       out.append(line);
+      out.scrollTop = out.scrollHeight;
       return line;
     };
     const link = (label: string, href: string) => {
@@ -101,6 +117,7 @@ const data: ShellData = {
       const p = el("p", "ps1");
       p.append(el("span", "who", `${d.user}@${d.host}`), ":", el("span", "where", d.cwd), "$ ", el("span", "cmd", cmd));
       out.append(p);
+      out.scrollTop = out.scrollHeight;
     };
     const findProject = (arg: string) => {
       const q = arg.replace(/\/$/, "").toLowerCase();
@@ -108,7 +125,11 @@ const data: ShellData = {
       return d.projects.find((p) => p.slug.toLowerCase() === q) ?? d.projects.find((p) => p.title.toLowerCase() === q) ?? d.projects.find((p) => p.slug.startsWith(q));
     };
     const setTheme = (name: string) => {
-      document.documentElement.dataset.crt = name;
+      // A short glitch while the phosphor changes.
+      const html = document.documentElement;
+      html.classList.add("glitch");
+      setTimeout(() => html.classList.remove("glitch"), 380);
+      html.dataset.crt = name;
       try {
         localStorage.setItem("japs-terminal-crt", name);
       } catch {}
@@ -185,7 +206,6 @@ const data: ShellData = {
         help: s.helpClear,
         run: () => {
           out.textContent = "";
-          document.querySelectorAll(".transcript").forEach((t) => t.remove());
         },
       },
       cd: {
@@ -221,8 +241,27 @@ const data: ShellData = {
       if (line.trim()) history.push(line);
       cursor = history.length;
       run(line);
-      input.scrollIntoView({ block: "nearest" });
     });
+
+    // Suggested commands type themselves into the prompt, then run.
+    let busy = false;
+    for (const chip of root.querySelectorAll<HTMLButtonElement>("[data-cmd]")) {
+      chip.addEventListener("click", async () => {
+        if (busy) return;
+        busy = true;
+        const cmd = chip.dataset.cmd ?? "";
+        input.value = "";
+        input.focus({ preventScroll: true });
+        const fast = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        for (const ch of cmd) {
+          input.value += ch;
+          if (!fast) await new Promise((r) => setTimeout(r, 35 + Math.random() * 45));
+        }
+        if (!fast) await new Promise((r) => setTimeout(r, 140));
+        busy = false;
+        form.requestSubmit();
+      });
+    }
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowUp" && cursor > 0) {
@@ -261,7 +300,7 @@ const data: ShellData = {
     });
 
     // Clicking the screen focuses the prompt, unless the click selects text or follows a link.
-    document.querySelector("[data-term]")?.addEventListener("click", (e) => {
+    root.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest("a, button, input") || getSelection()?.toString()) return;
       input.focus({ preventScroll: true });
     });
@@ -269,18 +308,74 @@ const data: ShellData = {
 </script>
 
 <style>
+  /* The console: a framed panel that stands out from the transcript. */
+  .console {
+    position: relative;
+    margin: 4px 0 30px;
+    border: 1px solid var(--dim);
+    border-radius: 8px;
+    background: rgb(0 0 0 / 0.28);
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.6),
+      0 0 24px var(--faint),
+      inset 0 0 30px var(--faint);
+    animation: console-glow 3.2s ease-in-out infinite;
+  }
+  @keyframes console-glow {
+    50% {
+      box-shadow:
+        0 0 0 1px rgb(0 0 0 / 0.6),
+        0 0 40px var(--glow),
+        inset 0 0 30px var(--faint);
+    }
+  }
+  .console-bar {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+    padding: 6px 12px;
+    border-bottom: 1px dashed var(--dim);
+    color: var(--dim);
+    font-size: 12px;
+  }
+  .led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--fg);
+    box-shadow: 0 0 8px var(--fg);
+    animation: blink 1.2s steps(1) infinite;
+  }
+  .keys {
+    margin-left: auto;
+  }
+  .shell-output {
+    max-height: min(52vh, 460px);
+    padding: 0 14px;
+    overflow-y: auto;
+    scrollbar-color: var(--dim) transparent;
+  }
+  .shell-output:not(:empty) {
+    padding-top: 8px;
+  }
   .shell-line {
     display: flex;
     align-items: baseline;
     gap: 1ch;
-    margin: 6px 0 0;
+    margin: 0;
+    padding: 12px 14px 6px;
+    font-size: 1.08em;
   }
   .shell-line .ps1 {
     flex: none;
   }
-  input {
+  .field {
+    position: relative;
     flex: 1;
     min-width: 0;
+  }
+  input {
+    width: 100%;
     padding: 0;
     border: 0;
     background: transparent;
@@ -290,14 +385,71 @@ const data: ShellData = {
     text-shadow: inherit;
     outline: none;
   }
-  .shell-hint {
-    margin: 10px 0 0;
+  /* A blinking block cursor while the prompt is empty. */
+  input:placeholder-shown {
+    caret-color: transparent;
+  }
+  .fake-caret {
+    position: absolute;
+    top: 0.12em;
+    left: 0;
+    width: 0.62em;
+    height: 1.2em;
+    background: var(--fg);
+    box-shadow: 0 0 8px var(--glow);
+    pointer-events: none;
+    animation: blink 1s steps(1) infinite;
+  }
+  input:not(:placeholder-shown) + .fake-caret {
+    display: none;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin: 0;
+    padding: 6px 14px 12px;
     font-size: 13px;
+  }
+  .chips button {
+    padding: 1px 9px;
+    border: 1px solid var(--dim);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    text-shadow: inherit;
+    cursor: pointer;
+  }
+  .chips button:hover,
+  .chips button:focus-visible {
+    background: var(--fg);
+    color: var(--bg);
+    outline: none;
+    text-shadow: none;
   }
   .shell-output :global(.ps1) {
     margin-top: 10px;
   }
   .shell-output :global(.out) {
     margin: 0;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  @media (max-width: 600px) {
+    .keys {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .console,
+    .led,
+    .fake-caret {
+      animation: none;
+    }
   }
 </style>

@@ -3,6 +3,7 @@ import "@fontsource-variable/jetbrains-mono/wght.css";
 import { languageName, loadPortfolio } from "@japs/theme-kit";
 import { host, user } from "../lib/shell.ts";
 import { tt } from "../lib/strings.ts";
+import TypeIn from "../components/TypeIn.astro";
 
 interface Props {
   locale: string;
@@ -36,12 +37,20 @@ const site = Astro.site;
       try {
         const crt = localStorage.getItem("japs-terminal-crt");
         if (crt === "amber" || crt === "white") document.documentElement.dataset.crt = crt;
-        // Print the transcript block by block on the first page of a session.
-        if (!sessionStorage.getItem("japs-terminal-booted")) {
-          sessionStorage.setItem("japs-terminal-booted", "1");
-          document.documentElement.classList.add("boot");
-        }
       } catch {}
+      // Type the transcript in on every load (see TypeIn); a power-on flicker on the first page of a session.
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const html = document.documentElement;
+        html.classList.add("typing");
+        try {
+          if (!sessionStorage.getItem("japs-terminal-on")) {
+            sessionStorage.setItem("japs-terminal-on", "1");
+            html.classList.add("power");
+          }
+        } catch {}
+        // Failsafe: never leave the page blank if the typing script does not start.
+        setTimeout(() => html.classList.contains("type-ready") || html.classList.remove("typing"), 2500);
+      }
     </script>
   </head>
   <body>
@@ -63,6 +72,7 @@ const site = Astro.site;
       </header>
       <main class="screen"><slot /></main>
     </div>
+    <TypeIn />
   </body>
 </html>
 
@@ -238,18 +248,104 @@ const site = Astro.site;
   .muted {
     color: var(--dim);
   }
-  /* Blocks print one after another on the first visit of a session. */
-  .boot .block {
-    animation: print 0.25s steps(4) both;
-    animation-delay: calc(var(--i, 0) * 0.32s);
+  /* Typing in: blocks appear one by one, lines wait their turn, the command shows a block cursor. */
+  .typing [data-type]:not(.on) {
+    display: none;
   }
-  @keyframes print {
-    from {
+  .typing .pending {
+    visibility: hidden;
+  }
+  .cmd.caret::after {
+    display: inline-block;
+    width: 0.62em;
+    height: 1.15em;
+    margin-left: 1px;
+    vertical-align: -0.2em;
+    content: "";
+    background: var(--fg);
+    box-shadow: 0 0 8px var(--glow);
+    animation: caret 0.9s steps(1) infinite;
+  }
+  @keyframes caret {
+    50% {
       opacity: 0;
     }
   }
+  /* CRT power-on: a bright line opens into the picture. */
+  .power .term {
+    animation: power-on 0.75s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @keyframes power-on {
+    0% {
+      transform: scale(0.65, 0.004);
+      filter: brightness(6);
+    }
+    40% {
+      transform: scale(1, 0.006);
+      filter: brightness(4);
+    }
+    100% {
+      transform: none;
+      filter: none;
+    }
+  }
+  /* A subtle continuous flicker of the phosphor. */
+  .term::before {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    content: "";
+    background: var(--faint);
+    opacity: 0;
+    pointer-events: none;
+    animation: flicker 6s infinite;
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    48% {
+      opacity: 0;
+    }
+    49% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 0.05;
+    }
+    51% {
+      opacity: 0.25;
+    }
+    52% {
+      opacity: 0;
+    }
+  }
+  /* Colour-scheme switch: a brief RGB-split glitch. */
+  .glitch .term {
+    animation: glitch 0.38s steps(2) both;
+  }
+  @keyframes glitch {
+    0% {
+      transform: translateX(-4px) skewX(3deg);
+      text-shadow:
+        -3px 0 rgb(255 0 80 / 0.8),
+        3px 0 rgb(0 220 255 / 0.8);
+    }
+    50% {
+      transform: translateX(3px) skewX(-2deg);
+      filter: hue-rotate(40deg) brightness(1.4);
+    }
+    100% {
+      transform: none;
+    }
+  }
+  .login {
+    margin-top: 0;
+    font-size: 13px;
+  }
   @media (prefers-reduced-motion: reduce) {
-    .boot .block {
+    .term::before {
       animation: none;
     }
   }

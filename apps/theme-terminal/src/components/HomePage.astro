@@ -21,6 +21,7 @@ const maxTag = stack[0]?.count ?? 1;
 const tagWidth = Math.max(4, ...stack.map((t) => t.tag.length));
 const present = tt(locale, "present");
 const pad = (n: number) => String(n).padStart(2, "0");
+const lastLogin = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(new Date(portfolio.generatedAt));
 // Contact labels padded to one column, like aligned shell output.
 const contactKeys = [...(profile.email ? ["email"] : []), ...profile.links.map((l) => l.label.toLowerCase())];
 const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
@@ -28,13 +29,19 @@ const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
 
 <Base locale={locale} title={`${profile.name} — ${text(profile.headline, locale)}`} description={text(profile.headline, locale)} alternates={alternates} homeHref={home(locale)} cwd="~">
   <div class="transcript">
-    <section class="block" style="--i: 0">
+    <section class="block" data-type>
+      <p class="out muted login">{tt(locale, "lastLogin")}: {lastLogin} on ttys001</p>
       <Prompt cmd="whoami" />
       <h1 class="name">{profile.name}</h1>
       <p class="out headline">{text(profile.headline, locale)}</p>
     </section>
+  </div>
 
-    <section class="block" style="--i: 1">
+  <Shell locale={locale} cwd="~" alternates={alternates} />
+
+  <div class="transcript">
+
+    <section class="block" data-type>
       <Prompt cmd="cat about.txt" />
       {text(profile.bio, locale) && <p class="out">{text(profile.bio, locale)}</p>}
       {
@@ -47,7 +54,7 @@ const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
       {profile.location && <p class="out"><span class="muted">location:</span> {profile.location}</p>}
     </section>
 
-    <section class="block" style="--i: 2" aria-labelledby="ls-title">
+    <section class="block" data-type aria-labelledby="ls-title">
       <Prompt cmd="ls -l ~/projects" />
       <h2 id="ls-title" class="out muted">{tt(locale, "total")} {projects.length}</h2>
       <ol class="ls">
@@ -68,14 +75,14 @@ const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
 
     {
       stack.length > 0 && (
-        <section class="block" style="--i: 3">
+        <section class="block" data-type>
           <Prompt cmd="stack --top" />
           <pre class="out bars">{stack.map((t) => `${t.tag.padEnd(tagWidth)}  ${bar(t.count, maxTag, 20)} ${t.count}`).join("\n")}</pre>
         </section>
       )
     }
 
-    <section class="block" style="--i: 4">
+    <section class="block" data-type>
       <Prompt cmd="contact" />
       {
         profile.email && (
@@ -97,9 +104,6 @@ const keyWidth = Math.max(0, ...contactKeys.map((k) => k.length)) + 2;
     </section>
   </div>
 
-  <div class="block" style="--i: 5">
-    <Shell locale={locale} cwd="~" alternates={alternates} />
-  </div>
 </Base>
 
 <style>

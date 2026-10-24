@@ -1,0 +1,76 @@
+---
+/**
+ * Types the transcript in on page load: each block's command is typed character by character with a
+ * cursor, then its output prints line by line and the name decodes from noise. Any key, click,
+ * scroll or touch skips to the end. Only runs when Base set the "typing" class (JS and motion on).
+ */
+---
+
+<script>
+  const root = document.documentElement;
+  if (root.classList.contains("typing")) {
+    root.classList.add("type-ready");
+    // What counts as one printed line inside a block.
+    const LINES = "h1, .out, .ls li, .bars, .meta > div, .shots, .description > *, .nav, .console-bar, .shell-line, .chips";
+    const GLYPHS = "!<>-_\\/[]{}=+*^?#01$%&@";
+    let skip = false;
+    const skipAll = () => (skip = true);
+    for (const ev of ["keydown", "pointerdown", "wheel", "touchstart"]) addEventListener(ev, skipAll, { once: true, passive: true });
+    const sleep = (ms: number) => (skip ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
+
+    // Letters resolve left to right out of random glyphs.
+    const decode = (el: HTMLElement) => {
+      const full = el.textContent ?? "";
+      const start = performance.now();
+      const dur = 900;
+      const step = (now: number) => {
+        const t = skip ? 1 : Math.min(1, (now - start) / dur);
+        const done = Math.floor(t * full.length);
+        el.textContent =
+          full.slice(0, done) +
+          [...full.slice(done)].map((ch) => (ch === " " ? " " : GLYPHS[Math.floor(Math.random() * GLYPHS.length)])).join("");
+        if (t < 1) requestAnimationFrame(step);
+        else el.textContent = full;
+      };
+      requestAnimationFrame(step);
+    };
+
+    const blocks = [...document.querySelectorAll<HTMLElement>("[data-type]")];
+    (async () => {
+      for (const block of blocks) {
+        const items = [...block.querySelectorAll<HTMLElement>(LINES)].filter((el) => !el.parentElement?.closest(LINES));
+        items.forEach((el) => el.classList.add("pending"));
+        const cmd = block.querySelector<HTMLElement>(":scope > .ps1 .cmd");
+        // A login line may print before the first prompt.
+        const before = items.filter((el) => cmd && el.compareDocumentPosition(cmd) & Node.DOCUMENT_POSITION_FOLLOWING);
+        block.classList.add("on");
+        for (const el of before) {
+          el.classList.remove("pending");
+          await sleep(260);
+        }
+        if (cmd) {
+          const full = cmd.textContent ?? "";
+          cmd.textContent = "";
+          cmd.classList.add("caret");
+          await sleep(320);
+          for (const ch of full) {
+            if (skip) break;
+            cmd.textContent += ch;
+            await sleep(ch === " " ? 90 : 34 + Math.random() * 60);
+          }
+          cmd.textContent = full;
+          await sleep(220);
+          cmd.classList.remove("caret");
+        }
+        for (const el of items) {
+          if (!el.classList.contains("pending")) continue;
+          el.classList.remove("pending");
+          if (el.matches("h1")) decode(el);
+          await sleep(el.matches(".ls li") ? 24 : el.matches("h1") ? 420 : 70);
+        }
+        await sleep(260);
+      }
+      root.classList.remove("typing");
+    })();
+  }
+</script>

@@ -1,6 +1,6 @@
 # @japs/theme-terminal
 
-Terminal shows the portfolio as a shell session on a retro CRT: scanlines, phosphor glow and a vignette. The home page is a transcript (`whoami`, `cat about.txt`, `ls -l ~/projects`, `stack --top`, `contact`) and ends in a working prompt; project pages are `cat README.md` for that project, its screenshots, notes and `ls ..` to move on.
+Terminal shows the portfolio as a shell session on a retro CRT: scanlines, phosphor glow and a vignette. The home page is a transcript (`whoami`, then an interactive console panel, then `cat about.txt`, `ls -l ~/projects`, `stack --top`, `contact`); project pages are `cat README.md` for that project, its screenshots, notes and `ls ..` to move on.
 
 ```bash
 pnpm dev --theme terminal          # http://localhost:4321 with out/portfolio.json (or the kit's sample)
@@ -11,5 +11,6 @@ Choose it with `"theme": "terminal"` in `japs.config.json` or the editor. Conten
 
 - The prompt understands `help`, `whoami`, `about`, `ls`, `open <name|number>` (also `cd`, `cat`), `stack`, `contact`, `theme green|amber|white`, `lang <locale>`, `clear` (Ctrl+L), `history`, `pwd`, `date`, `echo`, plus a few jokes (`sudo`, `exit`, `hire`). Arrow keys walk the history; Tab completes commands, project names, schemes and languages.
 - The colour scheme (green, amber or white phosphor) is remembered in the browser; screenshots are tinted to match and show in full colour on hover. Desktop and mobile screenshots sit side by side on project pages.
-- The transcript prints block by block on the first page of a session (not with `prefers-reduced-motion`). Without JavaScript the prompt is hidden and the transcript already links everything.
+- On every load the transcript types itself in: each command is typed character by character with a block cursor, its output prints line by line and the name decodes out of random glyphs; any key, click, scroll or touch skips to the end. The first page of a session also gets a CRT power-on, the screen flickers now and then, and `theme` switches with an RGB-split glitch. None of this runs with `prefers-reduced-motion`. Without JavaScript the console is hidden and the transcript already links everything.
+- The console sits right under the intro with a blinking block cursor and suggested commands (`help`, `ls`, `stack`, `contact`, `theme amber`) that type themselves in; command output prints inside the panel.
 - The user name in the prompt is the first name in lowercase ASCII. English, Slovak, Czech and German output is included; JetBrains Mono is bundled locally.
