@@ -4,7 +4,7 @@
 
 JAPS connects to your **Netlify** and **GitHub** accounts, finds what you've actually shipped, pairs deployed sites with their repositories, analyzes each project, and generates a static portfolio you can tweak and publish.
 
-**Status:** early development. Locally, everything works end to end: the CLI pipeline, the browser editor, the default theme and publishing to your Netlify. The hosted version (sign in with GitHub, no local setup) imports your projects, writes their texts and publishes the portfolio to your Netlify or Cloudflare Pages, or to `<you>.japs.app` without any other account.
+**Status:** early development. Locally, everything works end to end: the CLI pipeline, the browser editor, 22 themes and publishing to your Netlify. The hosted version (sign in with GitHub, no local setup) imports your projects, writes their texts and publishes the portfolio to your Netlify or Cloudflare Pages, or to `<you>.japs.app` without any other account.
 
 ## Why another one?
 
@@ -15,6 +15,7 @@ Most portfolio generators read your GitHub profile and stop there. JAPS starts f
 - **Grounded copy** — project texts are written from extracted facts, and numbers that aren't in the facts are rejected
 - **Multilingual** — every text in each language you declare (`en`, `sk`, …)
 - **Client and private work** — opt-in publishing and anonymization ("E-shop for a client in hospitality")
+- **22 themes** — from a clean default to Terminal, Retro OS, Newspaper, Vinyl, Museum, Aurora and more; switch with one line in the config
 - **You own the output** — a static Astro site on your own Netlify and domain
 
 ## How it works
@@ -45,7 +46,7 @@ pnpm japs facts        # writes facts.json (README, dependencies, commits, Netli
 pnpm japs analyze      # writes analysis.json (project copy in your locales)
 pnpm japs screenshots  # desktop + mobile shots of your live sites (Playwright, runs locally)
 pnpm japs build        # writes out/portfolio.json + screenshots
-pnpm dev               # preview the portfolio at http://localhost:4321
+pnpm dev               # preview the portfolio at http://localhost:4321 (--theme <id> to try another)
 pnpm editor            # choose and edit projects in the browser at http://localhost:4310
 pnpm japs publish --draft  # preview deploy to your Netlify
 pnpm japs publish      # go live on <your-name>-portfolio.netlify.app
@@ -55,7 +56,13 @@ The editor writes your choices to `japs.config.json` when you press Save. It can
 
 `japs publish` creates a dedicated Netlify site on the first run and remembers it in `publish.json`. JAPS never deploys to or changes any of your other sites.
 
-The default theme has light and dark mode, a technology filter, screenshots in device frames and subtle motion that respects `prefers-reduced-motion`.
+### Themes
+
+Pick a theme with `"theme": "<id>"` in `japs.config.json`, or try one without changing the config: `pnpm dev --theme terminal`.
+
+`default`, `editorial`, `studio`, `gallery`, `fieldnotes`, `riot`, `orbit`, `reel`, `swiss`, `retro`, `blueprint`, `metro`, `arena`, `bento`, `newspaper`, `vinyl`, `museum`, `terminal`, `canvas`, `tunnel`, `posters`, `aurora`
+
+All themes read the same `out/portfolio.json` and are localized into every language you declare. The default theme has light and dark mode, a technology filter, screenshots in device frames and subtle motion that respects `prefers-reduced-motion`.
 
 ### What goes to the LLM
 
@@ -68,7 +75,7 @@ The default theme has light and dark mode, a technology filter, screenshots in d
 | `packages/schema` | Shared types and validation (Zod) |
 | `packages/core` | Discovery, pairing, filters, fact extraction, AI copy, publishing (runs in Node and Workers) |
 | `packages/cli` | `japs` command line |
-| `packages/theme-kit` | Optional helpers shared by the built-in themes |
+| `packages/theme-kit` | Optional helpers shared by the built-in themes (loading, locales, UI strings, Astro config) |
 | `apps/theme-*` | Astro themes built from `portfolio.json`; pick one with `"theme"` in `japs.config.json` |
 | `apps/dashboard` | Vue 3 editor, served locally by `japs edit` and online by the API |
 | `apps/api` | Hosted JAPS: Cloudflare Worker (Hono) + D1, GitHub sign-in, Netlify connect; a second, read-only Worker serves `<you>.japs.app` |
