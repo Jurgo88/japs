@@ -1,0 +1,257 @@
+---
+import type { PortfolioProject } from "@japs/schema";
+import { formatMonth, loadPortfolio, localePrefix, neighbours, orderedProjects, projectUrl, renderMarkdown, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+import Prompt from "./Prompt.astro";
+import Shell from "./Shell.astro";
+
+interface Props {
+  project: PortfolioProject;
+  locale: string;
+}
+
+const { project, locale } = Astro.props;
+const portfolio = loadPortfolio();
+const title = text(project.title, locale);
+const ordered = orderedProjects(portfolio);
+const from = formatMonth(project.period.from, locale);
+const to = formatMonth(project.period.to, locale) ?? tt(locale, "present");
+const period = from ? `${from} – ${to}` : to;
+const desktop = project.screenshots.find((s) => s.viewport === "desktop");
+const mobile = project.screenshots.find((s) => s.viewport === "mobile");
+const home = `${localePrefix(locale, portfolio)}/`;
+const cwd = `~/projects/${project.slug}`;
+const alternates = portfolio.locales.map((l) => ({ locale: l, href: projectUrl(project, l, portfolio) }));
+const { previous, next } = neighbours(project, portfolio);
+const prev = previous ?? (ordered.length > 1 ? ordered[ordered.length - 1]! : null);
+const nxt = next ?? (ordered.length > 1 ? ordered[0]! : null);
+const meta: [string, string][] = [
+  ["role", project.role ? text(project.role, locale) : "—"],
+  ["period", period],
+  ["stack", project.tags.length ? `[${project.tags.join(", ")}]` : "[]"],
+];
+if (project.client.isClient) meta.push(["client", project.client.label ? text(project.client.label, locale) : "true"]);
+---
+
+<Base locale={locale} title={`${title} — ${portfolio.profile.name}`} description={text(project.summary, locale)} alternates={alternates} homeHref={home} cwd={cwd}>
+  <div class="transcript">
+    <section class="block" data-type>
+      <Prompt cmd={`cd ~/projects/${project.slug} && cat README.md`} />
+      <h1 class="title"><span class="muted"># </span>{title}</h1>
+      <p class="out quote"><span class="muted">&gt; </span>{text(project.summary, locale)}</p>
+      <dl class="meta">
+        {
+          meta.map(([key, value]) => (
+            <div>
+              <dt>{key}:</dt>
+              <dd>{value}</dd>
+            </div>
+          ))
+        }
+        {
+          project.links.live && (
+            <div>
+              <dt>live:</dt>
+              <dd>
+                <a href={project.links.live} rel="noopener">
+                  {project.links.live.replace(/^https?:\/\//, "")}
+                </a>
+              </dd>
+            </div>
+          )
+        }
+        {
+          project.links.repo && (
+            <div>
+              <dt>repo:</dt>
+              <dd>
+                <a href={project.links.repo} rel="noopener">
+                  {project.links.repo.replace(/^https?:\/\//, "")}
+                </a>
+              </dd>
+            </div>
+          )
+        }
+      </dl>
+    </section>
+  </div>
+
+  <Shell locale={locale} cwd={cwd} alternates={alternates} />
+
+  <div class="transcript">
+
+    {
+      (desktop || mobile) && (
+        <section class="block" data-type>
+          <Prompt cmd="ls screenshots/" cwd={cwd} />
+          <div class:list={["shots", { "with-phone": desktop && mobile }]}>
+            {desktop && (
+              <figure class="shot">
+                <img src={`/${desktop.src}`} alt={text(desktop.alt, locale)} width="1440" height="900" />
+                <figcaption class="muted">desktop.png · 1440×900</figcaption>
+              </figure>
+            )}
+            {mobile && (
+              <figure class="shot phone">
+                <span class="phone-frame">
+                  <img src={`/${mobile.src}`} alt={text(mobile.alt, locale)} width="390" height="844" />
+                </span>
+                <figcaption class="muted">mobile.png · 390×844</figcaption>
+              </figure>
+            )}
+          </div>
+        </section>
+      )
+    }
+
+    <section class="block" data-type>
+      <Prompt cmd="cat NOTES.md" cwd={cwd} />
+      <div class="description out" set:html={renderMarkdown(text(project.description, locale))} />
+    </section>
+
+    <section class="block" data-type>
+      <Prompt cmd="ls .." cwd={cwd} />
+      <p class="out nav">
+        <a href={home}>../ ({tt(locale, "back")})</a>
+        {prev && prev.slug !== project.slug && <a href={projectUrl(prev, locale, portfolio)}>← {prev.slug}/</a>}
+        {nxt && nxt.slug !== project.slug && <a href={projectUrl(nxt, locale, portfolio)}>{nxt.slug}/ →</a>}
+      </p>
+    </section>
+  </div>
+
+</Base>
+
+<style>
+  .title {
+    margin: 12px 0 0;
+    color: var(--accent);
+    font-size: clamp(28px, 4.6vw, 56px);
+    font-weight: 800;
+    line-height: 1.05;
+    text-shadow:
+      0 0 10px var(--glow),
+      0 0 26px var(--glow);
+    overflow-wrap: anywhere;
+  }
+  .quote {
+    max-width: 80ch;
+    font-size: 17px;
+  }
+  .meta {
+    display: grid;
+    gap: 2px;
+    margin: 14px 0 0;
+  }
+  .meta div {
+    display: grid;
+    grid-template-columns: 9ch minmax(0, 1fr);
+    gap: 1ch;
+  }
+  .meta dt {
+    color: var(--dim);
+  }
+  .meta dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Screenshots in dashed ASCII-like frames, tinted to the phosphor; full colour on hover. */
+  .shots {
+    display: grid;
+    gap: 2ch;
+    margin-top: 12px;
+  }
+  /* The phone column is sized so its height matches the desktop shot (16:10 vs 390:844). */
+  .shots.with-phone {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.3fr);
+  }
+  .shot {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 6px;
+    margin: 0;
+    min-height: 0;
+  }
+  .shot > img,
+  .phone-frame {
+    border: 1px dashed var(--dim);
+    padding: 6px;
+  }
+  .phone-frame {
+    position: relative;
+    display: block;
+    min-height: 0;
+  }
+  .shots.with-phone .phone-frame img {
+    position: absolute;
+    inset: 6px;
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
+    object-fit: cover;
+    object-position: top;
+  }
+  .shots:not(.with-phone) .phone {
+    max-width: 300px;
+  }
+  .shot img {
+    filter: var(--img);
+    transition: filter 0.3s;
+  }
+  .shot:hover img {
+    filter: none;
+  }
+  .shot figcaption {
+    font-size: 12px;
+  }
+
+  .description {
+    max-width: 86ch;
+    white-space: normal;
+  }
+  .description :global(p) {
+    margin: 0 0 1em;
+  }
+  .description :global(h2)::before {
+    color: var(--dim);
+    content: "## ";
+  }
+  .description :global(h3)::before {
+    color: var(--dim);
+    content: "### ";
+  }
+  .description :global(h2),
+  .description :global(h3) {
+    margin: 1.4em 0 0.4em;
+    color: var(--accent);
+    font-size: 1em;
+  }
+  .description :global(ul) {
+    padding-left: 2ch;
+    list-style: "- ";
+  }
+  .description :global(code) {
+    color: var(--accent);
+  }
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1ch 3ch;
+  }
+
+  @media (max-width: 600px) {
+    .shots.with-phone {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr);
+      gap: 1ch;
+    }
+    .shot > img,
+    .phone-frame {
+      padding: 3px;
+    }
+    .shots.with-phone .phone-frame img {
+      inset: 3px;
+      width: calc(100% - 6px);
+      height: calc(100% - 6px);
+    }
+  }
+</style>

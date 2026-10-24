@@ -1,0 +1,17 @@
+---
+/** One prompt line of the transcript: user@host:cwd$ command */
+import { loadPortfolio } from "@japs/theme-kit";
+import { host, user } from "../lib/shell.ts";
+
+interface Props {
+  cmd: string;
+  cwd?: string;
+}
+
+const { cmd, cwd = "~" } = Astro.props;
+const { profile } = loadPortfolio();
+---
+
+<p class="ps1">
+  <span class="who">{user(profile.name)}@{host}</span>:<span class="where">{cwd}</span>$ <span class="cmd">{cmd}</span>
+</p>
