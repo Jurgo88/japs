@@ -1,0 +1,394 @@
+---
+import "@fontsource-variable/sora/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#06060f" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2335f0c2'/><stop offset='.5' stop-color='%237b5cff'/><stop offset='1' stop-color='%23ff5cb8'/></linearGradient></defs><rect width='32' height='32' rx='9' fill='url(%23g)'/><rect x='5' y='5' width='22' height='22' rx='6' fill='%23ffffff' fill-opacity='.25' stroke='%23ffffff' stroke-opacity='.6'/></svg>`} />
+  </head>
+  <body>
+    <!-- The aurora: a WebGL shader; the CSS blobs below it are the fallback. -->
+    <div class="aurora-fallback" aria-hidden="true"><i></i><i></i><i></i></div>
+    <canvas class="aurora" aria-hidden="true" data-aurora></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="nav-wrap">
+      <nav class="nav glass" aria-label={profile.name}>
+        <a class="brand" href={homeHref}><span class="orb" aria-hidden="true"></span>{profile.name}</a>
+        <a class="nav-link" href={`${homeHref}#work`}>{tt(locale, "work")}</a>
+        <a class="nav-link" href="#contact">{tt(locale, "contact")}</a>
+        {
+          alternates.length > 1 && (
+            <span class="languages">
+              {alternates.map((a) => (
+                <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                  {a.locale.toUpperCase()}
+                </a>
+              ))}
+            </span>
+          )
+        }
+      </nav>
+    </header>
+
+    <main><slot /></main>
+
+    <script>
+      // Aurora shader: layered noise curtains in teal, violet and pink that drift and lean toward the pointer.
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-aurora]");
+      const gl = canvas?.getContext("webgl", { antialias: false, premultipliedAlpha: false });
+      if (canvas && gl) {
+        const vs = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }`;
+        const fs = `
+precision mediump float;
+uniform vec2 res; uniform float t; uniform vec2 m; uniform float scroll;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y); }
+float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.02; a *= .5; } return v; }
+void main(){
+  vec2 uv = gl_FragCoord.xy / res; vec2 p = uv; p.x *= res.x / res.y;
+  vec2 mm = (m - .5) * .35;
+  float sc = scroll * .00025;
+  vec3 col = vec3(.024, .024, .06);
+  for (int i = 0; i < 3; i++){
+    float fi = float(i);
+    float n = fbm(vec2(p.x * (1.2 + fi * .4) + t * (.04 + fi * .015) + mm.x, p.y * .6 - t * .02 + fi * 3. + sc));
+    float band = .55 + .25 * sin(p.x * (1.5 + fi) + t * .15 + fi * 2. + mm.x * 3.) + (n - .5) * .8 - mm.y * (1. + fi * .3);
+    float d = abs(uv.y - band + sc);
+    float glow = exp(-d * (5. + fi * 2.)) * (.55 + n * .9);
+    vec3 c = fi < .5 ? vec3(.21, .94, .76) : (fi < 1.5 ? vec3(.48, .36, 1.) : vec3(1., .36, .72));
+    col += c * glow * .55;
+  }
+  col += vec3(.3, .2, .6) * pow(fbm(p * 3. + t * .05), 3.) * .25;
+  col = pow(col, vec3(.95));
+  gl_FragColor = vec4(col, 1.);
+}`;
+        const sh = (type: number, src: string) => {
+          const s = gl.createShader(type)!;
+          gl.shaderSource(s, src);
+          gl.compileShader(s);
+          return s;
+        };
+        const prog = gl.createProgram()!;
+        gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs));
+        gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+        gl.linkProgram(prog);
+        if (gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+          gl.useProgram(prog);
+          const buf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+          const loc = gl.getAttribLocation(prog, "p");
+          gl.enableVertexAttribArray(loc);
+          gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+          const uRes = gl.getUniformLocation(prog, "res");
+          const uT = gl.getUniformLocation(prog, "t");
+          const uM = gl.getUniformLocation(prog, "m");
+          const uS = gl.getUniformLocation(prog, "scroll");
+          const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const mouse = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
+          // Rendered at reduced resolution and scaled up: the aurora is soft anyway.
+          const resize = () => {
+            const scale = Math.min(1, 0.55 * (devicePixelRatio || 1));
+            canvas.width = Math.max(1, Math.round(innerWidth * scale));
+            canvas.height = Math.max(1, Math.round(innerHeight * scale));
+            gl.viewport(0, 0, canvas.width, canvas.height);
+          };
+          resize();
+          addEventListener("resize", resize);
+          addEventListener("pointermove", (e) => {
+            mouse.tx = e.clientX / innerWidth;
+            mouse.ty = 1 - e.clientY / innerHeight;
+          });
+          document.documentElement.classList.add("webgl");
+          const start = performance.now();
+          const draw = (now: number) => {
+            mouse.x += (mouse.tx - mouse.x) * 0.04;
+            mouse.y += (mouse.ty - mouse.y) * 0.04;
+            gl.uniform2f(uRes, canvas.width, canvas.height);
+            gl.uniform1f(uT, reduce ? 12 : (now - start) / 1000);
+            gl.uniform2f(uM, mouse.x, mouse.y);
+            gl.uniform1f(uS, scrollY);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            if (!reduce && !document.hidden) requestAnimationFrame(draw);
+          };
+          requestAnimationFrame(draw);
+          document.addEventListener("visibilitychange", () => !document.hidden && !reduce && requestAnimationFrame(draw));
+          if (reduce) addEventListener("scroll", () => requestAnimationFrame(draw), { passive: true });
+        }
+      }
+
+      // Glass cards tilt toward the pointer and carry a moving specular highlight.
+      if (matchMedia("(hover: hover)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        for (const card of document.querySelectorAll<HTMLElement>("[data-tilt]")) {
+          card.addEventListener("pointermove", (e) => {
+            const r = card.getBoundingClientRect();
+            const x = (e.clientX - r.left) / r.width;
+            const y = (e.clientY - r.top) / r.height;
+            card.style.setProperty("--mx", `${x * 100}%`);
+            card.style.setProperty("--my", `${y * 100}%`);
+            card.style.transform = `perspective(900px) rotateX(${(0.5 - y) * 8}deg) rotateY(${(x - 0.5) * 10}deg) translateZ(0)`;
+          });
+          card.addEventListener("pointerleave", () => {
+            card.style.transform = "";
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #06060f;
+    --text: #f4f3ff;
+    --muted: rgb(244 243 255 / 0.66);
+    --teal: #35f0c2;
+    --violet: #7b5cff;
+    --pink: #ff5cb8;
+    --sans: "Sora Variable", system-ui, sans-serif;
+    --pad: clamp(16px, 4vw, 56px);
+    --radius: 26px;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    background: var(--bg);
+    font: 400 16px/1.6 var(--sans);
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--violet);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 3px;
+  }
+  main {
+    position: relative;
+    z-index: 1;
+  }
+  /* Body copy floats over a bright aurora; a soft shadow keeps it readable. */
+  main p,
+  main dd {
+    text-shadow: 0 1px 12px rgb(6 6 15 / 0.85), 0 0 2px rgb(6 6 15 / 0.6);
+  }
+
+  .aurora,
+  .aurora-fallback,
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .aurora {
+    opacity: 0;
+    transition: opacity 1.2s;
+  }
+  .webgl .aurora {
+    opacity: 1;
+  }
+  .aurora-fallback {
+    overflow: hidden;
+    filter: blur(70px);
+  }
+  .aurora-fallback i {
+    position: absolute;
+    width: 60vmax;
+    height: 30vmax;
+    border-radius: 50%;
+    opacity: 0.55;
+    animation: drift 24s ease-in-out infinite alternate;
+  }
+  .aurora-fallback i:nth-child(1) {
+    top: 5%;
+    left: -10%;
+    background: var(--teal);
+  }
+  .aurora-fallback i:nth-child(2) {
+    top: 30%;
+    right: -15%;
+    background: var(--violet);
+    animation-delay: -8s;
+  }
+  .aurora-fallback i:nth-child(3) {
+    bottom: -10%;
+    left: 20%;
+    background: var(--pink);
+    animation-delay: -16s;
+  }
+  @keyframes drift {
+    to {
+      transform: translate(12vw, -6vh) rotate(12deg);
+    }
+  }
+  .webgl .aurora-fallback {
+    display: none;
+  }
+  /* Film grain keeps the gradients from banding. */
+  .grain {
+    z-index: 0;
+    opacity: 0.08;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Liquid glass: frosted, saturated, with a bright rim and a moving highlight. */
+  .glass {
+    position: relative;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    border-radius: var(--radius);
+    background:
+      linear-gradient(160deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 45%, rgb(255 255 255 / 0.08)),
+      rgb(14 12 32 / 0.28);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      inset 0 -1px 0 rgb(255 255 255 / 0.05),
+      inset 0 0 30px rgb(255 255 255 / 0.04),
+      0 30px 80px -30px rgb(0 0 0 / 0.7);
+    backdrop-filter: blur(22px) saturate(1.7) brightness(1.08);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7) brightness(1.08);
+    isolation: isolate;
+  }
+  .glass::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    content: "";
+    background: radial-gradient(500px circle at var(--mx, 30%) var(--my, 0%), rgb(255 255 255 / 0.16), transparent 45%);
+    pointer-events: none;
+  }
+  [data-tilt] {
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+  .gradient-text {
+    background: linear-gradient(100deg, #fff 20%, var(--teal) 45%, var(--violet) 70%, var(--pink));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .eyebrow {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .nav-wrap {
+    position: sticky;
+    top: 14px;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    padding: 14px var(--pad) 0;
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 10px 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+  .nav a {
+    text-decoration: none;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 600;
+  }
+  .orb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: conic-gradient(from 90deg, var(--teal), var(--violet), var(--pink), var(--teal));
+    box-shadow: 0 0 14px rgb(123 92 255 / 0.8);
+  }
+  .nav-link {
+    color: var(--muted);
+  }
+  .nav-link:hover {
+    color: var(--text);
+  }
+  .languages {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.08);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .languages a {
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .languages a[aria-current="page"] {
+    background: rgb(255 255 255 / 0.18);
+    color: var(--text);
+  }
+  @media (max-width: 600px) {
+    .nav-link {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aurora-fallback i {
+      animation: none;
+    }
+    [data-tilt] {
+      transition: none;
+    }
+  }
+</style>

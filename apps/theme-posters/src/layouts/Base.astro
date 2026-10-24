@@ -1,0 +1,183 @@
+---
+import "@fontsource-variable/schibsted-grotesk/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#e9e6df" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23f1ebe0'/><circle cx='12' cy='13' r='8' fill='%23e4402f'/><rect x='14' y='14' width='14' height='14' fill='%231f4fbf'/><rect x='4' y='24' width='10' height='4' fill='%23f2b632'/></svg>`} />
+  </head>
+  <body>
+    <header class="top">
+      <a class="name" href={homeHref}>{profile.name}</a>
+      <span class="edition">{tt(locale, "edition")} {new Date(loadPortfolio().generatedAt).getUTCFullYear()}</span>
+      {
+        alternates.length > 1 && (
+          <nav class="languages" aria-label={tt(locale, "language")}>
+            {alternates.map((a) => (
+              <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                {a.locale.toUpperCase()}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </header>
+    <main><slot /></main>
+    <footer class="footer" id="contact">
+      <p class="label">{tt(locale, "contact")}</p>
+      {profile.email && <a class="mail" href={`mailto:${profile.email}`}>{profile.email}</a>}
+      <ul>
+        {profile.links.map((link) => (
+          <li>
+            <a href={link.url} rel="me noopener">{link.label} ↗</a>
+          </li>
+        ))}
+      </ul>
+      <p class="fine">© {new Date().getFullYear()} {profile.name}{profile.location && ` · ${profile.location}`} · JAPS</p>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --wall: #e9e6df;
+    --paper: #f7f4ee;
+    --ink: #151515;
+    --muted: #6f6a61;
+    --line: #cfc9be;
+    --red: #e4402f;
+    --sans: "Schibsted Grotesk Variable", system-ui, sans-serif;
+    --pad: clamp(18px, 4vw, 56px);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--wall);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    background: var(--wall);
+    font: 400 16px/1.55 var(--sans);
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--wall);
+  }
+  :focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 3px;
+  }
+  .label {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px var(--pad);
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .name {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+  .edition {
+    color: var(--muted);
+  }
+  .languages {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .languages a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .languages a[aria-current="page"] {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .footer {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    margin-top: 120px;
+    padding: 56px var(--pad) 32px;
+    border-top: 1px solid var(--line);
+  }
+  .mail {
+    font-size: clamp(28px, 5vw, 64px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .mail:hover {
+    color: var(--red);
+  }
+  .footer ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-weight: 600;
+  }
+  .footer ul a:hover {
+    color: var(--red);
+  }
+  .fine {
+    margin: 32px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>

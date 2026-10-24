@@ -241,6 +241,21 @@ importers:
         specifier: ^7.3.6
         version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/theme-aurora:
+    dependencies:
+      '@fontsource-variable/sora':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   apps/theme-bento:
     dependencies:
       '@fontsource-variable/geist':
@@ -268,6 +283,21 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource/ibm-plex-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
+  apps/theme-canvas:
+    dependencies:
+      '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
       '@japs/schema':
@@ -427,6 +457,21 @@ importers:
         specifier: ^3.15.0
         version: 3.15.0
 
+  apps/theme-posters:
+    dependencies:
+      '@fontsource-variable/schibsted-grotesk':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   apps/theme-reel:
     dependencies:
       '@fontsource-variable/archivo':
@@ -517,6 +562,21 @@ importers:
   apps/theme-terminal:
     dependencies:
       '@fontsource-variable/jetbrains-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@japs/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@japs/theme-kit':
+        specifier: workspace:*
+        version: link:../../packages/theme-kit
+      astro:
+        specifier: ^7.3.6
+        version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
+  apps/theme-tunnel:
+    dependencies:
+      '@fontsource-variable/space-grotesk':
         specifier: ^5.3.0
         version: 5.3.0
       '@japs/schema':
@@ -1016,6 +1076,9 @@ packages:
   '@fontsource-variable/inter-tight@5.3.0':
     resolution: {integrity: sha512-ZhZZ29sNZ15P1K+cUt13GeBRYON0akgmNiftshUeDLos7X7zGcRgPzt434879Xhq1QbwlW3M/apBMk7jWabwvA==}
 
+  '@fontsource-variable/inter@5.3.0':
+    resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
+
   '@fontsource-variable/jetbrains-mono@5.3.0':
     resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
 
@@ -1027,6 +1090,12 @@ packages:
 
   '@fontsource-variable/playfair-display@5.3.0':
     resolution: {integrity: sha512-IHdzTvE8eGIXHteZql7KXoqdc3Gfm+Zs1u4XlSC3MeplkwviT3sx/P6gI0tLwg/xIYLF4ZJYveZ5V+bl9cnDwA==}
+
+  '@fontsource-variable/schibsted-grotesk@5.3.0':
+    resolution: {integrity: sha512-ndS6H/KICWANchlHF3q4UdZD+xrZ3Ji0rUobIuXlgvDUzDfqZDsVuXPXZb636nJZMHE9zZ9Fmwgqazm8hMB50Q==}
+
+  '@fontsource-variable/sora@5.3.0':
+    resolution: {integrity: sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw==}
 
   '@fontsource-variable/source-serif-4@5.3.1':
     resolution: {integrity: sha512-4Rtay22SC4lMvw11r/+9kxANB6P3M0X8s1NudBC2v0J1KU2y3DcMoNcT3lBoZ/CqLirzf+StlO6UlJilyrvaUg==}
@@ -3250,6 +3319,8 @@ snapshots:
 
   '@fontsource-variable/inter-tight@5.3.0': {}
 
+  '@fontsource-variable/inter@5.3.0': {}
+
   '@fontsource-variable/jetbrains-mono@5.3.0': {}
 
   '@fontsource-variable/overpass@5.3.0': {}
@@ -3257,6 +3328,10 @@ snapshots:
   '@fontsource-variable/pixelify-sans@5.3.0': {}
 
   '@fontsource-variable/playfair-display@5.3.0': {}
+
+  '@fontsource-variable/schibsted-grotesk@5.3.0': {}
+
+  '@fontsource-variable/sora@5.3.0': {}
 
   '@fontsource-variable/source-serif-4@5.3.1': {}
 

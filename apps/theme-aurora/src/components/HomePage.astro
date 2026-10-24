@@ -1,0 +1,368 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, plural, portfolioStats, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stats = portfolioStats(portfolio);
+const tags = tagCounts(portfolio).slice(0, 12);
+const present = tt(locale, "present");
+const statItems = [
+  { value: stats.projects, label: plural(locale, "projects", stats.projects) },
+  { value: stats.technologies, label: plural(locale, "technologies", stats.technologies) },
+  ...(stats.years !== null ? [{ value: stats.years, label: plural(locale, "years", stats.years) }] : []),
+];
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    {
+      profile.available !== null && (
+        <p class:list={["pill", "glass", { off: !profile.available }]}>
+          <i aria-hidden="true" />
+          {tt(locale, profile.available ? "available" : "unavailable")}
+        </p>
+      )
+    }
+    <h1><span class="gradient-text">{profile.name}</span></h1>
+    <p class="headline">{text(profile.headline, locale)}</p>
+    {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+    <ul class="stats">
+      {
+        statItems.map((s) => (
+          <li class="glass" data-tilt>
+            <b>{s.value}</b>
+            <span>{s.label}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="work" id="work" aria-labelledby="work-title">
+    <h2 id="work-title" class="section-title">{tt(locale, "selected")}</h2>
+    <ul class="grid">
+      {
+        projects.map((project, i) => {
+          const shot = coverShot(project);
+          return (
+            <li>
+              <a class="card glass" href={projectUrl(project, locale, portfolio)} data-tilt>
+                <span class="shot">
+                  {shot ? (
+                    <img src={`/${shot.src}`} alt={text(shot.alt, locale)} loading={i < 4 ? "eager" : "lazy"} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                  ) : (
+                    <span class="shot-blank" aria-hidden="true">
+                      {text(project.title, locale).charAt(0)}
+                    </span>
+                  )}
+                </span>
+                <span class="card-body">
+                  <span class="card-top">
+                    <span class="card-title">{text(project.title, locale)}</span>
+                    <span class="year">{projectYears(project, present)}</span>
+                  </span>
+                  <span class="summary">{text(project.summary, locale)}</span>
+                  <span class="tags">
+                    {project.client.isClient && <span class="chip accent">{tt(locale, "clientWork")}</span>}
+                    {project.tags.slice(0, 3).map((t) => (
+                      <span class="chip">{t}</span>
+                    ))}
+                  </span>
+                </span>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </section>
+
+  <section class="contact glass" id="contact" aria-labelledby="contact-title">
+    <p class="eyebrow">{tt(locale, "contact")}</p>
+    <h2 id="contact-title" class="gradient-text">{tt(locale, "letsTalk")}</h2>
+    {profile.email && <a class="mail" href={`mailto:${profile.email}`}>{profile.email}</a>}
+    <ul class="links">
+      {
+        profile.links.map((link) => (
+          <li>
+            <a class="chip" href={link.url} rel="me noopener">{link.label} ↗</a>
+          </li>
+        ))
+      }
+    </ul>
+    {
+      tags.length > 0 && (
+        <div class="stack">
+          <p class="eyebrow">{tt(locale, "stack")}</p>
+          <p class="stack-list">
+            {tags.map(({ tag }) => (
+              <span class="chip">{tag}</span>
+            ))}
+          </p>
+        </div>
+      )
+    }
+  </section>
+  <p class="fine">© {new Date().getFullYear()} {profile.name}{profile.location && ` · ${profile.location}`} · JAPS</p>
+</Base>
+
+<style>
+  .hero {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    min-height: calc(100svh - 80px);
+    align-content: center;
+    padding: 56px var(--pad) 72px;
+    text-align: center;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .pill i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 10px var(--teal);
+  }
+  .pill.off i {
+    background: var(--muted);
+    box-shadow: none;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(54px, 10vw, 152px);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+    overflow-wrap: anywhere;
+    filter: drop-shadow(0 10px 40px rgb(123 92 255 / 0.35));
+  }
+  .headline {
+    margin: 0;
+    font-size: clamp(18px, 2vw, 24px);
+    font-weight: 500;
+  }
+  .bio {
+    max-width: 52ch;
+    margin: 0;
+    color: var(--muted);
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin: 26px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats li {
+    display: grid;
+    min-width: 150px;
+    padding: 18px 26px;
+    border-radius: 22px;
+  }
+  .stats b {
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .stats span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .work {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 40px var(--pad) 0;
+  }
+  .section-title {
+    margin: 0 0 24px;
+    font-size: clamp(28px, 3.4vw, 44px);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card {
+    display: grid;
+    height: 100%;
+    padding: 10px;
+    text-decoration: none;
+  }
+  .shot {
+    display: block;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgb(255 255 255 / 0.06);
+    transform: translateZ(30px);
+  }
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .shot-blank {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    background: conic-gradient(from 200deg at 30% 40%, rgb(53 240 194 / 0.35), rgb(123 92 255 / 0.4), rgb(255 92 184 / 0.35), rgb(53 240 194 / 0.35));
+    color: rgb(255 255 255 / 0.85);
+    font-size: 72px;
+    font-weight: 700;
+  }
+  .card-body {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 16px 10px 10px;
+    transform: translateZ(20px);
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .card-title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .year {
+    flex: none;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .summary {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .tags,
+  .stack-list,
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    padding: 4px 11px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.07);
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .chip.accent {
+    border-color: rgb(53 240 194 / 0.5);
+    color: var(--teal);
+  }
+
+  .contact {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    max-width: 980px;
+    margin: 120px auto 0;
+    padding: clamp(32px, 5vw, 64px) var(--pad);
+    text-align: center;
+  }
+  .contact h2 {
+    margin: 0;
+    font-size: clamp(30px, 4.6vw, 58px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+  }
+  .mail {
+    font-size: clamp(18px, 2.2vw, 26px);
+    font-weight: 600;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .mail:hover {
+    color: var(--teal);
+  }
+  .links {
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .links .chip {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .links .chip:hover {
+    background: rgb(255 255 255 / 0.16);
+  }
+  .stack {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .stack-list {
+    justify-content: center;
+    margin: 0;
+  }
+  .fine {
+    position: relative;
+    z-index: 1;
+    margin: 40px 0 0;
+    padding: 0 var(--pad) 32px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .stats li {
+      min-width: 0;
+      padding: 14px 18px;
+    }
+    .stats b {
+      font-size: 34px;
+    }
+  }
+</style>

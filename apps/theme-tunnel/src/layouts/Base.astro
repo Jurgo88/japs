@@ -1,0 +1,223 @@
+---
+import "@fontsource-variable/space-grotesk/wght.css";
+import { languageName, loadPortfolio } from "@japs/theme-kit";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+  title: string;
+  description: string;
+  alternates: { locale: string; href: string }[];
+  homeHref: string;
+}
+
+const { locale, title, description, alternates, homeHref } = Astro.props;
+const { profile } = loadPortfolio();
+const site = Astro.site;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#04040a" />
+    {site && alternates.map((a) => <link rel="alternate" hreflang={a.locale} href={new URL(a.href, site).toString()} />)}
+    <link rel="icon" href={`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2304040a'/><rect x='4' y='4' width='24' height='24' fill='none' stroke='%236ef3ff' stroke-opacity='.4'/><rect x='9' y='9' width='14' height='14' fill='none' stroke='%236ef3ff' stroke-opacity='.7'/><rect x='13' y='13' width='6' height='6' fill='%236ef3ff'/></svg>`} />
+    <script is:inline>
+      // The 3D tunnel needs JavaScript and motion; otherwise projects stay a plain list.
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("fly");
+    </script>
+  </head>
+  <body>
+    <canvas class="stars" aria-hidden="true" data-stars></canvas>
+    <header class="top">
+      <a class="brand" href={homeHref}><span class="mark" aria-hidden="true"></span>{profile.name}</a>
+      {
+        alternates.length > 1 && (
+          <nav class="languages" aria-label={tt(locale, "language")}>
+            {alternates.map((a) => (
+              <a href={a.href} hreflang={a.locale} lang={a.locale} aria-current={a.locale === locale ? "page" : undefined} title={languageName(a.locale)}>
+                {a.locale.toUpperCase()}
+              </a>
+            ))}
+          </nav>
+        )
+      }
+    </header>
+    <main><slot /></main>
+
+    <script>
+      // A warp starfield: stars stream toward the viewer, faster while scrolling.
+      const canvas = document.querySelector<HTMLCanvasElement>("[data-stars]");
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx) {
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const stars = Array.from({ length: 420 }, () => ({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random() }));
+        let w = 0;
+        let h = 0;
+        let lastY = scrollY;
+        let boost = 0;
+        const resize = () => {
+          const dpr = Math.min(2, devicePixelRatio || 1);
+          w = innerWidth;
+          h = innerHeight;
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        };
+        const frame = () => {
+          const dy = Math.abs(scrollY - lastY);
+          lastY = scrollY;
+          boost = Math.min(0.06, boost * 0.9 + dy * 0.0004);
+          const speed = reduce ? 0 : 0.0012 + boost;
+          ctx.clearRect(0, 0, w, h);
+          const cx = w / 2;
+          const cy = h / 2;
+          const f = Math.max(w, h) * 0.5;
+          for (const s of stars) {
+            const pz = s.z;
+            s.z -= speed;
+            if (s.z <= 0.02) {
+              s.x = Math.random() * 2 - 1;
+              s.y = Math.random() * 2 - 1;
+              s.z = 1;
+              continue;
+            }
+            const x = cx + (s.x / s.z) * f;
+            const y = cy + (s.y / s.z) * f;
+            const px = cx + (s.x / pz) * f;
+            const py = cy + (s.y / pz) * f;
+            const a = Math.min(1, (1 - s.z) * 1.4);
+            ctx.strokeStyle = `rgba(190, 240, 255, ${a})`;
+            ctx.lineWidth = Math.max(0.6, (1 - s.z) * 2.2);
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(x + 0.1, y + 0.1);
+            ctx.stroke();
+          }
+          if (!reduce) requestAnimationFrame(frame);
+        };
+        resize();
+        addEventListener("resize", resize);
+        frame();
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #04040a;
+    --text: #eef4ff;
+    --muted: #8a93ad;
+    --cyan: #6ef3ff;
+    --pink: #ff5fd2;
+    --line: rgb(255 255 255 / 0.12);
+    --sans: "Space Grotesk Variable", system-ui, sans-serif;
+    --pad: clamp(18px, 4vw, 56px);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: clip;
+    background: var(--bg);
+    font: 400 16px/1.6 var(--sans);
+  }
+  a {
+    color: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ::selection {
+    background: var(--cyan);
+    color: var(--bg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
+  main {
+    position: relative;
+    z-index: 1;
+  }
+  .stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .kicker {
+    margin: 0;
+    color: var(--cyan);
+    font: 600 12px/1.3 var(--sans);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+
+  .top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px var(--pad);
+    pointer-events: none;
+  }
+  .top a {
+    pointer-events: auto;
+    text-decoration: none;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .mark {
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgb(110 243 255 / 0.5);
+    box-shadow:
+      inset 0 0 0 4px var(--bg),
+      inset 0 0 0 5px rgb(110 243 255 / 0.8),
+      inset 0 0 0 10px var(--cyan);
+  }
+  .languages {
+    display: flex;
+    gap: 6px;
+  }
+  .languages a {
+    padding: 4px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .languages a[aria-current="page"] {
+    border-color: var(--line);
+    color: var(--text);
+  }
+</style>

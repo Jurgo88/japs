@@ -1,0 +1,629 @@
+---
+import { coverShot, loadPortfolio, localePrefix, orderedProjects, projectUrl, projectYears, tagCounts, text } from "@japs/theme-kit";
+import Base from "../layouts/Base.astro";
+import { tt } from "../lib/strings.ts";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const portfolio = loadPortfolio();
+const { profile } = portfolio;
+const home = (l: string) => `${localePrefix(l, portfolio)}/`;
+const projects = orderedProjects(portfolio);
+const stack = tagCounts(portfolio).slice(0, 14);
+const present = tt(locale, "present");
+const pad = (n: number) => String(n).padStart(2, "0");
+---
+
+<Base
+  locale={locale}
+  title={`${profile.name} — ${text(profile.headline, locale)}`}
+  description={text(profile.headline, locale)}
+  alternates={portfolio.locales.map((l) => ({ locale: l, href: home(l) }))}
+  homeHref={home(locale)}
+>
+  <section class="hero">
+    <p class="kicker">{text(profile.headline, locale)}</p>
+    <h1>{profile.name}</h1>
+    {text(profile.bio, locale) && <p class="bio">{text(profile.bio, locale)}</p>}
+    {
+      profile.available !== null && (
+        <p class:list={["status", { off: !profile.available }]}>
+          <i aria-hidden="true" />
+          {tt(locale, profile.available ? "available" : "unavailable")}
+        </p>
+      )
+    }
+    <p class="scroll-cue" aria-hidden="true"><span>{tt(locale, "scroll")}</span><i></i></p>
+  </section>
+
+  <section class="tunnel" data-tunnel style={`--n: ${projects.length}`} aria-label={tt(locale, "projects")}>
+    <div class="stage" data-stage>
+      <div class="fog" aria-hidden="true"></div>
+      <ol class="slides">
+        {
+          projects.map((project, i) => {
+            const shot = coverShot(project);
+            return (
+              <li class="slide" data-slide style={`--side: ${i % 2 ? 1 : -1}`}>
+                <article class="card">
+                  <a class="shot" href={projectUrl(project, locale, portfolio)} tabindex="-1" aria-hidden="true">
+                    {shot ? (
+                      <img src={`/${shot.src}`} alt="" loading={i < 3 ? "eager" : "lazy"} width={shot.viewport === "mobile" ? 390 : 1440} height={shot.viewport === "mobile" ? 844 : 900} />
+                    ) : (
+                      <span class="shot-blank">{pad(i + 1)}</span>
+                    )}
+                  </a>
+                  <div class="card-text">
+                    <p class="card-meta">
+                      <span class="num">{pad(i + 1)}</span>
+                      <span>{projectYears(project, present)}</span>
+                      {project.client.isClient && <span>{tt(locale, "clientWork")}</span>}
+                    </p>
+                    <h2>
+                      <a href={projectUrl(project, locale, portfolio)}>{text(project.title, locale)}</a>
+                    </h2>
+                    <p class="summary">{text(project.summary, locale)}</p>
+                    <p class="tags">{project.tags.slice(0, 4).join(" / ")}</p>
+                  </div>
+                </article>
+              </li>
+            );
+          })
+        }
+      </ol>
+      <nav class="hud" aria-label={tt(locale, "jump")} data-hud>
+        <ol>
+          {
+            projects.map((project, i) => (
+              <li>
+                <button type="button" data-jump={i}>
+                  <span class="hud-num">{pad(i + 1)}</span>
+                  <span class="hud-name">{text(project.title, locale)}</span>
+                </button>
+              </li>
+            ))
+          }
+        </ol>
+      </nav>
+      <p class="counter" aria-hidden="true"><b data-counter>01</b> / {pad(projects.length)}</p>
+    </div>
+  </section>
+
+  <section class="end" id="contact">
+    <div class="portal" aria-hidden="true"></div>
+    <p class="kicker">{tt(locale, "endTitle")}</p>
+    <p class="end-text">{tt(locale, "endText")}</p>
+    {profile.email && <a class="end-mail" href={`mailto:${profile.email}`}>{profile.email}</a>}
+    <ul class="end-links">
+      {
+        profile.links.map((link) => (
+          <li>
+            <a href={link.url} rel="me noopener">{link.label} ↗</a>
+          </li>
+        ))
+      }
+    </ul>
+    {
+      stack.length > 0 && (
+        <div class="fuel">
+          <p class="kicker">{tt(locale, "stack")}</p>
+          <ul>
+            {stack.map(({ tag, count }) => (
+              <li style={`--w: ${Math.round((count / stack[0]!.count) * 100)}%`}>
+                <span>{tag}</span>
+                <b>{count}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+    <p class="fine">© {new Date().getFullYear()} {profile.name} · JAPS{profile.location && ` · ${profile.location}`}</p>
+  </section>
+</Base>
+
+<script>
+  const tunnel = document.querySelector<HTMLElement>("[data-tunnel]");
+  if (tunnel && document.documentElement.classList.contains("fly")) {
+    const slides = [...tunnel.querySelectorAll<HTMLElement>("[data-slide]")];
+    const buttons = [...tunnel.querySelectorAll<HTMLButtonElement>("[data-jump]")];
+    const counter = tunnel.querySelector<HTMLElement>("[data-counter]");
+    const n = slides.length;
+    // Depth between projects and where a project "rests" in front of the camera.
+    const GAP = 1000;
+    let REST = -240;
+    // The camera dwells at each project: progress between two stops is eased with a hold at both ends.
+    const dwell = (f: number) => {
+      const t = Math.min(1, Math.max(0, (f - 0.22) / 0.56));
+      return t * t * (3 - 2 * t);
+    };
+    let ticking = false;
+    let active = -1;
+
+    const progress = () => {
+      const r = tunnel.getBoundingClientRect();
+      const span = tunnel.offsetHeight - innerHeight;
+      return Math.min(1, Math.max(0, -r.top / Math.max(1, span)));
+    };
+    const render = () => {
+      ticking = false;
+      const wide = innerWidth > 900;
+      REST = wide ? -240 : -40;
+      const p = progress();
+      const raw = p * Math.max(0, n - 1);
+      const stop = Math.min(Math.max(0, n - 1), Math.floor(raw));
+      const cam = (stop + dwell(raw - stop)) * GAP;
+      let nearest = 0;
+      let best = Infinity;
+      slides.forEach((slide, i) => {
+        const z = REST + cam - i * GAP;
+        const side = Number(slide.style.getPropertyValue("--side")) || 1;
+        // Off to the side in the distance, drifting to the centre as it approaches.
+        const t = Math.min(1, Math.max(0, (REST - z) / GAP));
+        const x = side * (wide ? 30 : 6) * t;
+        const y = ((i % 3) - 1) * (wide ? 12 : 8) * t;
+        const behind = z > REST;
+        const fade = behind ? Math.max(0, 1 - (z - REST) / 380) : Math.max(0, 1 - (REST - z) / (GAP * 4.2));
+        const visible = fade > 0.01 && z < 600;
+        slide.style.visibility = visible ? "visible" : "hidden";
+        if (!visible) return;
+        slide.style.transform = `translate3d(calc(-50% + ${x}vw), calc(-50% + ${y}vh), ${z}px)`;
+        slide.style.opacity = String(fade);
+        slide.style.filter = behind ? `blur(${Math.min(8, (z - REST) / 50)}px)` : `blur(${Math.min(4, (REST - z) / 1100)}px) brightness(${Math.max(0.45, 1 - (REST - z) / 5000)})`;
+        slide.style.zIndex = String(10000 + Math.round(z));
+        const d = Math.abs(z - REST);
+        if (d < best) {
+          best = d;
+          nearest = i;
+        }
+      });
+      if (nearest !== active) {
+        active = nearest;
+        slides.forEach((s, i) => s.classList.toggle("active", i === active));
+        buttons.forEach((b, i) => b.toggleAttribute("aria-current", i === active));
+        if (counter) counter.textContent = String(active + 1).padStart(2, "0");
+      }
+    };
+    const request = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(render);
+      }
+    };
+    addEventListener("scroll", request, { passive: true });
+    addEventListener("resize", request);
+    render();
+
+    // Jump to a project: scroll to where it rests in front of the camera.
+    buttons.forEach((b, i) =>
+      b.addEventListener("click", () => {
+        const span = tunnel.offsetHeight - innerHeight;
+        const top = tunnel.getBoundingClientRect().top + scrollY + (n > 1 ? (i / (n - 1)) * span : 0);
+        scrollTo({ top, behavior: "smooth" });
+      }),
+    );
+    // Keyboard users tabbing into a card get scrolled to it.
+    slides.forEach((slide, i) => slide.addEventListener("focusin", () => buttons[i]?.click()));
+  }
+</script>
+
+<style>
+  .hero {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 18px;
+    min-height: 100svh;
+    padding: 120px var(--pad) 80px;
+    text-align: center;
+    background: radial-gradient(ellipse 50% 40% at 50% 50%, rgb(110 243 255 / 0.12), transparent 70%);
+  }
+  h1 {
+    margin: 0;
+    background: linear-gradient(180deg, #fff 30%, #9fdcff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: clamp(56px, 11vw, 168px);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    overflow-wrap: anywhere;
+    filter: drop-shadow(0 0 40px rgb(110 243 255 / 0.25));
+  }
+  .bio {
+    max-width: 52ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 0;
+    color: var(--cyan);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .status i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+  }
+  .status.off {
+    color: var(--muted);
+  }
+  .status.off i {
+    background: var(--muted);
+    box-shadow: none;
+  }
+  .scroll-cue {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    margin: 40px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .scroll-cue i {
+    width: 1px;
+    height: 56px;
+    background: linear-gradient(var(--cyan), transparent);
+    animation: drip 2s ease-in-out infinite;
+  }
+  @keyframes drip {
+    0% {
+      transform: scaleY(0);
+      transform-origin: top;
+    }
+    50% {
+      transform: scaleY(1);
+      transform-origin: top;
+    }
+    51% {
+      transform-origin: bottom;
+    }
+    100% {
+      transform: scaleY(0);
+      transform-origin: bottom;
+    }
+  }
+  :global(html:not(.fly)) .scroll-cue {
+    display: none;
+  }
+
+  /* Without the tunnel: a plain list of cards. */
+  .slides {
+    display: grid;
+    gap: 64px;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px var(--pad) 80px;
+    list-style: none;
+  }
+  .hud,
+  .counter,
+  .fog {
+    display: none;
+  }
+
+  /* The tunnel: a tall scroll track with a sticky 3D stage. */
+  :global(.fly) .tunnel {
+    height: calc(var(--n) * 80vh + 100vh);
+  }
+  :global(.fly) .stage {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+    perspective: 900px;
+    perspective-origin: 50% 50%;
+  }
+  :global(.fly) .slides {
+    position: absolute;
+    inset: 0;
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    transform-style: preserve-3d;
+  }
+  :global(.fly) .slide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(64vw, 920px);
+    visibility: hidden;
+    pointer-events: none;
+    will-change: transform, opacity, filter;
+  }
+  :global(.fly) .slide.active {
+    pointer-events: auto;
+  }
+  :global(.fly) .fog {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    background: radial-gradient(ellipse 30% 30% at 50% 50%, rgb(110 243 255 / 0.1), transparent 70%);
+    pointer-events: none;
+  }
+
+  .card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: linear-gradient(160deg, rgb(20 24 44 / 0.92), rgb(8 8 18 / 0.96));
+    box-shadow:
+      0 0 0 1px rgb(110 243 255 / 0.06),
+      0 40px 120px -30px rgb(110 243 255 / 0.25);
+  }
+  .active .card {
+    border-color: rgb(110 243 255 / 0.35);
+  }
+  .shot {
+    display: block;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: #0b0d1a;
+  }
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
+  .shot-blank {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    background:
+      repeating-linear-gradient(0deg, rgb(110 243 255 / 0.08) 0 1px, transparent 1px 24px),
+      repeating-linear-gradient(90deg, rgb(110 243 255 / 0.08) 0 1px, transparent 1px 24px);
+    color: rgb(110 243 255 / 0.5);
+    font-size: 96px;
+    font-weight: 700;
+  }
+  .card-text {
+    display: grid;
+    align-content: center;
+    gap: 10px;
+    padding: clamp(20px, 3vw, 36px);
+  }
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .num {
+    color: var(--cyan);
+    font-weight: 700;
+  }
+  .card h2 {
+    margin: 0;
+    font-size: clamp(26px, 3vw, 44px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .card h2 a {
+    text-decoration: none;
+  }
+  .card h2 a::after {
+    content: " →";
+    color: var(--cyan);
+  }
+  .card h2 a:hover {
+    color: var(--cyan);
+  }
+  .summary {
+    margin: 0;
+    color: #c5cde3;
+    font-size: 15px;
+  }
+  .tags {
+    margin: 0;
+    color: var(--pink);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  :global(.fly) .hud {
+    position: absolute;
+    top: 50%;
+    right: var(--pad);
+    z-index: 20000;
+    display: block;
+    transform: translateY(-50%);
+  }
+  .hud ol {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .hud button {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 3px 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: 500 12px/1.2 var(--sans);
+    cursor: pointer;
+  }
+  .hud-name {
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 0;
+    transition:
+      max-width 0.3s,
+      opacity 0.3s;
+  }
+  .hud:hover .hud-name,
+  .hud button[aria-current] .hud-name,
+  .hud button:focus-visible .hud-name {
+    max-width: 220px;
+    opacity: 1;
+  }
+  .hud button[aria-current] {
+    color: var(--cyan);
+  }
+  .hud-num::after {
+    display: inline-block;
+    width: 18px;
+    height: 1px;
+    margin-left: 8px;
+    vertical-align: middle;
+    content: "";
+    background: currentColor;
+    transition: width 0.3s;
+  }
+  .hud button[aria-current] .hud-num::after {
+    width: 34px;
+  }
+  :global(.fly) .counter {
+    position: absolute;
+    left: var(--pad);
+    bottom: 28px;
+    z-index: 20000;
+    display: block;
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter b {
+    color: var(--text);
+    font-size: 28px;
+  }
+
+  .end {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding: 160px var(--pad) 48px;
+    overflow: hidden;
+    text-align: center;
+  }
+  /* Light at the end of the tunnel. */
+  .portal {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: min(900px, 140vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(110 243 255 / 0.22), rgb(255 95 210 / 0.08) 40%, transparent 65%);
+    transform: translate(-50%, -40%);
+    pointer-events: none;
+  }
+  .end > * {
+    position: relative;
+  }
+  .end-text {
+    max-width: 30ch;
+    margin: 0;
+    font-size: clamp(26px, 3.6vw, 48px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  .end-mail {
+    margin-top: 10px;
+    color: var(--cyan);
+    font-size: clamp(20px, 2.6vw, 32px);
+    font-weight: 600;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .end-mail:hover {
+    text-decoration: underline;
+  }
+  .end-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .end-links a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .end-links a:hover {
+    color: var(--text);
+  }
+  .fuel {
+    width: min(100%, 560px);
+    margin-top: 72px;
+    text-align: left;
+  }
+  .fuel ul {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .fuel li {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    font-size: 14px;
+  }
+  .fuel li::before {
+    position: absolute;
+    inset: 0;
+    right: auto;
+    z-index: -1;
+    width: var(--w);
+    border-radius: 4px;
+    content: "";
+    background: linear-gradient(90deg, rgb(110 243 255 / 0.28), rgb(255 95 210 / 0.12));
+  }
+  .fuel b {
+    color: var(--cyan);
+  }
+  .fine {
+    margin: 72px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    .card {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    :global(.fly) .slide {
+      width: min(88vw, 560px);
+    }
+    :global(.fly) .hud {
+      display: none;
+    }
+  }
+</style>

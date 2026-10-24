@@ -1,0 +1,48 @@
+import { extendStrings } from "@japs/theme-kit";
+
+export const tt = extendStrings({
+  en: {
+    series: "A series of {n} generative prints",
+    edition: "Edition",
+    print: "Print",
+    howTitle: "How the prints are made",
+    how: "Every poster is generated from its project's own data. The project name seeds the randomness and picks one of six compositions and a palette; each technology adds a layer and shifts the colours, so projects with the same stack look related; the years set the rhythm. Rebuild the site and the prints come out exactly the same.",
+    hover: "Hover a print to see the work behind it",
+    contact: "Commissions",
+    screens: "The work",
+    next: "Next print",
+  },
+  sk: {
+    series: "Séria {n} generatívnych tlačí",
+    edition: "Edícia",
+    print: "Tlač",
+    howTitle: "Ako vznikajú tlače",
+    how: "Každý plagát je vygenerovaný z dát svojho projektu. Názov projektu určuje náhodu a vyberá jednu zo šiestich kompozícií a paletu; každá technológia pridá vrstvu a posunie farby, takže projekty s rovnakým stackom vyzerajú príbuzne; roky určujú rytmus. Po novom builde vyjdú tlače úplne rovnaké.",
+    hover: "Prejdite myšou na tlač a uvidíte dielo za ňou",
+    contact: "Zákazky",
+    screens: "Dielo",
+    next: "Ďalšia tlač",
+  },
+  cs: {
+    series: "Série {n} generativních tisků",
+    edition: "Edice",
+    print: "Tisk",
+    howTitle: "Jak tisky vznikají",
+    how: "Každý plakát je vygenerovaný z dat svého projektu. Název projektu určuje náhodu a vybírá jednu ze šesti kompozic a paletu; každá technologie přidá vrstvu a posune barvy, takže projekty se stejným stackem vypadají příbuzně; roky určují rytmus. Po novém buildu vyjdou tisky úplně stejně.",
+    hover: "Najeďte myší na tisk a uvidíte dílo za ním",
+    contact: "Zakázky",
+    screens: "Dílo",
+    next: "Další tisk",
+  },
+  de: {
+    series: "Eine Serie von {n} generativen Drucken",
+    edition: "Edition",
+    print: "Druck",
+    howTitle: "Wie die Drucke entstehen",
+    how: "Jedes Poster wird aus den Daten seines Projekts erzeugt. Der Projektname setzt den Zufall und wählt eine von sechs Kompositionen und eine Palette; jede Technologie fügt eine Ebene hinzu und verschiebt die Farben, sodass Projekte mit gleichem Stack verwandt aussehen; die Jahre geben den Rhythmus. Ein neuer Build druckt exakt dieselben Poster.",
+    hover: "Fahre über einen Druck, um das Werk dahinter zu sehen",
+    contact: "Aufträge",
+    screens: "Das Werk",
+    next: "Nächster Druck",
+  },
+});

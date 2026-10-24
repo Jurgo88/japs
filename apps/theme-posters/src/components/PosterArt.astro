@@ -1,0 +1,38 @@
+---
+/** Renders a generated poster as inline SVG (no JavaScript, no images). */
+import type { PortfolioProject } from "@japs/schema";
+import { H, W, poster } from "../lib/generate.ts";
+
+interface Props {
+  project: PortfolioProject;
+  class?: string;
+}
+
+const { project, class: className } = Astro.props;
+const from = Number((project.period.from ?? project.period.to ?? "").slice(0, 4));
+const to = Number((project.period.to ?? project.period.from ?? "").slice(0, 4));
+const years = from && to ? to - from + 1 : 1;
+const art = poster(project.slug, project.tags, years);
+const clip = `clip-${project.slug.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+---
+
+<svg class:list={["art", className]} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true" data-composition={art.composition}>
+  <defs><clipPath id={clip}><rect width={W} height={H} /></clipPath></defs>
+  <g clip-path={`url(#${clip})`}>
+    <rect width={W} height={H} fill={art.bg} />
+    {
+      art.shapes.map((s) => {
+        const Tag = s.tag;
+        return <Tag {...s.attrs} />;
+      })
+    }
+  </g>
+</svg>
+
+<style>
+  .art {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
