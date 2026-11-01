@@ -18,10 +18,12 @@ export function browserCapture(binding: Fetcher): Capture {
       throw err;
     }
     try {
-      const page = await browser.newPage();
       const images: Partial<Record<Viewport, Uint8Array>> = {};
       for (const viewport of VIEWPORTS) {
         const { width, height, deviceScaleFactor, isMobile } = SCREENSHOT_VIEWPORTS[viewport];
+        // A page per viewport: going mobile reloads a loaded page, and a site that asks before
+        // leaving would hold that reload until it times out.
+        const page = await browser.newPage();
         await page.setViewport({ width, height, deviceScaleFactor, isMobile, hasTouch: isMobile });
         // SPAs keep sockets open; fall back to "load" when the network never settles.
         try {
@@ -33,6 +35,7 @@ export function browserCapture(binding: Fetcher): Capture {
         // Let intro animations settle.
         await new Promise((resolve) => setTimeout(resolve, 1500));
         images[viewport] = (await page.screenshot({ type: "jpeg", quality: 82 })) as Uint8Array;
+        await page.close();
       }
       return images;
     } finally {

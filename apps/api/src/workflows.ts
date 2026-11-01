@@ -83,8 +83,9 @@ export class ScreenshotWorkflow extends WorkflowEntrypoint<Env, ShotJobParams> {
     const { userId, keys, force } = event.payload;
     const user = () => new Store(this.env.DB).forUser(userId);
     const { BROWSER, SHOTS } = this.env;
-    if (!BROWSER || !SHOTS) return;
+    if (!BROWSER || !SHOTS) return { problem: null };
 
+    let problem: string | null = null;
     const targets: ScreenshotTarget[] = await step.do("plan", async () => planScreenshots(user(), keys, force));
     for (const [i, target] of targets.entries()) {
       if (i > 0) await step.sleep(`pace ${i}`, "20 seconds");
@@ -101,11 +102,13 @@ export class ScreenshotWorkflow extends WorkflowEntrypoint<Env, ShotJobParams> {
       } catch (err) {
         if (message(err) === BROWSER_LIMIT_MESSAGE) {
           console.warn(`screenshots for ${userId}: ${BROWSER_LIMIT_MESSAGE}`);
-          return;
+          return { problem: BROWSER_LIMIT_MESSAGE };
         }
         console.warn(`screenshot ${target.key} failed: ${message(err)}`);
+        problem = `Couldn't capture ${target.url}: ${message(err)}`;
       }
     }
+    return { problem };
   }
 }
 

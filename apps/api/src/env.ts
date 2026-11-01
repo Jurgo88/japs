@@ -32,7 +32,7 @@ export interface Env {
   /** Screenshots (#33): Browser Run, R2 for the images, one sequential workflow per run. */
   BROWSER?: Fetcher;
   SHOTS?: Bucket;
-  SHOT_JOBS?: WorkflowBinding<ShotJobParams>;
+  SHOT_JOBS?: ReadableWorkflowBinding<ShotJobParams>;
   /** Cloudflare OAuth client (ADR 0012); without it, "Connect Cloudflare" isn't offered. */
   CLOUDFLARE_CLIENT_ID?: string;
   CLOUDFLARE_CLIENT_SECRET?: string;
@@ -75,6 +75,11 @@ export interface ProjectJobParams {
 export interface WorkflowBinding<P> {
   create(options: { id?: string; params: P }): Promise<{ id: string }>;
   createBatch(batch: { id?: string; params: P }[]): Promise<{ id: string }[]>;
+}
+
+/** A workflow whose runs are also looked up afterwards. */
+export interface ReadableWorkflowBinding<P> extends WorkflowBinding<P> {
+  get(id: string): Promise<{ status(): Promise<{ status: string; output?: unknown }> }>;
 }
 
 /** Secrets the app can't run without; checked on every request so misconfiguration is loud. */

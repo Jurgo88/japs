@@ -210,37 +210,40 @@ export async function generate(key: string): Promise<void> {
 export const shooting = ref<{ key: string; message: string | null; running: boolean } | null>(null);
 
 const SHOT_POLL_MS = 10_000;
-const SHOT_POLLS = 15;
+/** Long enough for a failing site to use up its retries, about five minutes. */
+const SHOT_POLLS = 36;
 
 /**
  * Asks for new screenshots of one project. Saves first, because a new Live URL decides what gets
- * captured, then watches the state until both come back. Stops watching when a new one arrives.
+ * captured, then watches the run until it ends, and reports what it found.
  */
 export async function takeScreenshots(key: string): Promise<void> {
   if (dirty.value && !(await save())) return;
   const stamp = () => (state.value?.screenshots?.shots ?? []).filter((s) => s.key === key).map((s) => s.takenAt).sort().join();
   const before = stamp();
   shooting.value = { key, message: null, running: true };
+  let run: string;
   try {
-    await backend.requestScreenshots(key);
+    run = await backend.requestScreenshots(key);
   } catch (err) {
     shooting.value = { key, message: err instanceof Error ? err.message : String(err), running: false };
     return;
   }
   for (let i = 0; i < SHOT_POLLS; i++) {
     await new Promise((resolve) => setTimeout(resolve, SHOT_POLL_MS));
+    const finished = await backend.screenshotRun(run).catch(() => null);
     const loaded = await backend.load().catch(() => null);
     if (state.value && loaded) state.value.screenshots = loaded.screenshots;
     if (stamp() !== before) {
       shooting.value = { key, message: "Screenshots updated.", running: false };
       return;
     }
+    if (finished?.done) {
+      shooting.value = { key, message: finished.problem ?? "No new screenshots came back. Try again later.", running: false };
+      return;
+    }
   }
-  shooting.value = {
-    key,
-    message: "No new screenshots yet. The site may be unreachable, or today's free browser time may be used up. Try again later.",
-    running: false,
-  };
+  shooting.value = { key, message: "This is taking longer than usual. Reload the page later to see the new screenshots.", running: false };
 }
 
 /**

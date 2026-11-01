@@ -449,7 +449,12 @@ describe("requesting screenshots by hand", () => {
 
   async function setup() {
     const started: unknown[] = [];
-    env.SHOT_JOBS = { create: async (o: { params: unknown }) => (started.push(o.params), { id: "s" }), createBatch: async () => [] } as Env["SHOT_JOBS"];
+    const run = { status: "complete", output: { problem: "Couldn't capture https://shop.example.dev: timeout" } as unknown };
+    env.SHOT_JOBS = {
+      create: async (o: { params: unknown }) => (started.push(o.params), { id: "s" }),
+      createBatch: async () => [],
+      get: async () => ({ status: async () => run }),
+    } as unknown as Env["SHOT_JOBS"];
     let today = new Date("2026-10-10T12:00:00Z");
     const { fetch } = fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
     const app = createApp({ fetch, now: () => today });
@@ -462,8 +467,23 @@ describe("requesting screenshots by hand", () => {
     const user = store.forUser(janeId);
     await user.putDocument("projects", { version: 1, sites: [site], repos: [], projects: [project("site:s1"), { ...project("repo:jane/api"), siteIds: [] }] });
     await user.putDocument("config", { version: 1 });
-    return { started, jane, john, janeId, user, later: (ms: number) => (today = new Date(today.getTime() + ms)) };
+    return { started, run, jane, john, janeId, user, later: (ms: number) => (today = new Date(today.getTime() + ms)) };
   }
+
+  it("tells its owner, and only them, how a run went", async () => {
+    const { run, jane, john } = await setup();
+    const started = (await body(await ask(jane, "site:s1"))).run as string;
+    const url = `/api/screenshots/runs/${started}`;
+    expect(await body(await jane.request(url))).toEqual({ done: true, problem: "Couldn't capture https://shop.example.dev: timeout" });
+
+    Object.assign(run, { status: "running", output: undefined });
+    expect(await body(await jane.request(url))).toEqual({ done: false, problem: null });
+    Object.assign(run, { status: "errored" });
+    expect(await body(await jane.request(url))).toEqual({ done: true, problem: "The screenshot job failed." });
+
+    expect((await john.request(url)).status).toBe(404);
+    expect((await new Browser(createApp()).request(url)).status).toBe(401);
+  });
 
   it("captures one project on request, again even when its shot looks fresh", async () => {
     const { started, jane, janeId, user } = await setup();
@@ -547,7 +567,7 @@ describe("screenshots API", () => {
   it("starts screenshots for the projects whose texts are generated", async () => {
     const shots: unknown[] = [];
     env.PROJECT_JOBS = { create: async () => ({ id: "x" }), createBatch: async (b: unknown[]) => b.map(() => ({ id: "x" })) } as Env["PROJECT_JOBS"];
-    env.SHOT_JOBS = { create: async (o: { params: unknown }) => (shots.push(o.params), { id: "s" }), createBatch: async () => [] } as Env["SHOT_JOBS"];
+    env.SHOT_JOBS = { create: async (o: { params: unknown }) => (shots.push(o.params), { id: "s" }), createBatch: async () => [] } as unknown as Env["SHOT_JOBS"];
     const browser = new Browser(createApp({ fetch: fakeProviders().fetch }));
     await browser.signIn();
     const store = new Store(env.DB);
