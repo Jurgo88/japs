@@ -7,6 +7,7 @@ import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
 import PublishTarget from "./components/PublishTarget.vue";
 import SettingsPage, { type SettingsSection } from "./components/SettingsPage.vue";
+import StatsPanel from "./components/StatsPanel.vue";
 import ThemePicker from "./components/ThemePicker.vue";
 import {
   account,
@@ -33,7 +34,7 @@ import {
   unreadableRepos,
 } from "./store.ts";
 
-const tab = ref<"projects" | "profile" | "design">("projects");
+const tab = ref<"projects" | "profile" | "design" | "stats">("projects");
 
 /** Settings live at #/settings/<section>, so reload and Back keep them. Locally without Account. */
 const hash = ref(location.hash);
@@ -144,6 +145,7 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
       </button>
       <button :class="{ active: !settingsSection && tab === 'profile' }" @click="showTab('profile')">Profile</button>
       <button :class="{ active: !settingsSection && tab === 'design' }" @click="showTab('design')">Design</button>
+      <button v-if="isCloud" :class="{ active: !settingsSection && tab === 'stats' }" @click="showTab('stats')">Stats</button>
     </nav>
     <div class="actions">
       <span
@@ -317,6 +319,10 @@ pnpm japs analyze</pre>
   <main v-else-if="tab === 'design'" class="page with-aside">
     <ThemePicker />
     <aside class="aside"><PublishTarget /></aside>
+  </main>
+
+  <main v-else-if="tab === 'stats'" class="page">
+    <StatsPanel />
   </main>
 
   <main v-else class="page">

@@ -610,6 +610,78 @@ describe("cookies on a shared domain (portfolios on subdomains)", () => {
   });
 });
 
+describe("visit statistics (ADR 0015)", () => {
+  const twoUsers = () => fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+  const CHROME = "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0";
+  const keyOf = async (login: string) => {
+    const user = await env.DB.prepare("SELECT id FROM users WHERE github_login = ?").bind(login).first<{ id: string }>();
+    return new Store(env.DB, () => new Date()).forUser(user!.id).analyticsKey();
+  };
+  const hit = (app: ReturnType<typeof createApp>, payload: unknown, headers: Record<string, string> = {}) =>
+    app.request("/api/hit", { method: "POST", headers: { Origin: "https://jane.netlify.app", "User-Agent": CHROME, ...headers }, body: JSON.stringify(payload) }, env);
+
+  it("counts a hit from any portfolio domain, for its owner only", async () => {
+    const { fetch } = twoUsers();
+    const app = createApp({ fetch });
+    const jane = new Browser(app);
+    const john = new Browser(app);
+    await jane.signIn();
+    await john.signIn("code-john");
+
+    const k = await keyOf("janedoe");
+    expect((await hit(app, { k, p: "/projects/shop/?utm=x", r: "www.google.com" })).status).toBe(204);
+    expect((await hit(app, { k, p: "/", r: "jane.netlify.app" })).status).toBe(204);
+
+    const report = await body(jane.request("/api/analytics"));
+    expect(report.totals).toEqual({ views: 2, visits: 1 });
+    expect(report.pages).toEqual([{ value: "/", count: 1 }, { value: "/projects/shop/", count: 1 }]);
+    expect(report.referrers).toEqual([{ value: "google.com", count: 1 }]);
+    expect((await body(john.request("/api/analytics"))).totals).toEqual({ views: 0, visits: 0 });
+  });
+
+  it("ignores bots, unknown keys and junk, with the same answer", async () => {
+    const app = createApp({ fetch: fakeProviders().fetch });
+    const jane = new Browser(app);
+    await jane.signIn();
+    const k = await keyOf("janedoe");
+    expect((await hit(app, { k, p: "/", r: "" }, { "User-Agent": "Googlebot/2.1" })).status).toBe(204);
+    expect((await hit(app, { k: "nobody", p: "/", r: "" })).status).toBe(204);
+    expect((await hit(app, { k, p: "no-slash", r: "" })).status).toBe(204);
+    expect((await hit(app, { k, p: "/", r: "" }, { Origin: "" })).status).toBe(204);
+    expect((await body(jane.request("/api/analytics"))).totals).toEqual({ views: 0, visits: 0 });
+  });
+
+  it("drops counters past the retention period, for every user", async () => {
+    let today = new Date("2026-01-01T12:00:00Z");
+    const { fetch } = twoUsers();
+    const app = createApp({ fetch, now: () => today });
+    const jane = new Browser(app);
+    const john = new Browser(app);
+    await jane.signIn();
+    await john.signIn("code-john");
+    await hit(app, { k: await keyOf("janedoe"), p: "/", r: "" });
+    today = new Date("2026-03-01T12:00:00Z");
+    await hit(app, { k: await keyOf("johndoe"), p: "/", r: "" });
+    const rows = await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_daily WHERE day < '2026-02-01'").first<{ n: number }>();
+    expect(rows?.n).toBe(0);
+  });
+
+  it("shows statistics only to a signed-in user, and deletes them with the account", async () => {
+    const app = createApp({ fetch: fakeProviders().fetch });
+    expect((await app.request("/api/analytics", {}, env)).status).toBe(401);
+    const jane = new Browser(app);
+    await jane.signIn();
+    await hit(app, { k: await keyOf("janedoe"), p: "/", r: "" });
+    await jane.request("/api/account", {
+      method: "DELETE",
+      headers: { Origin: APP_URL, "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "janedoe" }),
+    });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_daily").first<{ n: number }>()).toEqual({ n: 0 });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM analytics_sites").first<{ n: number }>()).toEqual({ n: 0 });
+  });
+});
+
 describe("japs.app address (ADR 0013)", () => {
   const twoUsers = () => fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
   const put = (browser: Browser, handle: unknown, origin = APP_URL) =>

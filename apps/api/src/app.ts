@@ -15,6 +15,7 @@ import {
   revokeCloudflareToken,
   revokeGithubGrant,
 } from "./auth/oauth.ts";
+import { ANALYTICS_DAYS, buildReport, dayOf, firstDay, MAX_ANALYTICS_ROWS_PER_DAY, MAX_HIT_BYTES, parseHit } from "./analytics.ts";
 import { decrypt, encrypt, randomToken, sha256, sign, unsign } from "./crypto.ts";
 import { type Job, Store, type User } from "./db.ts";
 import { wrapAnalysis } from "./pipeline.ts";
@@ -84,9 +85,10 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   // CSRF: state-changing requests must come from our own origin (cookies are SameSite=Lax too).
-  // The builder routes use a bearer token, not cookies, so CSRF doesn't apply to them.
+  // The builder routes use a bearer token, not cookies, so CSRF doesn't apply to them. Hits come
+  // from portfolios on any domain, and their route never reads the session.
   app.use("*", async (c, next) => {
-    if (c.req.method !== "GET" && c.req.method !== "HEAD" && !c.req.path.startsWith("/builder/")) {
+    if (c.req.method !== "GET" && c.req.method !== "HEAD" && !c.req.path.startsWith("/builder/") && c.req.path !== "/api/hit") {
       const origin = c.req.header("Origin");
       if (origin !== new URL(c.env.APP_URL).origin) return c.json({ error: "Cross-origin request refused" }, 403);
     }
@@ -271,6 +273,24 @@ export function createApp(deps: AppDeps = {}) {
       // Already revoked or expired: nothing to undo.
     }
   }
+
+  /**
+   * One page view from a published portfolio (ADR 0015). Public and sent with sendBeacon, so the
+   * answer is the same whatever happens: it tells the caller nothing and nobody reads it.
+   */
+  app.post("/api/hit", async (c) => {
+    if (Number(c.req.header("Content-Length") ?? 0) <= MAX_HIT_BYTES) {
+      const cf = (c.req.raw as Request & { cf?: { country?: string } }).cf;
+      const hit = parseHit(await c.req.text(), { origin: c.req.header("Origin"), userAgent: c.req.header("User-Agent"), country: cf?.country });
+      const store = c.get("store");
+      const owner = hit && (await store.analyticsOwner(hit.key));
+      if (hit && owner) {
+        await store.forUser(owner).recordHit({ ...hit, day: dayOf(now()) }, MAX_ANALYTICS_ROWS_PER_DAY);
+        await store.purgeAnalytics(firstDay(now()));
+      }
+    }
+    return c.body(null, 204);
+  });
 
   // --- API (signed-in users only) ---
 
@@ -522,6 +542,12 @@ export function createApp(deps: AppDeps = {}) {
   });
 
   // --- Address on the hosted domain (ADR 0013) ---
+
+  /** Visits to the published portfolio over the last days (ADR 0015). */
+  app.get("/api/analytics", async (c) => {
+    const store = c.get("store").forUser(c.get("user")!.id);
+    return c.json({ periodDays: ANALYTICS_DAYS, ...buildReport(await store.analyticsRows(firstDay(now())), now()) });
+  });
 
   /** The domain portfolios live on, when this server hosts them. */
   const sites = (c: AppContext): SitesConfig | null =>

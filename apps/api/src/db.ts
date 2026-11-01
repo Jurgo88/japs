@@ -6,6 +6,14 @@ import type { ScreenshotRecord } from "@japs/schema";
  * filter by that id. Route handlers never write queries.
  */
 
+/** One daily counter of a portfolio's statistics (ADR 0015). */
+export interface AnalyticsRow {
+  day: string;
+  dimension: "views" | "visits" | "page" | "referrer" | "country";
+  value: string;
+  count: number;
+}
+
 /** The subset of D1Database we use; a node:sqlite adapter implements it in tests. */
 export interface Db {
   prepare(sql: string): Statement;
@@ -181,6 +189,9 @@ const toUser = (r: UserRow): User => ({
   avatarUrl: r.avatar_url,
 });
 
+/** 128 bits: long enough that nobody can guess someone else's key. */
+const randomKey = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
 export class Store {
   constructor(
     private readonly db: Db,
@@ -236,6 +247,17 @@ export class Store {
   async buildOwner(buildId: string): Promise<string | null> {
     const row = await this.db.prepare("SELECT user_id FROM builds WHERE id = ?").bind(buildId).first<{ user_id: string }>();
     return row?.user_id ?? null;
+  }
+
+  /** Owner of a statistics key. The key comes with a public hit, so this is a lookup across users. */
+  async analyticsOwner(key: string): Promise<string | null> {
+    const row = await this.db.prepare("SELECT user_id FROM analytics_sites WHERE key = ?").bind(key).first<{ user_id: string }>();
+    return row?.user_id ?? null;
+  }
+
+  /** Retention across all users, so portfolios nobody visits lose their old counters too. */
+  async purgeAnalytics(before: string): Promise<void> {
+    await this.db.prepare("DELETE FROM analytics_daily WHERE day < ?").bind(before).run();
   }
 
   /**
@@ -682,6 +704,53 @@ export class UserStore {
         .run();
     }
     await this.db.prepare("UPDATE retired_handles SET user_id = NULL WHERE user_id = ?").bind(this.userId).run();
+  }
+
+  /** The public key published portfolios send their visits with, created on first use. */
+  async analyticsKey(): Promise<string> {
+    await this.db
+      .prepare("INSERT INTO analytics_sites (user_id, key, created_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO NOTHING")
+      .bind(this.userId, randomKey(), this.iso())
+      .run();
+    const row = await this.db.prepare("SELECT key FROM analytics_sites WHERE user_id = ?").bind(this.userId).first<{ key: string }>();
+    if (!row) throw new Error("Statistics key not created");
+    return row.key;
+  }
+
+  /**
+   * Adds one page view to today's counters. Past `maxRows` a day only the totals still grow, so
+   * forged hits with endless paths can't fill the table.
+   */
+  async recordHit(
+    hit: { day: string; page: string; referrer: string | null; visit: boolean; country: string | null },
+    maxRows: number,
+  ): Promise<void> {
+    const used = await this.db
+      .prepare("SELECT COUNT(*) AS n FROM analytics_daily WHERE user_id = ? AND day = ?")
+      .bind(this.userId, hit.day)
+      .first<{ n: number }>();
+    const counters: [AnalyticsRow["dimension"], string][] = [["views", ""]];
+    if (hit.visit) counters.push(["visits", ""]);
+    if ((used?.n ?? 0) < maxRows) {
+      counters.push(["page", hit.page]);
+      if (hit.referrer) counters.push(["referrer", hit.referrer]);
+      if (hit.country) counters.push(["country", hit.country]);
+    }
+    await this.db
+      .prepare(
+        `INSERT INTO analytics_daily (user_id, day, dimension, value, count) VALUES ${counters.map(() => "(?, ?, ?, ?, 1)").join(", ")}
+         ON CONFLICT(user_id, day, dimension, value) DO UPDATE SET count = count + 1`,
+      )
+      .bind(...counters.flatMap(([dimension, value]) => [this.userId, hit.day, dimension, value]))
+      .run();
+  }
+
+  async analyticsRows(from: string): Promise<AnalyticsRow[]> {
+    const { results } = await this.db
+      .prepare("SELECT day, dimension, value, count FROM analytics_daily WHERE user_id = ? AND day >= ?")
+      .bind(this.userId, from)
+      .all<AnalyticsRow>();
+    return results;
   }
 
   /** Account deletion (#36): the user row cascades to every table. R2 images are deleted by the caller. */

@@ -97,6 +97,8 @@ export const JapsConfig = z
       .object({ target: PublishTarget.default("netlify") })
       .strict()
       .default({}),
+    /** Visit statistics on portfolios published from the hosted version (ADR 0015). */
+    analytics: z.boolean().default(true),
     /** Required by `japs build`; discovery works without it. */
     profile: Profile.optional(),
     discovery: z

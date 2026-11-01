@@ -25,6 +25,8 @@ const BuildInput = z.object({
   siteUrl: z.string().url(),
   portfolio: Portfolio,
   assets: z.array(z.object({ path: z.string(), url: z.string().url() })),
+  /** Builds from before statistics carried none. */
+  analytics: z.object({ url: z.string().url(), key: z.string().regex(/^[0-9a-f]{32}$/) }).nullish(),
 });
 
 const BUILD_ID = /^[0-9a-f-]{36}$/;
@@ -82,7 +84,7 @@ export async function cloudBuild(options: CloudBuildOptions): Promise<void> {
     log(`Building the "${input.theme}" theme…`);
     let dist: string;
     try {
-      dist = await (options.buildTheme ?? buildTheme)(dir, input.siteUrl, input.theme);
+      dist = await (options.buildTheme ?? buildTheme)(dir, input.siteUrl, input.theme, input.analytics ?? undefined);
     } catch {
       // Astro's output can quote portfolio text, and the logs are public: only the fact.
       throw new WorkspaceError(THEME_FAILED);

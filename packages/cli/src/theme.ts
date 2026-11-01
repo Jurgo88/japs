@@ -53,10 +53,22 @@ export async function runThemeScript(id: ThemeId, script: "dev" | "build" | "pre
   return text;
 }
 
-/** Builds a theme for `portfolioDir`, with absolute URLs on `siteUrl`. Returns the dist directory. */
-export async function buildTheme(portfolioDir: string, siteUrl: string | undefined, id: ThemeId): Promise<string> {
+/**
+ * Builds a theme for `portfolioDir`, with absolute URLs on `siteUrl`. Returns the dist directory.
+ * `analytics` comes only from the hosted version (ADR 0015); the CLI builds without any.
+ */
+export async function buildTheme(
+  portfolioDir: string,
+  siteUrl: string | undefined,
+  id: ThemeId,
+  analytics?: { url: string; key: string },
+): Promise<string> {
   const env: NodeJS.ProcessEnv = { JAPS_PORTFOLIO_DIR: portfolioDir };
   if (siteUrl) env.JAPS_SITE_URL = siteUrl;
+  if (analytics) {
+    env.JAPS_ANALYTICS_URL = analytics.url;
+    env.JAPS_ANALYTICS_KEY = analytics.key;
+  }
   await runThemeScript(id, "build", { stdio: "collect", env });
   return join(themeDir(id), "dist");
 }

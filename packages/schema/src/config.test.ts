@@ -10,6 +10,7 @@ describe("JapsConfig", () => {
   it("fills defaults for a minimal config", () => {
     expect(JapsConfig.parse({ version: 1 })).toEqual({
       version: 1,
+      analytics: true,
       locales: ["en"],
       defaultLocale: "en",
       theme: "default",
