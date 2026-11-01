@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import AccountMenu from "./components/AccountMenu.vue";
+import LandingPage from "./components/LandingPage.vue";
 import LanguagesEditor from "./components/LanguagesEditor.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
 import PublishTarget from "./components/PublishTarget.vue";
 import RecordingConsent from "./components/RecordingConsent.vue";
-import { recordingAvailable, reviewRecording } from "./recording.ts";
 import SettingsPage, { type SettingsSection } from "./components/SettingsPage.vue";
 import StatsPanel from "./components/StatsPanel.vue";
 import ThemePicker from "./components/ThemePicker.vue";
@@ -121,24 +121,10 @@ onMounted(async () => {
 window.addEventListener("beforeunload", (e) => {
   if (dirty.value) e.preventDefault();
 });
-const accountDeleted = new URLSearchParams(location.search).has("deleted");
 </script>
 
 <template>
-  <main v-if="signedOut" class="signin">
-    <h1>JAPS</h1>
-    <p class="lead">Your portfolio, minus the part where you build your portfolio.</p>
-    <p class="muted">
-      Sign in with GitHub, connect Netlify, pick the projects to show — JAPS writes the texts and publishes the
-      site to your own Netlify. GitHub access is read-only.
-    </p>
-    <p v-if="status.error" class="banner error">{{ status.error }}</p>
-    <p v-if="accountDeleted" class="banner ok">Your account and all its data were deleted.</p>
-    <a class="btn primary big" href="/auth/github/login">Sign in with GitHub</a>
-    <p class="muted legal">By signing in you agree to the <a href="/terms">terms</a>. <a href="/privacy">Privacy</a>
-      <template v-if="recordingAvailable"> · <a href="#" @click.prevent="reviewRecording()">Session recording</a></template>
-    </p>
-  </main>
+  <LandingPage v-if="signedOut" />
 
   <template v-else>
   <header class="top">
@@ -341,7 +327,6 @@ pnpm japs analyze</pre>
 </template>
 
 <style scoped>
-.legal { font-size: 13px; }
 .top {
   position: sticky;
   top: 0;
@@ -379,11 +364,6 @@ pnpm japs analyze</pre>
 .gear:hover, .gear[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .tabs .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tabs button.active .count { color: inherit; opacity: 0.8; }
-.signin { max-width: 520px; margin: 12vh auto 0; padding: 0 20px; text-align: center; }
-.signin h1 { font-size: 40px; margin: 0 0 8px; }
-.signin .lead { font-size: 18px; margin: 0 0 16px; }
-.signin .banner { margin: 16px 0; text-align: left; }
-.btn.big { display: inline-block; margin-top: 16px; padding: 10px 20px; font-size: 16px; text-decoration: none; }
 .banner { margin: 12px 20px 0; padding: 10px 14px; border-radius: 8px; }
 .banner ul { margin: 6px 0 0; padding-left: 18px; }
 .banner.error { background: #fde8e7; color: var(--danger); }
