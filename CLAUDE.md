@@ -16,7 +16,7 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 1 — Core.** Discovery + pairing → `projects.json`, facts → `facts.json`. LLM copy → `analysis.json` → `japs build` → `out/portfolio.json` → `apps/theme-default`. Grounding (#11) and Playwright screenshots (#12) done. Next: Netlify deploy of the theme (Phase 2).
+**Phase 4 — Launch.** Phases 0–3 are done: the local pipeline, editor, 22 themes and publishing all work, and the hosted version runs on japs.app (built ahead of the original Phase 5 plan). Next: a README with visuals, testing onboarding as a new user, terms and privacy policy, then the launch.
 
 ## Layout
 
@@ -62,7 +62,6 @@ pnpm japs publish    # build + deploy to a dedicated Netlify site or Cloudflare 
 - Never commit tokens, `.env`, or generated `projects.json` / `portfolio.json` from a real account.
 - Test fixtures must be anonymized (fake names and domains). Real account data stays out of the repo.
 - Private repos: never expose their URL in public output (`links.repo = null`).
-- Before the repo goes public (Phase 4), anonymize client names in `docs/kickoff.md`.
 - Every new architectural decision gets an ADR in `docs/adr/`.
 - Licenses (ADR 0014): MIT by default, AGPL-3.0-only for `apps/api`, JAPS Theme License for themes other than `default`, `editorial`, `swiss`, `bento`. Nothing under MIT may import from `apps/api` or from a theme under the theme license. A new theme needs a `LICENSE` and a `license` field.
 - Hosted API (`apps/api`): SQL only in `src/db.ts`, user data only via `forUser(userId)`; tokens and keys encrypted at rest, never returned to the browser; every new route gets an isolation test (ADR 0009).
