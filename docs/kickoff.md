@@ -253,4 +253,4 @@ Odstrániť ručnú tvorbu portfólia. Aplikácia sa pripojí na Netlify a GitHu
 
 ## 14. Ďalší krok
 
-**Fáza 4:** README s vizuálmi a živým demom, otestovať onboarding očami nového používateľa, doplniť podmienky a zásady ochrany súkromia, potom launch. Hostovaná verzia vznikla už pred launchom (ADR 0009).
+**Fáza 4:** pripraviť hostovanú verziu na nával návštev a launch. Hostovaná verzia vznikla už pred launchom (ADR 0009).
