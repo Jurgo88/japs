@@ -441,6 +441,69 @@ describe("account deletion", () => {
   });
 });
 
+describe("requesting screenshots by hand", () => {
+  const project = (key: string) => ({ key, slug: "shop", siteIds: ["s1"], repoIds: [], hidden: false, hiddenReasons: [], private: false, clientSignals: [] });
+  const site = { id: "s1", name: "shop", url: "https://shop.example.dev", hasCustomDomain: true, lastDeployAt: "2026-10-01T00:00:00.000Z", screenshotUrl: null };
+  const ask = (browser: Browser, key: unknown) =>
+    browser.request("/api/screenshots", { method: "POST", headers: { Origin: APP_URL, "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+
+  async function setup() {
+    const started: unknown[] = [];
+    env.SHOT_JOBS = { create: async (o: { params: unknown }) => (started.push(o.params), { id: "s" }), createBatch: async () => [] } as Env["SHOT_JOBS"];
+    let today = new Date("2026-10-10T12:00:00Z");
+    const { fetch } = fakeProviders({ "code-jane": { id: 1, login: "janedoe" }, "code-john": { id: 2, login: "johndoe" } });
+    const app = createApp({ fetch, now: () => today });
+    const jane = new Browser(app);
+    const john = new Browser(app);
+    await jane.signIn("code-jane");
+    await john.signIn("code-john");
+    const store = new Store(env.DB);
+    const janeId = (await store.upsertGithubUser({ githubId: 1, login: "janedoe", name: null, avatarUrl: null })).id;
+    const user = store.forUser(janeId);
+    await user.putDocument("projects", { version: 1, sites: [site], repos: [], projects: [project("site:s1"), { ...project("repo:jane/api"), siteIds: [] }] });
+    await user.putDocument("config", { version: 1 });
+    return { started, jane, john, janeId, user, later: (ms: number) => (today = new Date(today.getTime() + ms)) };
+  }
+
+  it("captures one project on request, again even when its shot looks fresh", async () => {
+    const { started, jane, janeId, user } = await setup();
+    await user.putScreenshot({ key: "site:s1", viewport: "desktop", file: "shop-desktop.jpg", url: "https://shop.example.dev", takenAt: "2026-10-09T00:00:00.000Z" });
+    await user.putScreenshot({ key: "site:s1", viewport: "mobile", file: "shop-mobile.jpg", url: "https://shop.example.dev", takenAt: "2026-10-09T00:00:00.000Z" });
+    expect((await ask(jane, "site:s1")).status).toBe(202);
+    expect(started).toEqual([{ userId: janeId, keys: ["site:s1"], force: true }]);
+  });
+
+  it("explains what's missing for a project without a live address, and starts nothing", async () => {
+    const { started, jane } = await setup();
+    const res = await ask(jane, "repo:jane/api");
+    expect(res.status).toBe(400);
+    expect((await body(res)).error).toContain("Live URL");
+    expect(started).toEqual([]);
+  });
+
+  it("limits how often one user can ask, without affecting others", async () => {
+    const { user, started, jane, john, later } = await setup();
+    const store = new Store(env.DB);
+    const johnId = (await store.upsertGithubUser({ githubId: 2, login: "johndoe", name: null, avatarUrl: null })).id;
+    await store.forUser(johnId).putDocument("projects", await user.getDocument("projects"));
+    await store.forUser(johnId).putDocument("config", { version: 1 });
+
+    expect((await ask(jane, "site:s1")).status).toBe(202);
+    expect((await ask(jane, "site:s1")).status).toBe(429);
+    expect((await ask(john, "site:s1")).status).toBe(202);
+    later(121_000);
+    expect((await ask(jane, "site:s1")).status).toBe(202);
+    expect(started).toHaveLength(3);
+  });
+
+  it("can't reach another user's projects, and needs a signed-in user", async () => {
+    const { started, john } = await setup();
+    expect((await ask(john, "site:s1")).status).toBe(400);
+    expect(started).toEqual([]);
+    expect((await ask(new Browser(createApp()), "site:s1")).status).toBe(401);
+  });
+});
+
 describe("screenshots API", () => {
   async function twoUsers() {
     const { bucket, objects } = fakeBucket();

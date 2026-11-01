@@ -21,13 +21,16 @@ export class BrowserLimitError extends Error {}
 export const BROWSER_LIMIT_MESSAGE =
   "Screenshots paused: today's free browser time is used up. They continue with the next import; Netlify's screenshot is shown meanwhile.";
 
+/** Between manual requests of one user: the free browser time is shared by the whole service. */
+export const SCREENSHOT_REQUEST_GAP_MS = 2 * 60_000;
+
 export const objectKey = (userId: string, file: string) => `${userId}/${file}`;
 
 /**
  * The picked projects that need a (new) shot: shown with screenshots, and without a shot of
- * the current URL taken after the site's last deploy.
+ * the current URL taken after the site's last deploy. `force` retakes those too.
  */
-export async function planScreenshots(user: UserStore, keys: string[]): Promise<ScreenshotTarget[]> {
+export async function planScreenshots(user: UserStore, keys: string[], force = false): Promise<ScreenshotTarget[]> {
   const projectsFile = (await user.getDocument("projects")) as ProjectsFile | null;
   if (!projectsFile) return [];
   const config = JapsConfig.parse((await user.getDocument("config")) ?? { version: 1 });
@@ -37,7 +40,7 @@ export async function planScreenshots(user: UserStore, keys: string[]): Promise<
       const shot = shots.find((s) => s.key === target.key && s.viewport === viewport);
       return shot && shot.url === target.url && (!target.deployedAt || shot.takenAt >= target.deployedAt);
     });
-  return screenshotTargets(projectsFile, config, keys).filter((t) => !fresh(t));
+  return screenshotTargets(projectsFile, config, keys).filter((t) => force || !fresh(t));
 }
 
 /** Captures one project and stores what came out; a viewport that failed keeps its old shot. */

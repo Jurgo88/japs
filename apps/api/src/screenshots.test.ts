@@ -37,6 +37,8 @@ describe("screenshots", () => {
     const capture = async () => ({ desktop: jpeg(1), mobile: jpeg(2) });
     await shootProject(user, "u1", bucket, (await planScreenshots(user, ["site:s1"]))[0]!, capture, new Date("2026-10-05T00:00:00Z"));
     expect((await planScreenshots(user, ["site:s1", "site:s2"])).map((t) => t.key)).toEqual(["site:s2"]);
+    // A manual request retakes a shot that looks fresh, for changes without a new deploy.
+    expect((await planScreenshots(user, ["site:s1"], true)).map((t) => t.key)).toEqual(["site:s1"]);
 
     // A redeploy after the shot, or a different screenshot URL, makes it stale again.
     await user.putDocument("projects", { ...projectsFile, sites: projectsFile.sites.map((s) => ({ ...s, lastDeployAt: "2026-10-10T00:00:00.000Z" })) });

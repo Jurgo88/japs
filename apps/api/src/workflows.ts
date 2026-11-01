@@ -80,12 +80,12 @@ const SHOT_RETRY = {
  */
 export class ScreenshotWorkflow extends WorkflowEntrypoint<Env, ShotJobParams> {
   async run(event: WorkflowEvent<ShotJobParams>, step: WorkflowStep) {
-    const { userId, keys } = event.payload;
+    const { userId, keys, force } = event.payload;
     const user = () => new Store(this.env.DB).forUser(userId);
     const { BROWSER, SHOTS } = this.env;
     if (!BROWSER || !SHOTS) return;
 
-    const targets: ScreenshotTarget[] = await step.do("plan", async () => planScreenshots(user(), keys));
+    const targets: ScreenshotTarget[] = await step.do("plan", async () => planScreenshots(user(), keys, force));
     for (const [i, target] of targets.entries()) {
       if (i > 0) await step.sleep(`pace ${i}`, "20 seconds");
       try {
