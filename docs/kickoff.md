@@ -2,7 +2,7 @@
 
 **Dátum:** 12. 10. 2026
 **Vlastník:** Juraj Paluš
-**Status:** Fáza 0 hotová → Fáza 1
+**Status:** Fázy 0–3 hotové → Fáza 4 (launch)
 
 ---
 
@@ -253,4 +253,4 @@ Odstrániť ručnú tvorbu portfólia. Aplikácia sa pripojí na Netlify a GitHu
 
 ## 14. Ďalší krok
 
-**Fáza 1:** skript v `core`, ktorý s Netlify a GitHub PAT vykoná discovery algoritmus vyššie a vypíše `projects.json`. Overiť doplnenie 4 nespárovaných webov a zmapovať repá bez webu.
+**Fáza 4:** README s vizuálmi a živým demom, otestovať onboarding očami nového používateľa, doplniť podmienky a zásady ochrany súkromia, potom launch. Hostovaná verzia vznikla už pred launchom (ADR 0009).

@@ -2,6 +2,12 @@
 
 > Your portfolio, minus the part where you build your portfolio.
 
+**[See a live portfolio](https://jurgo.japs.app) · [Try it on japs.app](https://japs.app) · [22 themes](#themes)**
+
+<table>
+<tr><td><img src="docs/themes/terminal.jpg" alt="Terminal theme"></td><td><img src="docs/themes/vinyl.jpg" alt="Vinyl theme"></td><td><img src="docs/themes/aurora.jpg" alt="Aurora theme"></td></tr>
+</table>
+
 JAPS connects to your **Netlify** and **GitHub** accounts, finds what you've actually shipped, pairs deployed sites with their repositories, analyzes each project, and generates a static portfolio you can tweak and publish.
 
 **Status:** early development. Locally, everything works end to end: the CLI pipeline, the browser editor, 22 themes and publishing to your Netlify. The hosted version (sign in with GitHub, no local setup) imports your projects, writes their texts and publishes the portfolio to your Netlify or Cloudflare Pages, or to `<you>.japs.app` without any other account.
@@ -60,7 +66,16 @@ The editor writes your choices to `japs.config.json` when you press Save. It can
 
 Pick a theme with `"theme": "<id>"` in `japs.config.json`, or try one without changing the config: `pnpm dev --theme terminal`.
 
-`default`, `editorial`, `studio`, `gallery`, `fieldnotes`, `riot`, `orbit`, `reel`, `swiss`, `retro`, `blueprint`, `metro`, `arena`, `bento`, `newspaper`, `vinyl`, `museum`, `terminal`, `canvas`, `tunnel`, `posters`, `aurora`
+<table>
+<tr><td><img src="docs/themes/default.jpg" alt="default theme"><br><code>default</code></td><td><img src="docs/themes/editorial.jpg" alt="editorial theme"><br><code>editorial</code></td><td><img src="docs/themes/studio.jpg" alt="studio theme"><br><code>studio</code></td></tr>
+<tr><td><img src="docs/themes/gallery.jpg" alt="gallery theme"><br><code>gallery</code></td><td><img src="docs/themes/fieldnotes.jpg" alt="fieldnotes theme"><br><code>fieldnotes</code></td><td><img src="docs/themes/riot.jpg" alt="riot theme"><br><code>riot</code></td></tr>
+<tr><td><img src="docs/themes/orbit.jpg" alt="orbit theme"><br><code>orbit</code></td><td><img src="docs/themes/reel.jpg" alt="reel theme"><br><code>reel</code></td><td><img src="docs/themes/swiss.jpg" alt="swiss theme"><br><code>swiss</code></td></tr>
+<tr><td><img src="docs/themes/retro.jpg" alt="retro theme"><br><code>retro</code></td><td><img src="docs/themes/blueprint.jpg" alt="blueprint theme"><br><code>blueprint</code></td><td><img src="docs/themes/metro.jpg" alt="metro theme"><br><code>metro</code></td></tr>
+<tr><td><img src="docs/themes/arena.jpg" alt="arena theme"><br><code>arena</code></td><td><img src="docs/themes/bento.jpg" alt="bento theme"><br><code>bento</code></td><td><img src="docs/themes/newspaper.jpg" alt="newspaper theme"><br><code>newspaper</code></td></tr>
+<tr><td><img src="docs/themes/vinyl.jpg" alt="vinyl theme"><br><code>vinyl</code></td><td><img src="docs/themes/museum.jpg" alt="museum theme"><br><code>museum</code></td><td><img src="docs/themes/terminal.jpg" alt="terminal theme"><br><code>terminal</code></td></tr>
+<tr><td><img src="docs/themes/canvas.jpg" alt="canvas theme"><br><code>canvas</code></td><td><img src="docs/themes/tunnel.jpg" alt="tunnel theme"><br><code>tunnel</code></td><td><img src="docs/themes/posters.jpg" alt="posters theme"><br><code>posters</code></td></tr>
+<tr><td><img src="docs/themes/aurora.jpg" alt="aurora theme"><br><code>aurora</code></td></tr>
+</table>
 
 All themes read the same `out/portfolio.json` and are localized into every language you declare, and all of them are free to use for your portfolio ([licenses](#license)). The default theme has light and dark mode, a technology filter, screenshots in device frames and subtle motion that respects `prefers-reduced-motion`.
 
