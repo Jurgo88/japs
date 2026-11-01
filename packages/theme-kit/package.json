@@ -2,6 +2,7 @@
   "name": "@japs/theme-kit",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Optional helpers for JAPS themes: load portfolio.json, locales, URLs, UI strings, Astro config (ADR 0010)",
   "exports": {

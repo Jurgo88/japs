@@ -2,6 +2,7 @@
   "name": "@japs/theme-swiss",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "JAPS theme \"swiss\": a static Astro site built from portfolio.json",
   "scripts": {

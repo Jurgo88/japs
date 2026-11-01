@@ -2,6 +2,7 @@
   "name": "@japs/theme-orbit",
   "version": "0.0.0",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "description": "JAPS theme \"orbit\": a spatial Astro portfolio with GSAP motion",
   "scripts": {
