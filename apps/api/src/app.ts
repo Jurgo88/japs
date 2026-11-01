@@ -513,8 +513,20 @@ export function createApp(deps: AppDeps = {}) {
     if (!(await store.claimScreenshotRequest(new Date(now().getTime() - SCREENSHOT_REQUEST_GAP_MS).toISOString()))) {
       return c.json({ error: "Please wait a couple of minutes between screenshot requests." }, 429);
     }
-    await c.env.SHOT_JOBS.create({ params: { userId: user.id, keys: [key], force: true } });
-    return c.json({ ok: true }, 202);
+    // The id starts with the owner, so the run below can only be read by them.
+    const run = `${user.id}-${crypto.randomUUID()}`;
+    await c.env.SHOT_JOBS.create({ id: run, params: { userId: user.id, keys: [key], force: true } });
+    return c.json({ run }, 202);
+  });
+
+  /** How a requested run went, so the editor can say why no new screenshot came. */
+  app.get("/api/screenshots/runs/:run", async (c) => {
+    const run = c.req.param("run");
+    if (!c.env.SHOT_JOBS || !run.startsWith(`${c.get("user")!.id}-`)) return c.json({ error: "Not found" }, 404);
+    const { status, output } = await (await c.env.SHOT_JOBS.get(run)).status();
+    const failed = status === "errored" || status === "terminated";
+    const problem = (output as { problem?: string | null } | undefined)?.problem ?? null;
+    return c.json({ done: failed || status === "complete", problem: problem ?? (failed ? "The screenshot job failed." : null) });
   });
 
   /** The user's own screenshots from R2 (#33); only under their own prefix. */

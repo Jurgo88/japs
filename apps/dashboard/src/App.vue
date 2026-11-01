@@ -119,7 +119,7 @@ onMounted(async () => {
 
 // Leaving with unsaved changes asks first.
 window.addEventListener("beforeunload", (e) => {
-  if (dirty.value) e.preventDefault();
+  if (dirty.value && !signedOut.value) e.preventDefault();
 });
 const accountDeleted = new URLSearchParams(location.search).has("deleted");
 </script>

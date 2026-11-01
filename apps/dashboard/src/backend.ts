@@ -109,7 +109,9 @@ export interface EditorBackend {
   generate(key: string): Promise<GenerateSummary>;
   screenshotUrl(file: string): string;
   /** Hosted only: new screenshots of one project, in the background. */
-  requestScreenshots(key: string): Promise<void>;
+  requestScreenshots(key: string): Promise<string>;
+  /** Hosted only: how a requested run went. */
+  screenshotRun(run: string): Promise<{ done: boolean; problem: string | null }>;
   /** Hosted only: who is signed in. */
   account(): Promise<Account>;
   signOut(): Promise<void>;
@@ -190,8 +192,12 @@ export class HttpBackend implements EditorBackend {
     return `/api/screenshots/${encodeURIComponent(file)}`;
   }
 
-  async requestScreenshots(key: string): Promise<void> {
-    await this.call("/api/screenshots", { method: "POST", body: JSON.stringify({ key }) });
+  async requestScreenshots(key: string): Promise<string> {
+    return (await this.call<{ run: string }>("/api/screenshots", { method: "POST", body: JSON.stringify({ key }) })).run;
+  }
+
+  screenshotRun(run: string): Promise<{ done: boolean; problem: string | null }> {
+    return this.call(`/api/screenshots/runs/${encodeURIComponent(run)}`);
   }
 
   account(): Promise<Account> {
