@@ -33,7 +33,7 @@ import {
   startPublish,
   toStatus,
 } from "./publish.ts";
-import { deleteUserImages, objectKey } from "./screenshots.ts";
+import { deleteUserImages, objectKey, planScreenshots, SCREENSHOT_REQUEST_GAP_MS } from "./screenshots.ts";
 import { chooseHandle, HandleError, handleUnavailable, RETIRED_DAYS, type SitesConfig, siteView } from "./sites/handles.ts";
 import { ConnectionError, githubToken } from "./tokens.ts";
 import { JapsConfig, type ProjectAnalysis } from "@japs/schema";
@@ -498,6 +498,23 @@ export function createApp(deps: AppDeps = {}) {
 
   app.get("/api/jobs/latest", async (c) => {
     return c.json({ job: await c.get("store").forUser(c.get("user")!.id).latestJob() });
+  });
+
+  /** New screenshots of one project, for a site that went live or changed since the last ones. */
+  app.post("/api/screenshots", async (c) => {
+    const user = c.get("user")!;
+    const store = c.get("store").forUser(user.id);
+    if (!c.env.SHOT_JOBS) return c.json({ error: "Screenshots are not configured on this server." }, 501);
+    const { key } = (await c.req.json().catch(() => ({}))) as { key?: unknown };
+    if (typeof key !== "string") return c.json({ error: 'Expected { "key": "<project key>" }.' }, 400);
+    if (!(await planScreenshots(store, [key], true)).length) {
+      return c.json({ error: "Nothing to capture yet. Show the project on the portfolio, and if it has no live address, import again or set Live URL under Advanced." }, 400);
+    }
+    if (!(await store.claimScreenshotRequest(new Date(now().getTime() - SCREENSHOT_REQUEST_GAP_MS).toISOString()))) {
+      return c.json({ error: "Please wait a couple of minutes between screenshot requests." }, 429);
+    }
+    await c.env.SHOT_JOBS.create({ params: { userId: user.id, keys: [key], force: true } });
+    return c.json({ ok: true }, 202);
   });
 
   /** The user's own screenshots from R2 (#33); only under their own prefix. */

@@ -706,6 +706,18 @@ export class UserStore {
     await this.db.prepare("UPDATE retired_handles SET user_id = NULL WHERE user_id = ?").bind(this.userId).run();
   }
 
+  /** Records a manual screenshot request, unless the previous one is newer than `since`. */
+  async claimScreenshotRequest(since: string): Promise<boolean> {
+    const row = await this.db
+      .prepare(
+        `UPDATE users SET screenshots_requested_at = ? WHERE id = ?
+         AND (screenshots_requested_at IS NULL OR screenshots_requested_at < ?) RETURNING id`,
+      )
+      .bind(this.iso(), this.userId, since)
+      .first<{ id: string }>();
+    return row !== null;
+  }
+
   /** The public key published portfolios send their visits with, created on first use. */
   async analyticsKey(): Promise<string> {
     await this.db

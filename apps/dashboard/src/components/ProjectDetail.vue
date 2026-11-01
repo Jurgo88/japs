@@ -7,7 +7,22 @@ import LocaleTabs from "./LocaleTabs.vue";
 import LocalizedField from "./LocalizedField.vue";
 import TagInput from "./TagInput.vue";
 import ToggleSwitch from "./ToggleSwitch.vue";
-import { analysisByKey, draft, editLocale, generate, job, locales, projectTitle, published, state, status, update } from "../store.ts";
+import {
+  analysisByKey,
+  draft,
+  editLocale,
+  generate,
+  isCloud,
+  job,
+  locales,
+  projectTitle,
+  published,
+  shooting,
+  state,
+  status,
+  takeScreenshots,
+  update,
+} from "../store.ts";
 
 const props = defineProps<{ project: Project }>();
 
@@ -81,6 +96,9 @@ const result = computed(() => (status.generated?.key === props.project.key ? sta
 
 const desktop = computed(() => thumbnail(props.project, "desktop"));
 const mobile = computed(() => thumbnail(props.project, "mobile"));
+/** One request at a time: the shots of a project take about a minute. */
+const shotRunning = computed(() => shooting.value?.running === true);
+const shotMessage = computed(() => (shooting.value?.key === props.project.key ? shooting.value.message : null));
 
 /** Per language: something still empty, or the user's own edits (for the language tabs). */
 const FIELDS = ["title", "summary", "description", "role"] as const;
@@ -196,12 +214,20 @@ const localeStatus = computed(() => {
       </div>
     </section>
 
-    <section v-if="desktop || mobile" class="card">
-      <header class="card-head"><h3>Screenshots</h3></header>
-      <div class="shots">
+    <section v-if="desktop || mobile || isCloud" class="card">
+      <header class="card-head shots-head">
+        <h3>Screenshots</h3>
+        <button v-if="isCloud" class="btn" type="button" :disabled="shotRunning" @click="takeScreenshots(project.key)">
+          {{ shotRunning ? "Taking screenshots…" : desktop || mobile ? "Retake screenshots" : "Take screenshots" }}
+        </button>
+      </header>
+      <div v-if="desktop || mobile" class="shots">
         <img v-if="desktop" :src="desktop" alt="Desktop screenshot" class="desktop" />
         <img v-if="mobile" :src="mobile" alt="Mobile screenshot" class="mobile" />
       </div>
+      <p v-else class="muted hint">No screenshots yet. If the site went live recently, take them here.</p>
+      <p v-if="shooting?.key === project.key && shooting.running" class="muted hint" aria-live="polite">This takes about a minute.</p>
+      <p v-else-if="shotMessage" class="muted hint" aria-live="polite">{{ shotMessage }}</p>
     </section>
 
     <details class="card advanced">
@@ -281,6 +307,7 @@ h3 { margin: 0; font-size: 15px; }
 .field { display: grid; gap: 6px; }
 .field-label { font-weight: 600; }
 .hint { font-size: 12px; }
+.shots-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .shots { display: grid; grid-template-columns: minmax(0, 420px) 96px; gap: 12px; align-items: start; }
 .shots img { width: 100%; border: 1px solid var(--border); border-radius: 8px; display: block; }
 .shots .desktop:only-child { grid-column: 1 / -1; max-width: 420px; }

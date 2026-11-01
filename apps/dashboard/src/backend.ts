@@ -108,6 +108,8 @@ export interface EditorBackend {
   /** Facts + LLM texts for one project (costs money: only on an explicit click). */
   generate(key: string): Promise<GenerateSummary>;
   screenshotUrl(file: string): string;
+  /** Hosted only: new screenshots of one project, in the background. */
+  requestScreenshots(key: string): Promise<void>;
   /** Hosted only: who is signed in. */
   account(): Promise<Account>;
   signOut(): Promise<void>;
@@ -186,6 +188,10 @@ export class HttpBackend implements EditorBackend {
 
   screenshotUrl(file: string): string {
     return `/api/screenshots/${encodeURIComponent(file)}`;
+  }
+
+  async requestScreenshots(key: string): Promise<void> {
+    await this.call("/api/screenshots", { method: "POST", body: JSON.stringify({ key }) });
   }
 
   account(): Promise<Account> {

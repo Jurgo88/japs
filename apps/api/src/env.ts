@@ -53,6 +53,8 @@ export interface ShotJobParams {
   userId: string;
   /** Projects to capture; only those the portfolio shows with screenshots are taken. */
   keys: string[];
+  /** The user asked for it: capture even when the existing shots look fresh. */
+  force?: boolean;
 }
 
 /** The part of R2Bucket we use; tests pass an in-memory fake. */
