@@ -36,7 +36,7 @@ GitHub repos ──┘                                                ▲
 Two ways to run it:
 
 - **Locally** with the `japs` CLI and your own tokens. All data stays in files in your working directory.
-- **Hosted** on Cloudflare Workers + D1: sign in with GitHub (a read-only GitHub App), connect Netlify, and import and edit projects in the browser. Background jobs gather facts and write texts; a monthly free AI quota is included, or you can add your own key (OpenAI, Gemini, Groq, OpenRouter). Tokens and keys are stored encrypted and never sent back to the browser. Publish to your own Netlify or Cloudflare Pages, or to `<you>.japs.app`: your GitHub username by default, or any free name you pick. Setup for running your own deployment is in [`apps/api`](apps/api/README.md).
+- **Hosted** on Cloudflare Workers + D1: sign in with GitHub (a read-only GitHub App), connect Netlify, and import and edit projects in the browser. Background jobs gather facts and write texts; a monthly free AI quota is included, or you can add your own key (OpenAI, Gemini, Groq, OpenRouter). Tokens and keys are stored encrypted and never sent back to the browser. A Stats tab shows visits to your portfolio without cookies or visitor identifiers, and you can switch it off. Publish to your own Netlify or Cloudflare Pages, or to `<you>.japs.app`: your GitHub username by default, or any free name you pick. Setup for running your own deployment is in [`apps/api`](apps/api/README.md).
 
 ## Development
 

@@ -46,6 +46,31 @@ function reloadOnPortfolioChange(dir: string) {
 }
 
 /**
+ * The inline script of a portfolio published from the hosted version (ADR 0015): one small POST
+ * per page view, without cookies. text/plain keeps the cross-origin beacon free of a preflight.
+ */
+export function analyticsScript(url: string, key: string): string {
+  const json = (value: string) => JSON.stringify(value).replace(/</g, "\\u003c");
+  return `(function(){if(navigator.globalPrivacyControl||navigator.doNotTrack==="1")return;var r="";try{r=new URL(document.referrer).hostname}catch(e){}navigator.sendBeacon(${json(url)},new Blob([JSON.stringify({k:${json(key)},p:location.pathname,r:r})],{type:"text/plain"}))})();`;
+}
+
+/** Adds the statistics script when the build asks for it. Local builds never do. */
+function analyticsIntegration(env: NodeJS.ProcessEnv) {
+  const { JAPS_ANALYTICS_URL: url, JAPS_ANALYTICS_KEY: key } = env;
+  if (!url || !key) return [];
+  return [
+    {
+      name: "japs-analytics",
+      hooks: {
+        "astro:config:setup": ({ injectScript }: { injectScript(stage: "head-inline", content: string): void }) => {
+          injectScript("head-inline", analyticsScript(url, key));
+        },
+      },
+    },
+  ];
+}
+
+/**
  * Astro config for a JAPS theme. Spread it into defineConfig():
  *   export default defineConfig({ ...japsAstroConfig(import.meta.url) });
  * Screenshots are served straight from the portfolio directory: no copying, no hotlinks.
@@ -56,6 +81,7 @@ export function japsAstroConfig(configUrl: string) {
   return {
     publicDir: dir,
     site: process.env.JAPS_SITE_URL,
+    integrations: analyticsIntegration(process.env),
     vite: { plugins: [reloadOnPortfolioChange(dir)] },
   };
 }

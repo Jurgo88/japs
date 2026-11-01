@@ -17,7 +17,7 @@ const portfolio = {
   projects: [],
 };
 
-function fakeApi(options: { failBuild?: boolean } = {}) {
+function fakeApi(options: { failBuild?: boolean; analytics?: unknown } = {}) {
   const calls: { method: string; url: string; auth?: string; body?: unknown }[] = [];
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -33,6 +33,7 @@ function fakeApi(options: { failBuild?: boolean } = {}) {
         theme: "default",
         siteUrl: "https://jane.netlify.app",
         portfolio,
+        analytics: options.analytics,
         assets: [{ path: "screenshots/shop-desktop.jpg", url: `${API}/builder/builds/${BUILD}/screenshots/shop-desktop.jpg` }],
       });
     }
@@ -75,6 +76,21 @@ describe("japs cloud-build", () => {
     expect(api.calls.filter((c) => c.url.startsWith(API)).every((c) => c.auth === "Bearer oidc-token")).toBe(true);
     expect(api.calls.at(-1)).toMatchObject({ url: `${API}/builder/builds/${BUILD}/finish`, body: { ok: true } });
     expect(log.join("\n")).not.toContain("Jane");
+  });
+
+  it("passes the statistics target to the theme build, and refuses a malformed key", async () => {
+    const analytics = { url: `${API}/api/hit`, key: "0123456789abcdef0123456789abcdef" };
+    const api = fakeApi({ analytics });
+    const seen: unknown[] = [];
+    const buildTheme = (async (dir: string, url: string, theme: string, stats: unknown) => {
+      seen.push(stats);
+      return api.buildTheme(dir);
+    }) as never;
+    await cloudBuild({ buildId: BUILD, api: API, env, fetch: api.fetch, buildTheme, log: () => {} });
+    expect(seen).toEqual([analytics]);
+
+    const bad = fakeApi({ analytics: { url: `${API}/api/hit`, key: '"};alert(1)//' } });
+    await expect(cloudBuild({ buildId: BUILD, api: API, env, fetch: bad.fetch, buildTheme: bad.buildTheme as never, log: () => {} })).rejects.toThrow();
   });
 
   it("reports a failed theme build without its output, which may contain portfolio text", async () => {

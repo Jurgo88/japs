@@ -65,6 +65,7 @@ pnpm japs publish    # build + deploy to a dedicated Netlify site or Cloudflare 
 - Every new architectural decision gets an ADR in `docs/adr/`.
 - Licenses (ADR 0014): MIT by default, AGPL-3.0-only for `apps/api`, JAPS Theme License for themes other than `default`, `editorial`, `swiss`, `bento`. Nothing under MIT may import from `apps/api` or from a theme under the theme license. A new theme needs a `LICENSE` and a `license` field.
 - Hosted API (`apps/api`): SQL only in `src/db.ts`, user data only via `forUser(userId)`; tokens and keys encrypted at rest, never returned to the browser; every new route gets an isolation test (ADR 0009).
+- Visit statistics (ADR 0015): daily counters only, never an IP address, user agent or visitor id. The script is added only to live builds from the hosted version.
 - LLM access goes through `LlmClient` (ADR 0006); analysis code never calls a provider directly. Anonymized prompts carry no names, domains, URLs or README text.
 - Portfolio texts are localized (`LocalizedText`, ADR 0005). Never hard-code `sk`/`en`; use the declared `locales`.
 - Private repos and suggested client projects stay unpublished unless the config explicitly sets `"hidden": false`.

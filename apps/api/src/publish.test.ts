@@ -115,6 +115,19 @@ beforeEach(async () => {
 });
 
 describe("publishing from the cloud", () => {
+  it("leaves statistics out of drafts and when the user switched them off", async () => {
+    const inputOf = () => JSON.parse(new TextDecoder().decode([...objects.values()].at(-1)!)) as BuildInput;
+    expect((await publish(true)).status).toBe(202);
+    expect(inputOf().analytics).toBeNull();
+
+    objects.clear();
+    await user.updateBuild((await user.latestBuild())!.id, { status: "failed", message: "x" });
+    await env.DB.prepare("UPDATE builds SET created_at = ?").bind("2026-01-01T00:00:00.000Z").run();
+    await user.putDocument("config", { version: 1, analytics: false, profile: { name: "Jane Doe", headline: t("Developer"), bio: t("Hi.") } });
+    expect((await publish()).status).toBe(202);
+    expect(inputOf().analytics).toBeNull();
+  });
+
   it("prepares the build, starts the workflow, and refuses a second one while it runs", async () => {
     const res = await publish();
     expect(res.status).toBe(202);
@@ -128,6 +141,8 @@ describe("publishing from the cloud", () => {
     expect(key).toMatch(new RegExp(`/builds/${status.id}\\.json$`));
     const input = JSON.parse(new TextDecoder().decode(objects.get(key!))) as BuildInput;
     expect(input.portfolio.projects.map((p) => p.slug)).toContain("acme-shop");
+    // Live builds count visits, with the key of this user only (ADR 0015).
+    expect(input.analytics).toEqual({ url: `${APP_URL}/api/hit`, key: await user.analyticsKey() });
     expect(await user.getDocument("publish")).toMatchObject({ netlify: { siteId: "site-1" }, cloudflare: null });
 
     expect((await publish()).status).toBe(409);

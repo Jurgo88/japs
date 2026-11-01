@@ -70,6 +70,8 @@ export interface BuildInput {
   portfolio: Portfolio;
   /** Images to place next to portfolio.json; own shots via the builder API, Netlify's directly. */
   assets: { path: string; url: string }[];
+  /** Where the published site reports visits (ADR 0015). Null for drafts and when switched off. */
+  analytics: { url: string; key: string } | null;
 }
 
 export const inputKey = (userId: string, buildId: string) => `${userId}/builds/${buildId}.json`;
@@ -244,6 +246,7 @@ export async function startPublish(user: UserStore, userId: string, draft: boole
     theme: config.theme,
     siteUrl: destination.siteUrl,
     portfolio,
+    analytics: config.analytics && !draft ? { url: new URL("/api/hit", env.APP_URL).toString(), key: await user.analyticsKey() } : null,
     assets: screenshots.map(({ path, source }) => ({
       path,
       url: "file" in source ? new URL(`${buildId}/screenshots/${encodeURIComponent(source.file)}`, builder).toString() : source.url,

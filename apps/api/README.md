@@ -61,7 +61,17 @@ npx wrangler r2 bucket create japs-sites    # before the first deploy: both Work
 
 In the Cloudflare dashboard, add a DNS record to the japs.app zone: type `AAAA`, name `*`, content `100::`, **Proxied**. Routes on a wildcard need a proxied record to receive traffic; Universal SSL already covers `*.japs.app`. `deploy.yml` deploys `japs-sites` after the API Worker; by hand it is `pnpm deploy:sites`.
 
-### 5. Database and deploy
+### 5. Visit statistics (ADR 0015)
+
+Portfolios report visits to `POST /api/hit`; each user sees theirs under Stats. For japs.app itself, add the site in the Cloudflare dashboard under Web Analytics, choose the manual JavaScript snippet, and put its token into a GitHub repository variable named `CF_BEACON_TOKEN`. Without it the editor loads no beacon.
+
+A summary across all portfolios, for the last 30 days:
+
+```bash
+npx wrangler d1 execute japs --remote --command "SELECT u.github_login, SUM(a.count) AS views FROM analytics_daily a JOIN users u ON u.id = a.user_id WHERE a.dimension = 'views' GROUP BY u.id ORDER BY views DESC"
+```
+
+### 6. Database and deploy
 
 ```bash
 npx wrangler d1 create japs                 # put the database_id into wrangler.jsonc

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Portfolio, PortfolioProject } from "@japs/schema";
 import { describe, expect, it } from "vitest";
-import { SAMPLE_DIR } from "./astro.ts";
+import { analyticsScript, SAMPLE_DIR } from "./astro.ts";
 import { extendStrings, formatMonth, plural, t } from "./i18n.ts";
 import { renderMarkdown } from "./markdown.ts";
 import {
@@ -167,5 +167,15 @@ describe("projectYears", () => {
     expect(projectYears(project("a", { period: { from: "2024-01", to: "2024-09" } }), "now")).toBe("2024");
     expect(projectYears(project("a", { period: { from: "2021-01", to: "2024-09" } }), "now")).toBe("2021 – 2024");
     expect(projectYears(project("a", { period: { from: "2024-01", to: null } }), "now")).toBe("2024 – now");
+  });
+});
+
+describe("analyticsScript", () => {
+  it("sends the key and stays inside the script tag", () => {
+    const script = analyticsScript("https://japs.example.dev/api/hit", "</script>");
+    expect(script).toContain('"https://japs.example.dev/api/hit"');
+    expect(script).not.toContain("</script>");
+    expect(script).toContain("sendBeacon");
+    expect(script).toContain("doNotTrack");
   });
 });

@@ -69,6 +69,16 @@ export interface SiteInfo {
   suggestion?: string | null;
 }
 
+/** Visits to the published portfolio (ADR 0015). */
+export interface AnalyticsReport {
+  periodDays: number;
+  totals: { views: number; visits: number };
+  days: { day: string; views: number; visits: number }[];
+  pages: { value: string; count: number }[];
+  referrers: { value: string; count: number }[];
+  countries: { value: string; count: number }[];
+}
+
 export interface HandleCheck {
   handle: string;
   available: boolean;
@@ -122,6 +132,8 @@ export interface EditorBackend {
   site(): Promise<SiteInfo>;
   checkHandle(handle: string): Promise<HandleCheck>;
   saveHandle(handle: string): Promise<SiteInfo>;
+  /** Hosted only: visits to the published portfolio. */
+  analytics(): Promise<AnalyticsReport>;
 }
 
 export class BackendError extends Error {
@@ -234,5 +246,9 @@ export class HttpBackend implements EditorBackend {
 
   saveHandle(handle: string): Promise<SiteInfo> {
     return this.call("/api/site", { method: "PUT", body: JSON.stringify({ handle }) });
+  }
+
+  analytics(): Promise<AnalyticsReport> {
+    return this.call("/api/analytics");
   }
 }
