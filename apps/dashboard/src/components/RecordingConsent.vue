@@ -7,9 +7,9 @@ import { askForRecording, chooseRecording } from "../recording.ts";
 <template>
   <aside v-if="askForRecording" class="consent" role="dialog" aria-label="Session recording">
     <p>
-      <strong>This session is being recorded to improve JAPS.</strong>
-      Text, inputs and images are hidden, so we only see the page layout, mouse movement and clicks. Recordings are
-      stored by PostHog in the EU. <a href="/privacy" target="_blank">Privacy</a>
+      <strong>Help us make JAPS better.</strong>
+      We look at how people use this site so we can improve it. Anything you type stays hidden.
+      <a href="/privacy" target="_blank">Privacy</a>
     </p>
     <div class="actions">
       <button class="btn primary" type="button" @click="chooseRecording('denied')">No thanks</button>
