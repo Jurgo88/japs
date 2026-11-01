@@ -115,6 +115,29 @@ beforeEach(async () => {
 });
 
 describe("publishing from the cloud", () => {
+  it("records only the live portfolio of the configured login", async () => {
+    const inputOf = () => JSON.parse(new TextDecoder().decode([...objects.values()].at(-1)!)) as BuildInput;
+    const again = async () => {
+      await user.updateBuild((await user.latestBuild())!.id, { status: "failed", message: "x" });
+      await env.DB.prepare("UPDATE builds SET created_at = ?").bind("2026-01-01T00:00:00.000Z").run();
+    };
+    await user.setConnection({ provider: "github", accountLogin: "JaneDoe", accessToken: "x", refreshToken: null, expiresAt: null, meta: null });
+    env.POSTHOG_KEY = "phc_test";
+
+    env.JAPS_RECORDING_LOGIN = "somebody-else";
+    expect((await publish()).status).toBe(202);
+    expect(inputOf().recording).toBeNull();
+
+    await again();
+    env.JAPS_RECORDING_LOGIN = "janedoe";
+    expect((await publish(true)).status).toBe(202);
+    expect(inputOf().recording).toBeNull();
+
+    await again();
+    expect((await publish()).status).toBe(202);
+    expect(inputOf().recording).toEqual({ key: "phc_test" });
+  });
+
   it("leaves statistics out of drafts and when the user switched them off", async () => {
     const inputOf = () => JSON.parse(new TextDecoder().decode([...objects.values()].at(-1)!)) as BuildInput;
     expect((await publish(true)).status).toBe(202);

@@ -10,12 +10,13 @@ Vlastník chce vidieť, ako ľudia používajú japs.app, nielen koľko ich je. 
 ## Rozhodnutie
 
 - **Služba:** PostHog Cloud v EÚ. Bezplatný plán stačí a SDK vie maskovať nahrávku v prehliadači, ešte pred odoslaním.
-- **Rozsah:** len aplikácia na japs.app. Portfóliá sa nenahrávajú nikdy, lebo sú to weby iných ľudí a ich návštevníci by o tom nevedeli.
-- **Súhlas:** okno sa pýta pri prvej návšteve a obe odpovede sú rovnocenné. Pred súhlasom sa PostHog ani nestiahne (dynamický import). Voľbu možno zmeniť odkazom Session recording pri prihlásení aj v nastaveniach účtu.
-- **Odvolanie:** zastaví nahrávanie a zmaže lokálne dáta PostHogu. Už odoslané nahrávky ostávajú v PostHogu, kým neexpirujú alebo ich vlastník nezmaže.
+- **Rozsah:** aplikácia japs.app a živé portfólio účtu v `JAPS_RECORDING_LOGIN`, teda vlastníkovo. Portfóliá ostatných používateľov sa nenahrávajú nikdy, lebo sú to ich weby. Koncepty a CLI sa nenahrávajú.
+- **Spustenie:** rozhodnutie vlastníka je nahrávať hneď po načítaní, kým človek nestlačí No thanks. Oznámenie je viditeľné od prvej návštevy. Do Not Track a Global Privacy Control nahrávanie vôbec nespustia.
+- **Portfólio:** skript vkladá `theme-kit` a PostHog načíta z jeho CDN. Text ostáva viditeľný, lebo portfólio je verejné a vlastník chce vidieť, čo si ľudia čítali. Vstupy sú skryté.
+- **Zastavenie:** No thanks zastaví nahrávanie a zmaže lokálne dáta PostHogu. Už odoslané nahrávky ostávajú v PostHogu, kým neexpirujú alebo ich vlastník nezmaže.
 - **Bez identity:** `person_profiles: "never"` a bez `identify`, takže nahrávka nie je spojená s účtom.
-- **Bez cookies:** PostHog ukladá stav do localStorage.
-- **Maskovanie:** text cez `maskTextSelector: "*"`, vstupy cez `maskAllInputs`, obrázky cez `blockSelector` a atribúty cez `maskAttributeFn`.
+- **Bez ukladania v prehliadači:** PostHog beží s `persistence: "memory"`. V localStorage je len odpoveď na oznámenie.
+- **Maskovanie v editore:** text cez `maskTextSelector: "*"`, vstupy cez `maskAllInputs`, obrázky cez `blockSelector` a atribúty cez `maskAttributeFn`.
 - **Atribúty sú zoznam povolených (`LAYOUT_ATTRIBUTES`).** Maskovanie textu atribúty nepokrýva a test na reálnej nahrávke ukázal názvy projektov v `aria-label`, `href`, `id`, `for` a `placeholder`. Zoznam povolených je bezpečný aj pre budúce komponenty.
 - **Nič navyše:** bez autocapture, heatmáp, rage clicks, chýb a sieťových hlavičiek či tiel. Zaznamenáva sa len zobrazenie stránky a nahrávka.
 - **Kľúč:** projektový kľúč PostHogu je verejný a je v `deploy.yml`. Bez neho editor nič nenačíta, takže `japs edit` nikdy nenahráva.
@@ -23,16 +24,20 @@ Vlastník chce vidieť, ako ľudia používajú japs.app, nielen koľko ich je. 
 ## Alternatívy
 
 - **Microsoft Clarity:** zadarmo bez limitov, ale dáta sú u Microsoftu a menej kontroly nad maskovaním.
-- **Nahrávanie aj na portfóliách:** zaznamenávalo by návštevníkov cudzích webov bez upozornenia a odporovalo by sľubu bez identifikátorov z ADR 0015.
+- **Nahrávanie na všetkých portfóliách:** zaznamenávalo by návštevníkov webov iných ľudí bez ich vedomia a odporovalo by sľubu bez identifikátorov z ADR 0015.
+- **Nahrávať až po súhlase (Allow):** pôvodná verzia tohto rozhodnutia. Podľa odporúčania bezpečnejšia v EÚ, ale dá menej nahrávok. Vlastník zvolil automatické spustenie.
 - **Blokovať celý editor (`blockSelector`):** najjednoduchšie, ale nahrávka by ukázala len sivé plochy.
 - **`maskAllElementAttributes`:** maskuje aj `class` a `style`, takže sa rozloženie nedá prehrať.
 
 ## Dôsledky
 
-- `posthog-js` je nová závislosť editora, v `apps/dashboard`. Do hlavného balíka sa nedostane, kým človek nesúhlasí. Nedotýka sa ani tém, ani API.
+- **Právne riziko:** nahrávanie začína pred akoukoľvek odpoveďou. Pre EÚ to pravdepodobne nespĺňa požiadavku predchádzajúceho súhlasu. Riziko vedome prijal vlastník. Ak by sa JAPS rozšíril alebo prišla sťažnosť, treba prejsť späť na Allow.
+- `posthog-js` je závislosť editora v samostatnom balíku, ktorý sa načíta až pri spustení nahrávania. Portfólio ho berie z CDN PostHogu.
+- Bez ukladania v prehliadači je každé načítanie stránky samostatná nahrávka, takže návšteva viacerých stránok portfólia sa nespojí do jednej.
+- Oznámenie na portfóliu je len v angličtine. Vloží ho skript, ktorý nepozná texty témy.
 - `core-js` je v `allowBuilds` vypnutý, inak `pnpm install --frozen-lockfile` v CI zlyhá na ignorovanom build skripte.
 - V PostHogu treba zapnúť session replay a zahadzovanie IP adries (`apps/api/README.md`).
-- Nahrávka ukáže rozloženie, kliky a pohyb, nie obsah. Nedá sa z nej zistiť, ktorý projekt človek upravoval. To je zámer.
+- Nahrávka editora ukáže rozloženie, kliky a pohyb, nie obsah. Nedá sa z nej zistiť, ktorý projekt človek upravoval. To je zámer.
 - Nový atribút v `LAYOUT_ATTRIBUTES` môže odhaliť obsah. Pridávať len také, ktoré nikdy nenesú dáta používateľa.
 - Maskovanie treba po väčšej zmene SDK overiť na skutočnej nahrávke.
-- Súhlas je v localStorage, takže sa viaže na prehliadač, nie na účet.
+- Odpoveď je v localStorage, takže sa viaže na prehliadač, nie na účet.

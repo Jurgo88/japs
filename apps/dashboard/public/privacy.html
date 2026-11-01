@@ -57,7 +57,7 @@
     requests and stored data on JAPS's behalf.
   </li>
   <li>
-    <strong>PostHog</strong> stores session recordings in the EU, only if you allow them.
+    <strong>PostHog</strong> stores session recordings in the EU.
   </li>
   <li>
     <strong>GitHub, Netlify and Cloudflare</strong> receive the requests JAPS makes with your tokens, as they would from any app
@@ -85,10 +85,19 @@
     switch this off under Stats; it applies from their next publish.
   </li>
   <li>
-    <strong>Session recordings of japs.app</strong> happen only if you press Allow. PostHog then records page layout,
-    mouse movement, clicks and the pages you open, stored in the EU and kept for up to 3 months. All text, inputs and images are hidden, and
-    JAPS doesn't link a recording to your account. Portfolios are never recorded. You can change your choice at any
-    time with the Session recording link on the sign-in page or in your account settings.
+    <strong>Session recordings of japs.app.</strong> PostHog records page layout, mouse movement, clicks and the pages
+    you open, starting when the page loads, and a notice tells you so. All text, inputs and images are hidden, and
+    JAPS doesn't link a recording to your account.
+  </li>
+  <li>
+    <strong>Session recordings of Juraj Paluš's own portfolio, jurgo.japs.app.</strong> PostHog records what the
+    visitor sees and does there, starting when the page loads, with a notice on screen. Portfolio text stays visible
+    in the recording; anything typed is hidden. Portfolios of other people are never recorded.
+  </li>
+  <li>
+    Recordings are stored by PostHog in the EU for up to 3 months, without IP addresses. They stop when you press No
+    thanks, and don't start if your browser sends Do Not Track or Global Privacy Control. On japs.app you can
+    change your answer with the Session recording link on the sign-in page or in your account settings.
   </li>
 </ul>
 
@@ -98,8 +107,8 @@
   hash) and a short-lived cookie that protects the GitHub and Netlify sign-in from forgery (10 minutes).
 </p>
 <p>
-  Your session recording choice is kept in your browser's local storage. If you allow recording, PostHog keeps a
-  random session identifier there too.
+  Your answer to the session recording notice is kept in your browser's local storage. PostHog itself stores
+  nothing on your device.
 </p>
 
 <h2>How long, and how to delete it</h2>

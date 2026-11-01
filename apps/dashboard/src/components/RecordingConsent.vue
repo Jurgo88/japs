@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { askForRecording, chooseRecording } from "../recording.ts";
 
-/** Asks before any session recording (ADR 0016). Neither answer is the default. */
+/** The notice that this session is being recorded, and the way to stop it (ADR 0016). */
 </script>
 
 <template>
   <aside v-if="askForRecording" class="consent" role="dialog" aria-label="Session recording">
     <p>
-      <strong>May we record your session to improve JAPS?</strong>
+      <strong>This session is being recorded to improve JAPS.</strong>
       Text, inputs and images are hidden, so we only see the page layout, mouse movement and clicks. Recordings are
       stored by PostHog in the EU. <a href="/privacy" target="_blank">Privacy</a>
     </p>
     <div class="actions">
-      <button class="btn primary" type="button" @click="chooseRecording('granted')">Allow</button>
-      <button class="btn" type="button" @click="chooseRecording('denied')">No thanks</button>
+      <button class="btn primary" type="button" @click="chooseRecording('denied')">No thanks</button>
+      <button class="btn" type="button" @click="chooseRecording('accepted')">OK</button>
     </div>
   </aside>
 </template>

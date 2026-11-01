@@ -2,8 +2,8 @@ import type { PostHog } from "posthog-js";
 import { ref } from "vue";
 
 /**
- * Session recording on japs.app (ADR 0016), only after the visitor agrees. PostHog isn't even
- * downloaded before that. The key is set by the deploy, so `japs edit` never records anything.
+ * Session recording on japs.app (ADR 0016). It runs until the visitor presses No thanks, with a
+ * notice on screen. The key is set by the deploy, so `japs edit` never records anything.
  */
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY;
@@ -24,12 +24,12 @@ export function maskAttribute(name: string, value: string, element?: Element): s
   return stylesheet || layout ? value : "*";
 }
 
-export type RecordingChoice = "granted" | "denied";
+export type RecordingChoice = "accepted" | "denied";
 
 function storedChoice(): RecordingChoice | null {
   try {
     const value = localStorage.getItem(CHOICE);
-    return value === "granted" || value === "denied" ? value : null;
+    return value === "accepted" || value === "denied" ? value : null;
   } catch {
     return null;
   }
@@ -63,6 +63,7 @@ let posthog: PostHog | null = null;
 
 async function start(): Promise<void> {
   if (posthog) {
+    if (!posthog.has_opted_out_capturing()) return;
     posthog.set_config({ disable_persistence: false });
     posthog.opt_in_capturing();
     posthog.startSessionRecording();
@@ -71,8 +72,8 @@ async function start(): Promise<void> {
   posthog = (await import("posthog-js")).default;
   posthog.init(KEY!, {
     api_host: API_HOST,
-    // No cookies, no visitor profiles, and only page views besides the recording itself.
-    persistence: "localStorage",
+    // Nothing on the device, no visitor profiles, and only page views besides the recording.
+    persistence: "memory",
     person_profiles: "never",
     autocapture: false,
     rageclick: false,
@@ -101,7 +102,7 @@ async function start(): Promise<void> {
 export function chooseRecording(choice: RecordingChoice): void {
   storeChoice(choice);
   askForRecording.value = false;
-  if (choice === "granted") void start();
+  if (choice === "accepted") void start();
   else if (posthog) {
     // In this order: opting out first drops what the recorder still has in its buffer, and
     // without persistence PostHog can't write its state back after it's cleared.
@@ -117,7 +118,8 @@ export function reviewRecording(): void {
   askForRecording.value = true;
 }
 
-/** On page load: goes on recording only for a visitor who already agreed. */
+/** On page load: records everyone except a visitor who said no or whose browser asks not to be tracked. */
 export function resumeRecording(): void {
-  if (recordingAvailable && storedChoice() === "granted") void start();
+  const dnt = navigator.doNotTrack === "1" || (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
+  if (recordingAvailable && !dnt && storedChoice() !== "denied") void start();
 }

@@ -73,7 +73,7 @@ npx wrangler d1 execute japs --remote --command "SELECT u.github_login, SUM(a.co
 
 ### 6. Session recording (ADR 0016)
 
-`deploy.yml` sets the public PostHog project key. In PostHog, turn on session replay for the project, and discard client IP data. Without the key the editor neither asks nor loads PostHog.
+`deploy.yml` sets the public PostHog project key for the editor. `POSTHOG_KEY` and `JAPS_RECORDING_LOGIN` in `wrangler.jsonc` record the live portfolio of that one GitHub login. In PostHog, turn on session replay for the project, and discard client IP data. Without the keys nothing loads PostHog.
 
 ### 7. Database and deploy
 
