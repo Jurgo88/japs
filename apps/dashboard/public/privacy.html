@@ -57,6 +57,9 @@
     requests and stored data on JAPS's behalf.
   </li>
   <li>
+    <strong>PostHog</strong> stores session recordings in the EU, only if you allow them.
+  </li>
+  <li>
     <strong>GitHub, Netlify and Cloudflare</strong> receive the requests JAPS makes with your tokens, as they would from any app
     you authorize.
   </li>
@@ -81,12 +84,22 @@
     identifier, and sets no cookies. Browsers with Do Not Track or Global Privacy Control are not counted. Owners can
     switch this off under Stats; it applies from their next publish.
   </li>
+  <li>
+    <strong>Session recordings of japs.app</strong> happen only if you press Allow. PostHog then records page layout,
+    mouse movement, clicks and the pages you open, stored in the EU and kept for up to 3 months. All text, inputs and images are hidden, and
+    JAPS doesn't link a recording to your account. Portfolios are never recorded. You can change your choice at any
+    time with the Session recording link on the sign-in page or in your account settings.
+  </li>
 </ul>
 
 <h2>Cookies</h2>
 <p>
   Two cookies, both needed for signing in: a session cookie (30 days, only a random value; the server stores its
   hash) and a short-lived cookie that protects the GitHub and Netlify sign-in from forgery (10 minutes).
+</p>
+<p>
+  Your session recording choice is kept in your browser's local storage. If you allow recording, PostHog keeps a
+  random session identifier there too.
 </p>
 
 <h2>How long, and how to delete it</h2>

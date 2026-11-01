@@ -13,6 +13,7 @@
   "dependencies": {
     "@japs/core": "workspace:*",
     "@japs/schema": "workspace:*",
+    "posthog-js": "^1.444.0",
     "vue": "^3.5.40"
   },
   "devDependencies": {
