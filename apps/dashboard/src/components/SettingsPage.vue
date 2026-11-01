@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recordingAvailable, reviewRecording } from "../recording.ts";
 import { computed } from "vue";
 import { account, isCloud } from "../store.ts";
 import AiSettings from "./AiSettings.vue";
@@ -74,7 +75,10 @@ const user = computed(() => account.value?.user);
               <span class="muted">github.com/{{ user.login }}</span>
             </span>
           </div>
-          <p class="muted small"><a href="/privacy" target="_blank">Privacy</a> · <a href="/terms" target="_blank">Terms</a></p>
+          <p class="muted small">
+            <a href="/privacy" target="_blank">Privacy</a> · <a href="/terms" target="_blank">Terms</a>
+            <template v-if="recordingAvailable"> · <a href="#" @click.prevent="reviewRecording()">Session recording</a></template>
+          </p>
         </section>
         <DeleteAccount />
       </template>

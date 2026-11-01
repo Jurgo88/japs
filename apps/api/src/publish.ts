@@ -72,6 +72,8 @@ export interface BuildInput {
   assets: { path: string; url: string }[];
   /** Where the published site reports visits (ADR 0015). Null for drafts and when switched off. */
   analytics: { url: string; key: string } | null;
+  /** Session recording, for the owner's own portfolio only (ADR 0016). */
+  recording: { key: string } | null;
 }
 
 export const inputKey = (userId: string, buildId: string) => `${userId}/builds/${buildId}.json`;
@@ -210,6 +212,13 @@ function draftKey(): string {
   return [...crypto.getRandomValues(new Uint8Array(10))].map((b) => alphabet[b % 32]).join("");
 }
 
+/** Only the live portfolio of the configured GitHub login is recorded, never anyone else's. */
+async function recordingFor(user: UserStore, env: Env, draft: boolean): Promise<BuildInput["recording"]> {
+  if (draft || !env.POSTHOG_KEY || !env.JAPS_RECORDING_LOGIN) return null;
+  const github = (await user.listConnections()).find((c) => c.provider === "github");
+  return github?.accountLogin?.toLowerCase() === env.JAPS_RECORDING_LOGIN.toLowerCase() ? { key: env.POSTHOG_KEY } : null;
+}
+
 /** POST /api/publish: checks, portfolio, destination, build input in R2, then the workflow run. */
 export async function startPublish(user: UserStore, userId: string, draft: boolean, deps: PublishDeps): Promise<Build> {
   const { env, now } = deps;
@@ -247,6 +256,7 @@ export async function startPublish(user: UserStore, userId: string, draft: boole
     siteUrl: destination.siteUrl,
     portfolio,
     analytics: config.analytics && !draft ? { url: new URL("/api/hit", env.APP_URL).toString(), key: await user.analyticsKey() } : null,
+    recording: await recordingFor(user, env, draft),
     assets: screenshots.map(({ path, source }) => ({
       path,
       url: "file" in source ? new URL(`${buildId}/screenshots/${encodeURIComponent(source.file)}`, builder).toString() : source.url,

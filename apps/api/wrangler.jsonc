@@ -50,6 +50,9 @@
     "JAPS_LLM_MODEL": "gpt-5-mini",
     // AI generations per user and month on the shared key; then the user adds an own key.
     "JAPS_FREE_GENERATIONS": "50",
+    // Session recording of the owner's portfolio only (ADR 0016). The project key is public.
+    "POSTHOG_KEY": "phc_Abm3krGCU4r4T2W4d9gTzpxjJvp9HKwAtg5doiavE4RL",
+    "JAPS_RECORDING_LOGIN": "Jurgo88",
     // Where the publish workflow lives (ADR 0011); its token is the secret GITHUB_BUILD_TOKEN.
     "JAPS_BUILD_REPO": "Jurgo88/japs",
     // Portfolios on <handle>.japs.app (ADR 0013), served by wrangler.sites.jsonc.

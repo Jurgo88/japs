@@ -19,6 +19,9 @@ export interface Env {
   OPENAI_API_KEY?: string;
   /** Free AI generations per user and month on the shared key (#35). Default 50. */
   JAPS_FREE_GENERATIONS?: string;
+  /** PostHog project key, and the only GitHub login whose portfolio is recorded (ADR 0016). */
+  POSTHOG_KEY?: string;
+  JAPS_RECORDING_LOGIN?: string;
   /** Default gpt-5-mini. */
   JAPS_LLM_MODEL?: string;
   /** GitHub App URL slug, for the "install on your repositories" link. */

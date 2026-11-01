@@ -71,7 +71,11 @@ A summary across all portfolios, for the last 30 days:
 npx wrangler d1 execute japs --remote --command "SELECT u.github_login, SUM(a.count) AS views FROM analytics_daily a JOIN users u ON u.id = a.user_id WHERE a.dimension = 'views' GROUP BY u.id ORDER BY views DESC"
 ```
 
-### 6. Database and deploy
+### 6. Session recording (ADR 0016)
+
+`deploy.yml` sets the public PostHog project key for the editor. `POSTHOG_KEY` and `JAPS_RECORDING_LOGIN` in `wrangler.jsonc` record the live portfolio of that one GitHub login. In PostHog, turn on session replay for the project, and discard client IP data. Without the keys nothing loads PostHog.
+
+### 7. Database and deploy
 
 ```bash
 npx wrangler d1 create japs                 # put the database_id into wrangler.jsonc

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Portfolio, PortfolioProject } from "@japs/schema";
 import { describe, expect, it } from "vitest";
-import { analyticsScript, SAMPLE_DIR } from "./astro.ts";
+import { analyticsScript, recordingScript, SAMPLE_DIR } from "./astro.ts";
 import { extendStrings, formatMonth, plural, t } from "./i18n.ts";
 import { renderMarkdown } from "./markdown.ts";
 import {
@@ -167,6 +167,22 @@ describe("projectYears", () => {
     expect(projectYears(project("a", { period: { from: "2024-01", to: "2024-09" } }), "now")).toBe("2024");
     expect(projectYears(project("a", { period: { from: "2021-01", to: "2024-09" } }), "now")).toBe("2021 – 2024");
     expect(projectYears(project("a", { period: { from: "2024-01", to: null } }), "now")).toBe("2024 – now");
+  });
+});
+
+describe("recordingScript", () => {
+  it("uses the EU host, keeps inputs hidden and offers a way out", () => {
+    const script = recordingScript("phc_test");
+    expect(script).toContain('"phc_test"');
+    expect(script).toContain("https://eu.i.posthog.com");
+    expect(script).toContain("maskAllInputs:true");
+    expect(script).toContain('persistence:"memory"');
+    expect(script).toContain("No thanks");
+    expect(script).toContain("doNotTrack");
+  });
+
+  it("stays inside the script tag", () => {
+    expect(recordingScript("</script>")).not.toContain("</script>");
   });
 });
 

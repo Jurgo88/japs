@@ -29,6 +29,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # Cloudflare Web Analytics for japs.app (ADR 0015); public, and optional.
       VITE_CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
+      # PostHog project key for session recording (ADR 0016). Public by design: it's in the page.
+      VITE_POSTHOG_KEY: phc_Abm3krGCU4r4T2W4d9gTzpxjJvp9HKwAtg5doiavE4RL
     steps:
       - uses: actions/checkout@v4
         with:

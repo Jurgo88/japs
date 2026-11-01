@@ -6,6 +6,8 @@ import ProfileEditor from "./components/ProfileEditor.vue";
 import ProjectDetail from "./components/ProjectDetail.vue";
 import ProjectList from "./components/ProjectList.vue";
 import PublishTarget from "./components/PublishTarget.vue";
+import RecordingConsent from "./components/RecordingConsent.vue";
+import { recordingAvailable, reviewRecording } from "./recording.ts";
 import SettingsPage, { type SettingsSection } from "./components/SettingsPage.vue";
 import StatsPanel from "./components/StatsPanel.vue";
 import ThemePicker from "./components/ThemePicker.vue";
@@ -133,7 +135,9 @@ const accountDeleted = new URLSearchParams(location.search).has("deleted");
     <p v-if="status.error" class="banner error">{{ status.error }}</p>
     <p v-if="accountDeleted" class="banner ok">Your account and all its data were deleted.</p>
     <a class="btn primary big" href="/auth/github/login">Sign in with GitHub</a>
-    <p class="muted legal">By signing in you agree to the <a href="/terms">terms</a>. <a href="/privacy">Privacy</a></p>
+    <p class="muted legal">By signing in you agree to the <a href="/terms">terms</a>. <a href="/privacy">Privacy</a>
+      <template v-if="recordingAvailable"> · <a href="#" @click.prevent="reviewRecording()">Session recording</a></template>
+    </p>
   </main>
 
   <template v-else>
@@ -332,6 +336,8 @@ pnpm japs analyze</pre>
   </main>
   </template>
   </template>
+
+  <RecordingConsent />
 </template>
 
 <style scoped>
