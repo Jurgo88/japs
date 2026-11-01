@@ -16,7 +16,7 @@ Owner: Juraj Paluš (GitHub `Jurgo88`). **Communicate with Juraj in Slovak.** Co
 
 ## Current phase
 
-**Phase 4 — Launch.** Phases 0–3 are done: the local pipeline, editor, 22 themes and publishing all work, and the hosted version runs on japs.app (built ahead of the original Phase 5 plan). Next: a README with visuals, testing onboarding as a new user, terms and privacy policy, then the launch.
+**Phase 4 — Launch.** Phases 0–3 are done: the local pipeline, editor, 22 themes and publishing all work, and the hosted version runs on japs.app (built ahead of the original Phase 5 plan). Next: capacity check for launch traffic, then the launch.
 
 ## Layout
 
