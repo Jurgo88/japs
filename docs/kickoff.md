@@ -157,7 +157,7 @@ Odstrániť ručnú tvorbu portfólia. Aplikácia sa pripojí na Netlify a GitHu
 - stovky hviezd, issues, feature requesty → multi-user + hosting
 - niekto sa sám spýta na platenie → platená verzia pre freelancerov
 
-**Model:** open-core. Jadro + CLI + šablóna pod MIT, hosting, auto-sync, prémiové témy a vlastná doména platené.
+**Model:** open-core. Jadro + CLI + základné témy pod MIT, hosting, auto-sync, prémiové témy a vlastná doména platené. Licencie: ADR 0014.
 
 ---
 

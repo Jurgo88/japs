@@ -2,6 +2,7 @@
   "name": "@japs/dashboard",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "JAPS editor: choose and edit portfolio projects (served by `japs edit`)",
   "scripts": {

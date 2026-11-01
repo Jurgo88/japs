@@ -62,7 +62,7 @@ Pick a theme with `"theme": "<id>"` in `japs.config.json`, or try one without ch
 
 `default`, `editorial`, `studio`, `gallery`, `fieldnotes`, `riot`, `orbit`, `reel`, `swiss`, `retro`, `blueprint`, `metro`, `arena`, `bento`, `newspaper`, `vinyl`, `museum`, `terminal`, `canvas`, `tunnel`, `posters`, `aurora`
 
-All themes read the same `out/portfolio.json` and are localized into every language you declare. The default theme has light and dark mode, a technology filter, screenshots in device frames and subtle motion that respects `prefers-reduced-motion`.
+All themes read the same `out/portfolio.json` and are localized into every language you declare, and all of them are free to use for your portfolio ([licenses](#license)). The default theme has light and dark mode, a technology filter, screenshots in device frames and subtle motion that respects `prefers-reduced-motion`.
 
 ### What goes to the LLM
 
@@ -83,4 +83,15 @@ All themes read the same `out/portfolio.json` and are localized into every langu
 
 ## License
 
-To be decided before the public release (MIT planned for core, CLI and themes).
+JAPS uses different licenses for different parts:
+
+| Part | License |
+|---|---|
+| Core, CLI, schema, theme kit, editor and everything else without its own `LICENSE` | [MIT](LICENSE) |
+| Themes `default`, `editorial`, `swiss`, `bento` | [MIT](LICENSE) |
+| `apps/api` (the hosted service) | [AGPL-3.0-only](apps/api/LICENSE) |
+| All other themes | JAPS Theme License 1.0, see the `LICENSE` in each theme |
+
+The JAPS Theme License is not an open-source license. You can use and modify those themes for your own portfolio for free, including one that wins you paid work, but you can't resell or redistribute them as themes. Your portfolio's content stays yours under every license above.
+
+Dependencies keep their own licenses. Fonts use the SIL Open Font License, and the `editorial`, `gallery`, `orbit` and `studio` themes depend on [GSAP](https://gsap.com/standard-license), which has its own free license from Webflow.

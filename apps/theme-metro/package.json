@@ -2,6 +2,7 @@
   "name": "@japs/theme-metro",
   "version": "0.0.0",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "description": "JAPS theme \"metro\": a static Astro site built from portfolio.json",
   "scripts": {
